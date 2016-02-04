@@ -6,14 +6,14 @@ Created on 2013-04-02
 
 from scipy import ndimage as ndi
 
-from misc import *
+# from misc import *
 import numpy as np
-import parallel
+# import parallel
 
 
 __all__ = ['hdr_image','mirror','pad_lr','crop_pad_axis','crop_pad',
-            'xradia_star','png2mpg','mass_center','phase_from_dpc',
-            'radial_distribution','str2range','stxm_analysis','stxm_analysis']
+            'xradia_star','png2mpg','mass_center',
+            'radial_distribution','str2range']
 
 def str2range(s):
     """
@@ -554,121 +554,121 @@ def radial_distribution(A,radii=None):
     return radii,masses
 
 
-def stxm_analysis(storage,probe=None):
-    """
-    Performs a stxm analysis on a storage using the pods.
-    This function is MPI compatible.
-    
-    Parameters:
-    ----------
-    
-    storage : A ptypy.core.Storage instance
-    
-    probe   : None, scalar or array
-           
-            if None, picks a probe from the first view's pod
-            if scalar, uses a Gaussian with probe as standard deviation
-            else: attempts to use passed value directly as 2d-probe
-           
-    Returns:
-    --------
-    trans, dpc_row, dpc_col : Nd-array of shape storage.shape
-            
-            trans 
-                is transmission 
-            dpc_row 
-                is differential phase contrast along row-coordinates,
-                i.e. vertical direction (y-direction)
-            dpc_col
-                is differential phase contrast along column-coordinates,
-                i.e. horizontal direction (x-direction)
-            
-    """
-    s=storage
-    
-    # prepare buffers
-    trans = np.zeros_like(s.data)
-    dpc_row = np.zeros_like(s.data)
-    dpc_col = np.zeros_like(s.data)
-    nrm = np.zeros_like(s.data)+1e-10
-    
-    t2=0.
-    # pick a single probe view for preparation purpose:
-    v = s.views[0]
-    pp = v.pods.values()[0].pr_view
-    if probe is None:
-        pr = np.abs(pp.data).sum(0)
-    elif np.isscalar(probe):
-        x,y = grids(pp.shape[-2:])
-        pr = np.exp(-(x**2+y**2)/probe**2)
-    else:
-        pr = np.asarray(probe)
-        assert pr.shape == pp.shape[-2:],'stxm probe has not the same shape as a view to this storage'
-        
-    for v in s.views:
-        pod = v.pods.values()[0]
-        if not pod.active: continue
-        t = pod.diff.sum()
-        if t > t2: t2=t
-        ss = (v.layer,slice(v.roi[0,0],v.roi[1,0]),slice(v.roi[0,1],v.roi[1,1]))
-        #bufview=buf[ss]
-        m = mass_center(pod.diff) #+ 1.
-        q = pod.di_view.storage._to_phys(m)
-        dpc_row[ss]+=q[0]*v.psize[0]*pr *2*np.pi/pod.geometry.lz
-        dpc_col[ss]+=q[1]*v.psize[1]*pr *2*np.pi/pod.geometry.lz
-        trans[ss]+=np.sqrt(t)*pr
-        nrm[ss]+=pr
-        
-    parallel.allreduce(trans)
-    parallel.allreduce(dpc_row)
-    parallel.allreduce(dpc_col)
-    parallel.allreduce(nrm)
-    dpc_row/=nrm
-    dpc_col/=nrm
-    trans/=nrm * np.sqrt(t2)
-    
-    return trans,dpc_row,dpc_col
+# def stxm_analysis(storage,probe=None):
+#     """
+#     Performs a stxm analysis on a storage using the pods.
+#     This function is MPI compatible.
+#
+#     Parameters:
+#     ----------
+#
+#     storage : A ptypy.core.Storage instance
+#
+#     probe   : None, scalar or array
+#
+#             if None, picks a probe from the first view's pod
+#             if scalar, uses a Gaussian with probe as standard deviation
+#             else: attempts to use passed value directly as 2d-probe
+#
+#     Returns:
+#     --------
+#     trans, dpc_row, dpc_col : Nd-array of shape storage.shape
+#
+#             trans
+#                 is transmission
+#             dpc_row
+#                 is differential phase contrast along row-coordinates,
+#                 i.e. vertical direction (y-direction)
+#             dpc_col
+#                 is differential phase contrast along column-coordinates,
+#                 i.e. horizontal direction (x-direction)
+#
+#     """
+#     s=storage
+#
+#     # prepare buffers
+#     trans = np.zeros_like(s.data)
+#     dpc_row = np.zeros_like(s.data)
+#     dpc_col = np.zeros_like(s.data)
+#     nrm = np.zeros_like(s.data)+1e-10
+#
+#     t2=0.
+#     # pick a single probe view for preparation purpose:
+#     v = s.views[0]
+#     pp = v.pods.values()[0].pr_view
+#     if probe is None:
+#         pr = np.abs(pp.data).sum(0)
+#     elif np.isscalar(probe):
+#         x,y = grids(pp.shape[-2:])
+#         pr = np.exp(-(x**2+y**2)/probe**2)
+#     else:
+#         pr = np.asarray(probe)
+#         assert pr.shape == pp.shape[-2:],'stxm probe has not the same shape as a view to this storage'
+#
+#     for v in s.views:
+#         pod = v.pods.values()[0]
+#         if not pod.active: continue
+#         t = pod.diff.sum()
+#         if t > t2: t2=t
+#         ss = (v.layer,slice(v.roi[0,0],v.roi[1,0]),slice(v.roi[0,1],v.roi[1,1]))
+#         #bufview=buf[ss]
+#         m = mass_center(pod.diff) #+ 1.
+#         q = pod.di_view.storage._to_phys(m)
+#         dpc_row[ss]+=q[0]*v.psize[0]*pr *2*np.pi/pod.geometry.lz
+#         dpc_col[ss]+=q[1]*v.psize[1]*pr *2*np.pi/pod.geometry.lz
+#         trans[ss]+=np.sqrt(t)*pr
+#         nrm[ss]+=pr
+#
+#     # parallel.allreduce(trans)
+#     # parallel.allreduce(dpc_row)
+#     # parallel.allreduce(dpc_col)
+#     # parallel.allreduce(nrm)
+#     dpc_row/=nrm
+#     dpc_col/=nrm
+#     trans/=nrm * np.sqrt(t2)
+#
+#     return trans,dpc_row,dpc_col
 
-def stxm_init(storage,probe=None):
-    trans,dpc_row,dpc_col = stxm_analysis(storage,probe)
-    s.data = trans*np.exp(-1j*phase_from_dpc(dpc_row,dpc_col))
+# def stxm_init(storage,probe=None):
+#     trans,dpc_row,dpc_col = stxm_analysis(storage,probe)
+#     s.data = trans*np.exp(-1j*phase_from_dpc(dpc_row,dpc_col))
     
 
-def phase_from_dpc(dpc_row,dpc_col):
-    """
-    Implements fourier integration method for two diffential quantities.
-    
-    Assumes 2 arrays of N-dimensions who contain differential quantities 
-    in X and Y, i.e. the LAST two dimensions (-2 & -1) in this case.
-    
-    Parameters:
-    -----------
-    
-    dpc_row : Nd-array
-            Differential information along 2nd last dimension
-    dpc_col : Nd-array
-            Differential information along last dimension
-    
-    """
-    py=-dpc_row
-    px=-dpc_col
-    sh = px.shape
-    sh = np.asarray(sh)
-    fac = np.ones_like(sh)
-    fac[-2:]=2
-    f = np.zeros(sh*fac,dtype=np.complex) 
-    c = px+1j*py
-    f[...,:sh[-2],:sh[-1]]=c
-    f[...,:sh[-2],sh[-1]:]=c[...,:,::-1]
-    f[...,sh[-2]:,:sh[-1]]=c[...,::-1,:]
-    f[...,sh[-2]:,sh[-1]:]=c[...,::-1,::-1]
-    # fft conform grids in the boundaries of [-pi:pi]
-    g = grids(f.shape,psize=np.pi/np.asarray(f.shape),center='fft')
-    qx = g[-2]
-    qy = g[-1]
-    inv_qc = 1./(qx+1j*qy)
-    inv_qc[...,0,0]=0
-    nf=np.fft.ifft2(np.fft.fft2(f)*inv_qc)
-    
-    return np.real(nf[...,:sh[-2],:sh[-1]])
+# def phase_from_dpc(dpc_row,dpc_col):
+#     """
+#     Implements fourier integration method for two diffential quantities.
+#
+#     Assumes 2 arrays of N-dimensions who contain differential quantities
+#     in X and Y, i.e. the LAST two dimensions (-2 & -1) in this case.
+#
+#     Parameters:
+#     -----------
+#
+#     dpc_row : Nd-array
+#             Differential information along 2nd last dimension
+#     dpc_col : Nd-array
+#             Differential information along last dimension
+#
+#     """
+#     py=-dpc_row
+#     px=-dpc_col
+#     sh = px.shape
+#     sh = np.asarray(sh)
+#     fac = np.ones_like(sh)
+#     fac[-2:]=2
+#     f = np.zeros(sh*fac,dtype=np.complex)
+#     c = px+1j*py
+#     f[...,:sh[-2],:sh[-1]]=c
+#     f[...,:sh[-2],sh[-1]:]=c[...,:,::-1]
+#     f[...,sh[-2]:,:sh[-1]]=c[...,::-1,:]
+#     f[...,sh[-2]:,sh[-1]:]=c[...,::-1,::-1]
+#     # fft conform grids in the boundaries of [-pi:pi]
+#     g = grids(f.shape,psize=np.pi/np.asarray(f.shape),center='fft')
+#     qx = g[-2]
+#     qy = g[-1]
+#     inv_qc = 1./(qx+1j*qy)
+#     inv_qc[...,0,0]=0
+#     nf=np.fft.ifft2(np.fft.fft2(f)*inv_qc)
+#
+#     return np.real(nf[...,:sh[-2],:sh[-1]])
 

@@ -22,7 +22,7 @@ import logging
 import sys
 import time
 
-from . import parallel
+# from . import parallel
 
 
 __all__ = ['logger', 'set_level', '_']
@@ -67,7 +67,7 @@ class MPIFilter(object):
         try:
             return record.allprocesses
         except:
-            return self.allprocesses or parallel.master
+            return self.allprocesses #or parallel.master
 
 # Logging formatter
 class CustomFormatter(logging.Formatter):
