@@ -11,7 +11,7 @@ local classic = require 'classic'
 --local data = myFile:read('/atomDeltas_14'):all()
 
 local d = DataLoader('/home/philipp/projects/slicepp/Examples/configs/gold.h5')
-
+print('now copying')
 local p = d.zpropagator:zcuda()
 print(torch.type(p))
 local p1 = d.propagator
