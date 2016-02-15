@@ -4,6 +4,6 @@ local m = classic.module(...)
 m:submodule("core")
 m:submodule("io")
 m:submodule("util")
-m:class("MyClass")
+m:submodule("znn")
 
 return m
