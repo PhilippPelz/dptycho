@@ -16,36 +16,39 @@ torch.setdefaulttensortype('torch.FloatTensor')
 --local data = myFile:read('/atomDeltas_14'):all()
 
 local d = dataloader()
-d:loadHDF5('/home/philipp/projects/slicepp/Examples/configs/ball2.h5')
+local data = d:loadHDF5('/home/philipp/projects/slicepp/Examples/configs/ball2.h5')
+local prop = data.propagator:zcuda()
+local bwprop = prop:clone():conj()
+local filters = torch.ZCudaTensor({})
 
 local sigma = 1.00871e+07
 
 local islice = 19
 --local input = d.atompot[26]:clone():zero():zcuda():fillRe(1)
-local input = d.zprobe:zcuda()
+local input = data.probe:zcuda()
 
 local one = input:clone()
 local inv_pot = {}
-for Z, pot in pairs(d.atompot) do
+for Z, pot in pairs(data.atompot) do
 --  print(Z)
-  d.atompot[Z] = pot:mul(pot:nElement()):zcuda()
-  inv_pot[Z] = one:clone():cdiv(d.atompot[Z])
+  data.atompot[Z] = pot:mul(pot:nElement()):zcuda()
+  inv_pot[Z] = one:clone():cdiv(data.atompot[Z])
   -- plt:plot(inv_pot[Z]:zfloat())
 end
 local real_deltas = {}
 local gradWeights = {}
-for Z, delta in pairs(d.deltas) do
-  real_deltas[Z] = d.deltas[Z]:re():cuda()
+for Z, delta in pairs(data.deltas) do
+  real_deltas[Z] = data.deltas[Z]:re():cuda()
   gradWeights[Z] = real_deltas[Z]:clone():zero()
 end
-pprint(d.atompot)
+
+pprint(data.atompot)
 pprint(inv_pot)
 pprint(real_deltas)
 pprint(gradWeights)
 
-local nslices = d.deltas[d.Znums[1]]:size():totable()[1]
-local prop = d.zpropagator:zcuda()
-local bwprop = prop:clone():conj()
+local nslices = data.deltas[data.Znums[1]]:size():totable()[1]
+
 
 
 local net = nn.Sequential()
@@ -59,7 +62,7 @@ for i=1,nslices do
     dW[Z] = gradWeights[Z][i]
 --    pprint(dW[Z])
   end
-  net:add(znn.ConvSlice(d.atompot,inv_pot,W,dW))
+  net:add(znn.ConvSlice(data.atompot,inv_pot,W,dW))
   net:add(znn.ConvFFT2D(prop,bwprop))
 end
 
@@ -69,4 +72,4 @@ end
 local res = net:forward(input)
 
 plt:plot(res:zfloat(),'Net Output')
-plt:plot(d.zpotential[{islice}]:arg())
+plt:plot(data.zpotential[{islice}]:arg())

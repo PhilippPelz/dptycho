@@ -47,8 +47,8 @@ endif()
 if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/io" TYPE FILE FILES
     "/home/philipp/projects/dptycho/io/init.lua"
-    "/home/philipp/projects/dptycho/io/dataloader.lua"
     "/home/philipp/projects/dptycho/io/plot.lua"
+    "/home/philipp/projects/dptycho/io/dataloader.lua"
     )
 endif()
 
@@ -59,8 +59,8 @@ endif()
 if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/znn" TYPE FILE FILES
     "/home/philipp/projects/dptycho/znn/init.lua"
-    "/home/philipp/projects/dptycho/znn/ConvFFT2D.lua"
     "/home/philipp/projects/dptycho/znn/ConvSlice.lua"
+    "/home/philipp/projects/dptycho/znn/ConvFFT2D.lua"
     )
 endif()
 
