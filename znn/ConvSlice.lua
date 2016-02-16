@@ -4,7 +4,7 @@ local c, parent = torch.class('znn.ConvSlice', 'nn.Module')
 local plot = require 'io.plot'
 local plt = plot()
 
-function c:__init(sigma,filters,inv_filters,weights,gradWeights)
+function c:__init(filters,inv_filters,weights,gradWeights)
 --   parent.__init(self)
    self.gradInput = torch.ZCudaTensor()
    self.output = torch.ZCudaTensor()
@@ -12,7 +12,6 @@ function c:__init(sigma,filters,inv_filters,weights,gradWeights)
    self.inv_filters = inv_filters
    self.weights = weights
    self.gradWeights = gradWeights
-   self.sigma = sigma
 end
 
 function c:updateOutput(input)
@@ -24,20 +23,26 @@ function c:updateOutput(input)
       local conv = tmp:copyRe(W):fft():cmul(self.filters[Z]):ifft()
 --      plt:plot(conv:zfloat(),'conv_'..Z)
       accum:add(conv)
-      plt:plot(accum:zfloat(),'accum_'..Z)
+--      plt:plot(accum:zfloat(),'accum_'..Z)
       tmp:zero()
-   end
-   pprint(accum)
-   local accum = accum:mul(self.sigma):re() 
-   plt:plot(accum:float(),'accum_total')
-   self.output:polar(0,accum)
-   plt:plot(self.output:zfloat(), 'output')
-   return self.output
+   end   
+   self.output:polar(1,accum:re())
+   self.sum = self.output:clone()
+   return self.output:cmul(input)
 end
 
 function c:updateGradInput(input, gradOutput)
-    self.gradInput:resizeAs(input)
-    self.gradInput:fft(gradOutput):cmul(self.inv_filter):ifft()
+    self.gradInput:resizeAs(input)        
+    self.gradInput:copy(self.sum):cmul(gradOutput)
+    local gradSum = input:clone():cmul(gradOutput)
+    local tmp = torch.ZCudaTensor(input:size()):zero()
+    for Z, W in pairs(self.gradWeights) do
+      local deconv = tmp:copy(gradSum):fft():cmul(self.inv_filters[Z]):ifft()
+--      plt:plot(conv:zfloat(),'conv_'..Z)
+      self.gradWeights[Z] = deconv:re()
+--      plt:plot(accum:zfloat(),'accum_'..Z)
+      tmp:zero()
+   end  
     return self.gradInput
 end
 

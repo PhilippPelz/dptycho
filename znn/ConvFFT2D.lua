@@ -1,9 +1,13 @@
-local c, parent = torch.class('dtpycho.nn.ConvFft2D', 'nn.Module')
+local nn = require 'nn'
+require 'dptycho.znn'
+local c, parent = torch.class('znn.ConvFFT2D', 'nn.Module')
 
 function c:__init(filter,inv_filter)
-   parent.__init(self)
-   self.filter = filter
-   self.inv_filter = inv_filter
+  parent.__init(self)
+  self.filter = filter
+  self.inv_filter = inv_filter
+  self.gradInput = torch.ZCudaTensor()
+  self.output = torch.ZCudaTensor()
 end
 
 function c:updateOutput(input)

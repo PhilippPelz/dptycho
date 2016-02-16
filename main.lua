@@ -6,6 +6,7 @@ require 'pprint'
 
 local dataloader = require 'dptycho.io.dataloader'
 local znn = require 'dptycho.znn'
+local nn = require 'nn'
 local plot = require 'dptycho.io.plot'
 local plt = plot()
 
@@ -19,23 +20,9 @@ d:loadHDF5('/home/philipp/projects/slicepp/Examples/configs/ball2.h5')
 
 local sigma = 1.00871e+07
 
-local slice = 19
-local d1 = d.deltas[26][slice]
-local d2 = d.deltas[8][slice]
-
-local pot = d.atompot[26]:zcuda()
-
---local p = d.deltas[26][slice]:zcuda()
---plt:plot(d1:re())
---plt:plot(d2:re())
---print(d.atompot[14]:size())
---local pf = p:fft():cmul(pot):ifftU():zfloat()
---plt:plot(pf)
---:fillre(1)
-local input = d.atompot[26]:clone():zero():zcuda():fillRe(1)
---print(torch.type(input))
---plt:plot(input:zfloat())
-
+local islice = 19
+--local input = d.atompot[26]:clone():zero():zcuda():fillRe(1)
+local input = d.zprobe:zcuda()
 
 local one = input:clone()
 local inv_pot = {}
@@ -48,13 +35,7 @@ end
 local real_deltas = {}
 local gradWeights = {}
 for Z, delta in pairs(d.deltas) do
---  pprint(delta)
---  pprint(d.deltas[Z])
-  -- plt:plot(delta[slice])
-  -- print('WP 02')
-  -- local p = d.deltas[Z]:re()
-  -- pprint(p)
-  real_deltas[Z] = d.deltas[Z][slice]:re():cuda()
+  real_deltas[Z] = d.deltas[Z]:re():cuda()
   gradWeights[Z] = real_deltas[Z]:clone():zero()
 end
 pprint(d.atompot)
@@ -62,6 +43,30 @@ pprint(inv_pot)
 pprint(real_deltas)
 pprint(gradWeights)
 
-local slice = znn.ConvSlice(sigma,d.atompot,inv_pot,real_deltas,gradWeights)
-local res = slice:forward(input)
-plt:plot(res:zfloat())
+local nslices = d.deltas[d.Znums[1]]:size():totable()[1]
+local prop = d.zpropagator:zcuda()
+local bwprop = prop:clone():conj()
+
+
+local net = nn.Sequential()
+print 'here'
+for i=1,nslices do
+  local W = {}
+  local dW = {}
+  for Z, delta in pairs(real_deltas) do
+    W[Z] = real_deltas[Z][i]
+--    pprint(W[Z])
+    dW[Z] = gradWeights[Z][i]
+--    pprint(dW[Z])
+  end
+  net:add(znn.ConvSlice(d.atompot,inv_pot,W,dW))
+  net:add(znn.ConvFFT2D(prop,bwprop))
+end
+
+--local slice = znn.ConvSlice(d.atompot,inv_pot,real_deltas,gradWeights)
+--local res = slice:forward(input)
+--local slice = znn.ConvSlice(d.atompot,inv_pot,real_deltas,gradWeights)
+local res = net:forward(input)
+
+plt:plot(res:zfloat(),'Net Output')
+plt:plot(d.zpotential[{islice}]:arg())
