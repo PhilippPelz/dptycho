@@ -41,14 +41,17 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
 endif()
 
 if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core" TYPE FILE FILES "/home/philipp/projects/dptycho/core/init.lua")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core" TYPE FILE FILES
+    "/home/philipp/projects/dptycho/core/netbuilder.lua"
+    "/home/philipp/projects/dptycho/core/init.lua"
+    )
 endif()
 
 if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/io" TYPE FILE FILES
     "/home/philipp/projects/dptycho/io/init.lua"
-    "/home/philipp/projects/dptycho/io/dataloader.lua"
     "/home/philipp/projects/dptycho/io/plot.lua"
+    "/home/philipp/projects/dptycho/io/dataloader.lua"
     )
 endif()
 
@@ -61,12 +64,16 @@ endif()
 
 if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/znn" TYPE FILE FILES
+    "/home/philipp/projects/dptycho/znn/TraceCriterion.lua"
     "/home/philipp/projects/dptycho/znn/init.lua"
-    "/home/philipp/projects/dptycho/znn/FFT.lua"
-    "/home/philipp/projects/dptycho/znn/ConvParams.lua"
-    "/home/philipp/projects/dptycho/znn/ConvFFT2D.lua"
     "/home/philipp/projects/dptycho/znn/ConvSlice.lua"
+    "/home/philipp/projects/dptycho/znn/FFT.lua"
+    "/home/philipp/projects/dptycho/znn/ComplexAbs.lua"
+    "/home/philipp/projects/dptycho/znn/Square.lua"
+    "/home/philipp/projects/dptycho/znn/ConvFFT2D.lua"
+    "/home/philipp/projects/dptycho/znn/Sum.lua"
     "/home/philipp/projects/dptycho/znn/CMulModule.lua"
+    "/home/philipp/projects/dptycho/znn/ConvParams.lua"
     )
 endif()
 
