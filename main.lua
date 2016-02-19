@@ -7,69 +7,70 @@ require 'pprint'
 local dataloader = require 'dptycho.io.dataloader'
 local znn = require 'dptycho.znn'
 local nn = require 'nn'
+local u = require 'dptycho.util'
 local plot = require 'dptycho.io.plot'
 local plt = plot()
 
-torch.setdefaulttensortype('torch.FloatTensor')
+torch.setdefaulttensortype('torch.ZCudaTensor')
+--print(type(torch.ZCudaTensor()))
+--local data = u.load_sim_and_allocate('/home/philipp/projects/slicepp/Examples/configs/ball2.h5')
+local data = u.load_sim_and_allocate_stacked('/home/philipp/projects/slicepp/Examples/configs/ball2.h5')
 
---local myFile = hdf5.open('/home/philipp/projects/slicepp/Examples/configs/gold.h5', 'r')
---local data = myFile:read('/atomDeltas_14'):all()
-
-local d = dataloader()
-local data = d:loadHDF5('/home/philipp/projects/slicepp/Examples/configs/ball2.h5')
-local prop = data.propagator:zcuda()
-local bwprop = prop:clone():conj()
-local filters = torch.ZCudaTensor({})
-
-local sigma = 1.00871e+07
-
-local islice = 19
---local input = d.atompot[26]:clone():zero():zcuda():fillRe(1)
-local input = data.probe:zcuda()
-
-local one = input:clone()
-local inv_pot = {}
-for Z, pot in pairs(data.atompot) do
---  print(Z)
-  data.atompot[Z] = pot:mul(pot:nElement()):zcuda()
-  inv_pot[Z] = one:clone():cdiv(data.atompot[Z])
-  -- plt:plot(inv_pot[Z]:zfloat())
-end
-local real_deltas = {}
-local gradWeights = {}
-for Z, delta in pairs(data.deltas) do
-  real_deltas[Z] = data.deltas[Z]:re():cuda()
-  gradWeights[Z] = real_deltas[Z]:clone():zero()
-end
-
+pprint(data.real_deltas)
 pprint(data.atompot)
-pprint(inv_pot)
-pprint(real_deltas)
-pprint(gradWeights)
-
-local nslices = data.deltas[data.Znums[1]]:size():totable()[1]
-
 
 
 local net = nn.Sequential()
-print 'here'
-for i=1,nslices do
-  local W = {}
-  local dW = {}
-  for Z, delta in pairs(real_deltas) do
-    W[Z] = real_deltas[Z][i]
---    pprint(W[Z])
-    dW[Z] = gradWeights[Z][i]
---    pprint(dW[Z])
-  end
-  net:add(znn.ConvSlice(data.atompot,inv_pot,W,dW))
-  net:add(znn.ConvFFT2D(prop,bwprop))
+--print 'here'
+--for i=1,data.nslices do
+--  local W = {}
+--  local dW = {}
+--  for Z, _ in pairs(data.real_deltas) do
+--    W[Z] = data.real_deltas[Z][i]
+----    plt:plot(W[Z]:float(),'weights_' .. Z .. "_" .. i)
+----    pprint(W[Z])
+--    dW[Z] = data.gradWeights[Z][i]
+----    pprint(dW[Z])
+--  end
+--  net:add(znn.ConvSlice(data.atompot,data.inv_atompot,W,dW))
+--  net:add(znn.ConvFFT2D(data.prop,data.bwprop))
+--end
+--net:add(znn.FFT())
+--
+--plt:plot(data.atompot[1]:zfloat(),'atompot')
+for i=1,data.nslices do
+  local arm = nn.Sequential()  
+  arm:add(znn.ConvParams(data.Wsize,data.atompot,data.inv_atompot,data.real_deltas[i],data.gradWeights[i]))
+  arm:add(nn.Sum(1))
+  
+  net:add(znn.CMulModule(arm))
+  net:add(znn.ConvFFT2D(data.prop,data.bwprop))
 end
+net:add(znn.FFT())
 
 --local slice = znn.ConvSlice(d.atompot,inv_pot,real_deltas,gradWeights)
 --local res = slice:forward(input)
 --local slice = znn.ConvSlice(d.atompot,inv_pot,real_deltas,gradWeights)
-local res = net:forward(input)
+--plt:plot(data.probe:zfloat(),'probe')
+local res = net:forward(data.probe)
 
-plt:plot(res:zfloat(),'Net Output')
-plt:plot(data.zpotential[{islice}]:arg())
+psh = res:fftshift()
+plt:plot(psh:zfloat(),'shifted')
+
+-- plt:plot(res:zfloat(),'Net Output')
+
+
+--    tmp = asarray(x)
+--    ndim = len(tmp.shape)
+--    print(ndim)
+--    if axes is None:
+--        axes = list(range(ndim))
+--    elif isinstance(axes, integer_types):
+--        axes = (axes,)
+--    y = tmp
+--    for k in axes:
+--        n = tmp.shape[k]
+--        p2 = (n+1)//2
+--        mylist = concatenate((arange(p2, n), arange(p2)))
+--        y = take(y, mylist, k)
+--    return y

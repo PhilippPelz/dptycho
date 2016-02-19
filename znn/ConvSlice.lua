@@ -15,6 +15,7 @@ function c:__init(filters,inv_filters,weights,gradWeights)
 end
 
 function c:updateOutput(input)
+--    plt:plot(input:zfloat(),'in')
    self.output:resizeAs(input):zero()
    local accum = torch.ZCudaTensor(input:size()):zero()
    local tmp = torch.ZCudaTensor(input:size()):zero()
@@ -28,7 +29,10 @@ function c:updateOutput(input)
    end   
    self.output:polar(1,accum:re())
    self.sum = self.output:clone()
-   return self.output:cmul(input)
+--   plt:plot(self.sum:zfloat(),'sum')
+   self.output:cmul(input)
+--   plt:plot(self.output:zfloat(),'out')
+   return self.output
 end
 
 function c:updateGradInput(input, gradOutput)
