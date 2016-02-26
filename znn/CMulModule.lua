@@ -25,9 +25,10 @@ function c:updateOutput(input)
   -- self.output:resizeAs(input)
 --  print('before mul forw 3')
   self.output:polar(1,self.weight:re())
+  self.output:expandAs(input)
 --  print('before mul forw 4')
-  self.output:cmul(input)
-  return self.output
+  -- self.output:cmul(input)
+  return input:cmul(self.output)
 end
 
 function c:updateGradInput(input, gradOutput)

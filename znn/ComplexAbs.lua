@@ -6,7 +6,6 @@ local c, parent = torch.class('znn.ComplexAbs', 'nn.Module')
 
 function c:__init(tmp)
   parent.__init(self)
-  self.output = torch.CudaTensor()
   self.gradInput = tmp
 end
 
@@ -14,7 +13,9 @@ function c:updateOutput(input)
   --  print('ComplexAbs')
   --  local r = input:abs()
   --  print('ComplexAbs2')
-   return input:abs()
+  local out = input:abs()
+  -- plt:plot(out[1]:float(),'abs out')
+  return out
 end
 
 function c:updateGradInput(input, gradOutput)

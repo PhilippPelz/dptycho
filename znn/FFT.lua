@@ -9,7 +9,10 @@ function c:__init()
 end
 
 function c:updateOutput(input)
-   return input:fft()
+  -- plt:plot(input[1]:zfloat(),'fft in')
+  input:fftBatched()
+  -- plt:plot(input[1]:zfloat(),'fft out')
+  return input
 end
 
 function c:updateGradInput(input, gradOutput)

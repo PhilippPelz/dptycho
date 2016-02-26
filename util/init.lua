@@ -25,11 +25,11 @@ function m.load_sim_and_allocate(file)
     ret.inv_atompot[Z] = ret.atompot[Z]:pow(-1)
     -- plt:plot(inv_pot[Z]:zfloat())
   end
-  ret.real_deltas = {}
+  ret.deltas = {}
   ret.gradWeights = {}
   for Z, delta in pairs(data.deltas) do
-    ret.real_deltas[Z] = data.deltas[Z]:re():cuda()
-    ret.gradWeights[Z] = ret.real_deltas[Z]:clone():zero()
+    ret.deltas[Z] = data.deltas[Z]:re():cuda()
+    ret.gradWeights[Z] = ret.deltas[Z]:clone():zero()
   end
   ret.nslices = data.deltas[data.Znums[1]]:size():totable()[1]
   return ret
@@ -47,9 +47,9 @@ function m.load_sim_and_allocate_stacked(file,ptycho)
   ret.positions = data.positions
   ret.Znums = data.Znums
 
-  local ps = ret.probe:size():totable()
+  local ps = ret.probe[1]:size():totable()
   local s = data.atompot[1]:size():totable()
-  local offset = (s[1] - ps[1])/2
+  local offset = math.floor((s[1] - ps[1])/2)
   local mi = {offset,offset+ps[1]-1}
   local middle = {mi,mi}
   -- pprint(middle)
@@ -85,19 +85,17 @@ function m.load_sim_and_allocate_stacked(file,ptycho)
     -- plt:plot(inv_pot[Z]:zfloat())
   end
 --  print('wp 1')
-  ret.real_deltas = torch.CudaTensor(ret.nslices,#data.atompot,s[1],s[2])
---  pprint(ret.real_deltas)
+  ret.deltas = torch.CudaTensor(#data.atompot,ret.nslices,s[1],s[2])
+--  pprint(ret.deltas)
 --  print('wp 2')
-  ret.gradWeights = torch.CudaTensor(ret.nslices,#data.atompot,s[1],s[2]):zero()
+  ret.gradWeights = torch.CudaTensor(#data.atompot,ret.nslices,s[1],s[2]):zero()
 --  print('wp 3')
   for j =1, ret.nslices do
-    local k = 1
-    for Z, _ in pairs(data.deltas) do
-      local s = ret.real_deltas[j]
+    for k, delta in ipairs(data.deltas) do
+      -- local s = ret.deltas[j]
 --      pprint(s)
 --      pprint(data.deltas[Z])
-      ret.real_deltas[j][k]:copy(data.deltas[Z][j]:re())
-      k = k + 1
+      ret.deltas[k][j]:copy(data.deltas[k][j]:re())      
     end
   end
   return ret

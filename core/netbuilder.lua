@@ -22,11 +22,11 @@ function c.static.build_model(params)
   params.Vsize = params.Vsize or 2.5
   params.L = data.nslices
 
-  pprint(data)
+  -- pprint(data)
 
   -- normalize positions
   local max = torch.max(data.positions,1):totable()[1]
-  pprint(max)
+  -- pprint(max)
   -- local min = torch.min(data.positions,1)
   -- local pos = data.positions - min:expandAs(data.positions)
   -- local size = (max):totable()
@@ -51,15 +51,20 @@ function c.static.build_model(params)
   local out_tmp = torch.ZCudaTensor.new({data.Znums:size(1),params.M,params.M})
 
   for i=1,pos:size(1) do
-    local slice = {{},{pos[i][1]+1,pos[i][1]+params.M},{pos[i][2]+1,pos[i][2]+params.M}}
+
     local net = nn.Sequential()
+
     net:add(znn.Source(ctor,data.probe))
     for l=1,params.L do
-
+      local slice = {{},{l},{pos[i][1]+1,pos[i][1]+params.M},{pos[i][2]+1,pos[i][2]+params.M}}
+      -- print('slice: ')
       -- pprint(slice)
-      local deltas = data.real_deltas[l][slice]
-      local grads = data.gradWeights[l][slice]
+      local deltas = data.deltas[slice]
+      local grads = data.gradWeights[slice]
+      -- print('deltas :')
       -- pprint(deltas)
+      -- print('atompot :')
+      -- pprint(data.atompot)
       -- plt:plot(deltas[1]:float(),string.format('deltas position %d layer %d',i,l))
 
       local arm = nn.Sequential()
@@ -76,6 +81,8 @@ function c.static.build_model(params)
     net:add(znn.FFT())
     net:add(znn.ComplexAbs())
     net:add(znn.Square())
+    net:add(znn.Sum(1,ctor))
+    net:add(znn.Select(1,1))
     nets[#nets+1] = net
   end
   return nets

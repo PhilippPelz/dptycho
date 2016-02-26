@@ -14,12 +14,14 @@ function c:updateOutput(input)
 --  plt:plot(input:zfloat(),'in')
   -- self.output:resizeAs(input):copy(input)
 --  plt:plot(input:zfloat(),'in')
+  -- pprint(input)
   input:fft(input)
   --   plt:plot(self.output:zfloat(),'in fft')
   input:cmul(self.filter)
   --   plt:plot(self.output:zfloat(),'in cmul')
   input:ifft()
-  --   plt:plot(self.output:zfloat(),'in ifft')
+  -- pprint(input)
+  -- plt:plot(input[1]:zfloat(),'out after prop')
   return input
 end
 

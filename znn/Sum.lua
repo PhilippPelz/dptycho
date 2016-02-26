@@ -11,7 +11,9 @@ function Sum:__init(dimension,ctor)
 end
 
 function Sum:updateOutput(input)
-   return input:sum(self.dimension)
+  input:sum(self.dimension)
+  -- pprint(input:squeeze())
+  return input
 end
 
 function Sum:updateGradInput(input, gradOutput)

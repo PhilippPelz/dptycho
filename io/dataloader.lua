@@ -14,7 +14,7 @@ function c:loadHDF5(filepath,ptycho)
   ret.Znums = f:read('/Znums'):all():int()
   ret.deltas = {}
   ret.atompot = {}
-  ret.atomconv = {}  
+  ret.atomconv = {}
   for i = 1,ret.Znums:nElement() do
     local d = f:read('/atomDeltas_' .. ret.Znums[i]):all():squeeze()
     local pot = f:read('/atomicPotential_' .. ret.Znums[i]):all():squeeze()
@@ -42,11 +42,15 @@ function c:loadHDF5(filepath,ptycho)
   local potential = f:read('/potentialSlices'):all():squeeze()
 
   local s = torch.LongStorage({probe:size(1),probe:size(2)})
+  local s1 = torch.LongStorage({1,probe:size(1),probe:size(2)})
   local potsize = potential:size():totable()
   table.remove(potsize,#potsize)
   potsize = torch.LongStorage(potsize)
 
-  ret.probe = torch.ZFloatTensor(s):copy(probe)
+  ret.probe = torch.ZFloatTensor(s1)
+  ret.probe[1]:copy(probe)
+  -- print('probe info:')
+  -- pprint(ret.probe)
   ret.propagator = torch.ZFloatTensor(s):copy(propagator)
   ret.potential = torch.ZFloatTensor(potsize):copy(potential)
 --  pprint(ret.atompot)

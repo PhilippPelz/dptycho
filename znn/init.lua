@@ -4,7 +4,10 @@ require 'torch'
 znn = classic.module(...)
 --znn:class("ConvSlice")
 --m.Sum = require 'Sum'
+
+require 'dptycho.znn.VolumetricConvolutionFixedFilter'
 require 'dptycho.znn.Source'
+require 'dptycho.znn.Select'
 require 'dptycho.znn.Sum'
 require 'dptycho.znn.Square'
 require 'dptycho.znn.ComplexAbs'
