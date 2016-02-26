@@ -4,6 +4,7 @@ require 'torch'
 znn = classic.module(...)
 --znn:class("ConvSlice")
 --m.Sum = require 'Sum'
+require 'dptycho.znn.Source'
 require 'dptycho.znn.Sum'
 require 'dptycho.znn.Square'
 require 'dptycho.znn.ComplexAbs'

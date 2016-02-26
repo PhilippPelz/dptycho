@@ -18,7 +18,7 @@ FILE(GLOB znnsrc znn/*.lua)
 
 SET(luasrc ${luasrc} test/test.lua)
 ADD_TORCH_PACKAGE(dptycho "" "${luasrc}")
-INSTALL(FILES ${coresrc} DESTINATION ${Torch_INSTALL_LUA_PATH_SUBDIR}/${package}/core)
+INSTALL(FILES ${coresrc} core/libslicelib.so DESTINATION ${Torch_INSTALL_LUA_PATH_SUBDIR}/${package}/core)
 INSTALL(FILES ${iosrc} DESTINATION ${Torch_INSTALL_LUA_PATH_SUBDIR}/${package}/io)
 INSTALL(FILES ${utilsrc} DESTINATION ${Torch_INSTALL_LUA_PATH_SUBDIR}/${package}/util)
 INSTALL(FILES ${znnsrc} DESTINATION ${Torch_INSTALL_LUA_PATH_SUBDIR}/${package}/znn)

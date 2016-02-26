@@ -8,27 +8,23 @@ function c:__init(filter,inv_filter)
 --  parent.__init(self)
   self.filter = filter
   self.inv_filter = inv_filter
-  self.gradInput = torch.ZCudaTensor()
-  self.output = torch.ZCudaTensor()
 end
 
 function c:updateOutput(input)
 --  plt:plot(input:zfloat(),'in')
-  self.output:resizeAs(input):copy(input)
+  -- self.output:resizeAs(input):copy(input)
 --  plt:plot(input:zfloat(),'in')
-  self.output:fft()
+  input:fft(input)
   --   plt:plot(self.output:zfloat(),'in fft')
-  self.output:cmul(self.filter)
+  input:cmul(self.filter)
   --   plt:plot(self.output:zfloat(),'in cmul')
-  self.output:ifft()
+  input:ifft()
   --   plt:plot(self.output:zfloat(),'in ifft')
-  return self.output  
+  return input
 end
 
 function c:updateGradInput(input, gradOutput)
-    self.gradInput:resizeAs(input)
-    self.gradInput:fft(gradOutput):cmul(self.inv_filter):ifft()
-    return self.gradInput
+    return gradOutput:fft():cmul(self.inv_filter):ifft()
 end
 
 return c

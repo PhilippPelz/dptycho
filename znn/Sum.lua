@@ -8,18 +8,10 @@ function Sum:__init(dimension,ctor)
    dimension = dimension or 1
    self.dimension = dimension
    self.gradInput = ctor()
-   self.output = ctor()
 end
 
 function Sum:updateOutput(input)
-   if type(self.output) == 'number' then
-      self.output = input.new()
-   end
-   self.output:sum(input, self.dimension)
-   if self.output:nDimension() > 1 then
-      self.output = self.output:select(self.dimension, 1)
-   end
-   return self.output
+   return input:sum(self.dimension)
 end
 
 function Sum:updateGradInput(input, gradOutput)

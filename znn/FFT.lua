@@ -9,13 +9,11 @@ function c:__init()
 end
 
 function c:updateOutput(input)
-   local output = input:clone():fft()
-   return output
+   return input:fft()
 end
 
 function c:updateGradInput(input, gradOutput)
-    local gradInput = gradOutput:clone():ifft()
-    return gradInput
+    return gradOutput:ifft()
 end
 
 return c

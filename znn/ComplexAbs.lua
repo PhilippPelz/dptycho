@@ -11,10 +11,10 @@ function c:__init(tmp)
 end
 
 function c:updateOutput(input)
-   print('ComplexAbs')
-   local r = input:abs()
-   print('ComplexAbs2')
-   return r   
+  --  print('ComplexAbs')
+  --  local r = input:abs()
+  --  print('ComplexAbs2')
+   return input:abs()
 end
 
 function c:updateGradInput(input, gradOutput)

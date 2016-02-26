@@ -1,6 +1,6 @@
 local classic = require 'classic'
 
 local m = classic.module(...)
-m:class("NetBuilder")
+m:class("netbuilder")
 
 return m

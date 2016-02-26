@@ -1,5 +1,7 @@
 local classic = require 'classic'
 local dataloader = require 'dptycho.io.dataloader'
+local plot = require 'dptycho.io.plot'
+local plt = plot()
 require 'pprint'
 require 'zcutorch'
 local m = classic.module(...)
@@ -14,6 +16,7 @@ function m.load_sim_and_allocate(file)
   ret.prop = data.propagator:zcuda()
   ret.bwprop = ret.prop:clone():conj()
   ret.probe = data.probe:zcuda()
+  ret.positions = data.positions
   ret.atompot = {}
   ret.inv_atompot = {}
   for Z, pot in pairs(data.atompot) do
@@ -32,20 +35,26 @@ function m.load_sim_and_allocate(file)
   return ret
 end
 
-function m.load_sim_and_allocate_stacked(file)
+function m.load_sim_and_allocate_stacked(file,ptycho)
   local ret = {}
   local d = dataloader()
-  local data = d:loadHDF5(file)
+  local data = d:loadHDF5(file,ptycho)
 --  pprint(data)
   ret.nslices = data.deltas[1]:size():totable()[1]
   ret.prop = data.propagator:zcuda()
   ret.bwprop = ret.prop:clone():conj()
   ret.probe = data.probe:zcuda()
-  ret.atompot = {}
-  ret.inv_atompot = {}
+  ret.positions = data.positions
+  ret.Znums = data.Znums
+
+  local ps = ret.probe:size():totable()
   local s = data.atompot[1]:size():totable()
+  local offset = (s[1] - ps[1])/2
+  local mi = {offset,offset+ps[1]-1}
+  local middle = {mi,mi}
+  -- pprint(middle)
 --  pprint(s)
-  local potsize = {#data.atompot,s[1],s[2]}
+  local potsize = {#data.atompot,ps[1],ps[2]}
   ret.Wsize = potsize
 --  pprint(potsize)
   ret.atompot = torch.ZCudaTensor().new(potsize)
@@ -58,11 +67,20 @@ function m.load_sim_and_allocate_stacked(file)
     local s = ret.atompot[i]
 --    print('after s')
 --    pprint(s)
-    ret.atompot[i]:copy(pot:mul(pot:nElement()))
+    -- pprint(pot)
+    local p = pot:mul(pot:nElement()):fftshift()
+    -- plt:plot(p,'middle of atompot 1')
+    -- pprint(p)
+    p = p[middle]
+    -- pprint(p)
+    p:fftshift()
+    -- plt:plot(p,'middle of atompot 2')/
+
+    ret.atompot[i]:copy(p)
 --    pprint(ret.atompot)
-    local pow = ret.atompot[i]:pow(-1)
+    -- local pow = ret.atompot[i]:clone()
 --    pprint(pow)
-    ret.inv_atompot[i]:copy(pow)
+    ret.inv_atompot[i]:copy(ret.atompot[i]):pow(-1)
     i = i + 1
     -- plt:plot(inv_pot[Z]:zfloat())
   end

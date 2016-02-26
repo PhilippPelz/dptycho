@@ -5,7 +5,7 @@ local plot = require 'io.plot'
 local plt = plot()
 local c, parent = torch.class('znn.ConvParams', 'nn.Module')
 
-function c:__init(size,filter,inv_filter,W,dW)
+function c:__init(size,filter,inv_filter,W,dW, output)
   parent.__init(self)
   self.weight = W
 --  pprint(W)
@@ -17,7 +17,7 @@ function c:__init(size,filter,inv_filter,W,dW)
 --  plt:plot(self.filter[1]:zfloat(),'filter_'..1)
   self.inv_filter = inv_filter
   self.gradInput = torch.ZCudaTensor()
-  self.output = torch.ZCudaTensor(self.weight:size())
+  self.output = output
 end
 
 function c:forward(input)
@@ -34,7 +34,7 @@ function c:updateOutput(input)
   self.output:fftBatched()
 --  plt:plot(self.output[1]:zfloat(),'out_'..1)
   self.output:cmul(self.filter)
-  self.output:ifftBatched()   
+  self.output:ifftBatched()
 --  print('ConvParams out')
 --  pprint(self.output)
   return self.output
