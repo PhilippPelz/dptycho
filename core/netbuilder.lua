@@ -19,8 +19,10 @@ function c.static.build_model(params)
     data = {}
   end
 
-  params.Vsize = params.Vsize or 2.5
+  params.Vsize = params.Vsize or 2.0
   params.L = data.nslices
+  params.R = data.probe:size(1)
+  params.Z = data.Znums:size(1)
 
   -- pprint(data)
 
@@ -48,41 +50,48 @@ function c.static.build_model(params)
   local nets = {}
   local pos = data.positions
 
-  local out_tmp = torch.ZCudaTensor.new({data.Znums:size(1),params.M,params.M})
+  local out_tmp = torch.ZCudaTensor.new({math.max(params.Z,params.R),params.M,params.M})
+  local probe_size = data.probe:size():totable()
+
+  local mask = znn.SupportMask(probe_size,probe_size[#probe_size]/2)
 
   for i=1,pos:size(1) do
 
     local net = nn.Sequential()
 
+    -- local I = data.probe:clone():abs():pow(2):sum()
+    -- print(string.format('integrated intensity probe: %f',I))
+
     net:add(znn.Source(ctor,data.probe))
+    net:add(mask)
     for l=1,params.L do
       local slice = {{},{l},{pos[i][1]+1,pos[i][1]+params.M},{pos[i][2]+1,pos[i][2]+params.M}}
-      -- print('slice: ')
-      -- pprint(slice)
       local deltas = data.deltas[slice]
       local grads = data.gradWeights[slice]
-      -- print('deltas :')
-      -- pprint(deltas)
-      -- print('atompot :')
-      -- pprint(data.atompot)
-      -- plt:plot(deltas[1]:float(),string.format('deltas position %d layer %d',i,l))
+      local deltas_size = deltas:size():totable()
 
       local arm = nn.Sequential()
       -- in: nil,     out: [Z,M,M]
-      arm:add(znn.ConvParams(data.Wsize,data.atompot,data.inv_atompot,deltas,grads,out_tmp))
+      arm:add(znn.ConvParams(data.Wsize,data.atompot,data.inv_atompot,deltas,grads,out_tmp:narrow(1,1,params.Z)))
       -- in: [Z,M,M]  out: [M,M]
-      arm:add(znn.Sum(1,ctor))
+      arm:add(znn.Sum(1,deltas_size))
 
       -- in: [R,M,M]  out: [R,M,M]
-      net:add(znn.CMulModule(arm,ctor,out_tmp[1]))
+      net:add(znn.CMulModule(arm,ctor,out_tmp:narrow(1,1,params.R)))
       -- in: [R,M,M]  out: [R,M,M]
       net:add(znn.ConvFFT2D(data.prop,data.bwprop))
     end
+    -- propagate to fourier space
     net:add(znn.FFT())
-    net:add(znn.ComplexAbs())
+    -- in: [R,M,M]  out: [R,M,M]
+    net:add(znn.ComplexAbs(out_tmp[1]))
+    -- in: [R,M,M]  out: [R,M,M]
     net:add(znn.Square())
-    net:add(znn.Sum(1,ctor))
+    -- sum the mode intensities
+    net:add(znn.Sum(1,probe_size))
+    -- make it 2 - dimensional
     net:add(znn.Select(1,1))
+    net:add(znn.Sqrt())
     nets[#nets+1] = net
   end
   return nets

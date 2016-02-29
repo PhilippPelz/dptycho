@@ -1,0 +1,1 @@
+/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir

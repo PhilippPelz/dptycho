@@ -37,7 +37,7 @@ function c:updateOutput(input)
   self.output:ifftBatched()
 --  print('ConvParams out')
 --  pprint(self.output)
-  return self.output
+  return self.output:re()
 end
 
 function c:updateGradInput(input, gradOutput)

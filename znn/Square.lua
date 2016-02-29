@@ -12,5 +12,9 @@ function Square:updateOutput(input)
 end
 
 function Square:updateGradInput(input, gradOutput)
-   return gradOutput:cmul(input):mul(2)
+  print('in Square:updateGradInput')
+  pprint(gradOutput)
+  gradOutput:cmul(input):mul(2)
+  pprint(gradOutput)
+  return gradOutput
 end

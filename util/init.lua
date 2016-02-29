@@ -6,6 +6,7 @@ require 'pprint'
 require 'zcutorch'
 local m = classic.module(...)
 
+m:submodule("stats")
 -- m:class("Allocator")
 
 function m.load_sim_and_allocate(file)
@@ -28,8 +29,8 @@ function m.load_sim_and_allocate(file)
   ret.deltas = {}
   ret.gradWeights = {}
   for Z, delta in pairs(data.deltas) do
-    ret.deltas[Z] = data.deltas[Z]:re():cuda()
-    ret.gradWeights[Z] = ret.deltas[Z]:clone():zero()
+    ret.deltas[Z] = delta:re():cuda()
+    ret.gradWeights[Z] = delta:clone():zero()
   end
   ret.nslices = data.deltas[data.Znums[1]]:size():totable()[1]
   return ret
@@ -46,6 +47,7 @@ function m.load_sim_and_allocate_stacked(file,ptycho)
   ret.probe = data.probe:zcuda()
   ret.positions = data.positions
   ret.Znums = data.Znums
+  ret.a_k = data.a_k:cuda():sqrt()
 
   local ps = ret.probe[1]:size():totable()
   local s = data.atompot[1]:size():totable()
@@ -62,9 +64,9 @@ function m.load_sim_and_allocate_stacked(file,ptycho)
 --  pprint(ret.atompot:size())
 --  pprint(ret.inv_atompot:size())
   local i = 1
-  for Z, pot in pairs(data.atompot) do
+  for _, pot in pairs(data.atompot) do
 --    print(Z)
-    local s = ret.atompot[i]
+    -- local s = ret.atompot[i]
 --    print('after s')
 --    pprint(s)
     -- pprint(pot)
@@ -95,10 +97,44 @@ function m.load_sim_and_allocate_stacked(file,ptycho)
       -- local s = ret.deltas[j]
 --      pprint(s)
 --      pprint(data.deltas[Z])
-      ret.deltas[k][j]:copy(data.deltas[k][j]:re())      
+      ret.deltas[k][j]:copy(data.deltas[k][j]:re())
     end
   end
   return ret
+end
+
+function m.printMem()
+  local freeMemory, totalMemory = cutorch.getMemoryUsage(cutorch.getDevice())
+  freeMemory = freeMemory / (1024*1024)
+  totalMemory = totalMemory / (1024*1024)
+  print(string.format('free: %d MB, total: %d MB, used: %d MB',freeMemory,totalMemory,totalMemory -freeMemory))
+end
+
+function m.initial_probe(size1,support_ratio)
+  local ratio = support_ratio or 0.5
+  local size = m.copytable(size1)
+  size[#size+1] = 2
+  -- pprint(size)
+  local r = torch.randn(unpack(size))
+  -- pprint(r)
+  local res = torch.ZFloatTensor(unpack(size1)):copy(r)
+  -- pprint(res)
+  local mod = znn.SupportMask(size1,size1[#size1]*ratio)
+  res = mod:forward(res)
+    -- pprint(res)
+
+  plt:plot(res,'probe')
+  return res
+end
+
+function m.copytable(obj, seen)
+  if type(obj) ~= 'table' then return obj end
+  if seen and seen[obj] then return seen[obj] end
+  local s = seen or {}
+  local res = setmetatable({}, getmetatable(obj))
+  s[obj] = res
+  for k, v in pairs(obj) do res[m.copytable(k, s)] = m.copytable(v, s) end
+  return res
 end
 
 return m

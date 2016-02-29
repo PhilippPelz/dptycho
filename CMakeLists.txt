@@ -16,6 +16,8 @@ FILE(GLOB iosrc io/*.lua)
 FILE(GLOB utilsrc util/*.lua)
 FILE(GLOB znnsrc znn/*.lua)
 
+ADD_SUBDIRECTORY(znn)
+
 SET(luasrc ${luasrc} test/test.lua)
 ADD_TORCH_PACKAGE(dptycho "" "${luasrc}")
 # INSTALL(FILES ${coresrc} core/libslicelib.so DESTINATION ${Torch_INSTALL_LUA_PATH_SUBDIR}/${package}/core)

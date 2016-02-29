@@ -1,0 +1,9 @@
+luajit: interrupted!
+stack traceback:
+	[C]: at 0x7f6685c699e0
+	[C]: at 0x7f66521c0800
+	[C]: in function 'require'
+	/home/philipp/torch/install/share/lua/5.1/zcutorch/init.lua:6: in main chunk
+	[C]: in function 'require'
+	main.lua:4: in main chunk
+	[C]: at 0x00405ea0

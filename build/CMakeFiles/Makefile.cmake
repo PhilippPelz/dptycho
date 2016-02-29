@@ -11,6 +11,10 @@ set(CMAKE_MAKEFILE_DEPENDS
   "CMakeFiles/3.0.2/CMakeCCompiler.cmake"
   "CMakeFiles/3.0.2/CMakeCXXCompiler.cmake"
   "CMakeFiles/3.0.2/CMakeSystem.cmake"
+  "znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o.depend"
+  "../znn/CMakeLists.txt"
+  "../znn/lib/CMakeLists.txt"
+  "../znn/lib/THZNN/CMakeLists.txt"
   "/home/philipp/torch/install/share/cmake/torch/TorchConfig.cmake"
   "/home/philipp/torch/install/share/cmake/torch/TorchExports-release.cmake"
   "/home/philipp/torch/install/share/cmake/torch/TorchExports.cmake"
@@ -21,10 +25,15 @@ set(CMAKE_MAKEFILE_DEPENDS
   "/usr/share/cmake-3.0/Modules/CMakeCXXInformation.cmake"
   "/usr/share/cmake-3.0/Modules/CMakeCommonLanguageInclude.cmake"
   "/usr/share/cmake-3.0/Modules/CMakeGenericSystem.cmake"
+  "/usr/share/cmake-3.0/Modules/CMakeParseArguments.cmake"
   "/usr/share/cmake-3.0/Modules/CMakeSystemSpecificInformation.cmake"
   "/usr/share/cmake-3.0/Modules/Compiler/GNU-C.cmake"
   "/usr/share/cmake-3.0/Modules/Compiler/GNU-CXX.cmake"
   "/usr/share/cmake-3.0/Modules/Compiler/GNU.cmake"
+  "/usr/share/cmake-3.0/Modules/FindCUDA.cmake"
+  "/usr/share/cmake-3.0/Modules/FindCUDA/run_nvcc.cmake"
+  "/usr/share/cmake-3.0/Modules/FindPackageHandleStandardArgs.cmake"
+  "/usr/share/cmake-3.0/Modules/FindPackageMessage.cmake"
   "/usr/share/cmake-3.0/Modules/Platform/Linux-GNU-C.cmake"
   "/usr/share/cmake-3.0/Modules/Platform/Linux-GNU-CXX.cmake"
   "/usr/share/cmake-3.0/Modules/Platform/Linux-GNU.cmake"
@@ -41,8 +50,12 @@ set(CMAKE_MAKEFILE_OUTPUTS
 # Byproducts of CMake generate step:
 set(CMAKE_MAKEFILE_PRODUCTS
   "CMakeFiles/CMakeDirectoryInformation.cmake"
+  "znn/CMakeFiles/CMakeDirectoryInformation.cmake"
+  "znn/lib/CMakeFiles/CMakeDirectoryInformation.cmake"
+  "znn/lib/THZNN/CMakeFiles/CMakeDirectoryInformation.cmake"
   )
 
 # Dependency information for all targets:
 set(CMAKE_DEPEND_INFO_FILES
+  "znn/lib/THZNN/CMakeFiles/THZNN.dir/DependInfo.cmake"
   )

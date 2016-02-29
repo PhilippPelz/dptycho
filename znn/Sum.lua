@@ -1,30 +1,30 @@
 require 'nn'
 require 'dptycho.znn'
 require 'pprint'
+local u = require "dptycho.util"
 local Sum, parent = torch.class('znn.Sum', 'nn.Module')
 
-function Sum:__init(dimension,ctor)
+function Sum:__init(dimension,size)
   --  parent.__init(self)
    dimension = dimension or 1
    self.dimension = dimension
-   self.gradInput = ctor()
+   self.rep = u.copytable(size)
+   for i=1,#size do
+     size[i] = 1
+   end
+   self.rep[self.dimension] = size[self.dimension]
 end
 
 function Sum:updateOutput(input)
   input:sum(self.dimension)
-  -- pprint(input:squeeze())
   return input
 end
 
 function Sum:updateGradInput(input, gradOutput)
-    -- zero-strides dont work with MKL/BLAS, so
-    -- dont set self.gradInput to zero-stride tensor.
-    -- Instead, do a deepcopy
-    local size = input:size()
-    size[self.dimension] = 1
-    gradOutput = gradOutput:view(size)
-    self.gradInput:resizeAs(input)
-    self.gradInput:copy(gradOutput:expandAs(input))
-
-    return self.gradInput
+  self.gradInput = gradOutput:repeatTensor(unpack(self.rep))
+  print('in Sum:updateGradInput')
+  pprint(self.gradInput)
+  return self.gradInput
 end
+
+return Sum

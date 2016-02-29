@@ -10,8 +10,15 @@ function c:__init(module,ctor,output)
   self.module = module
   self.gradInput = output
   self.output = output
+  self.update = true
+end
+function c:immutable()
+  self.update = false
 end
 
+function c:mutable()
+  self.update = true
+end
 function c:updateOutput(input)
 --  print('before mul forw')
 --  print('before mul forw 1')
@@ -24,7 +31,7 @@ function c:updateOutput(input)
 --  print('before mul forw 2')
   -- self.output:resizeAs(input)
 --  print('before mul forw 3')
-  self.output:polar(1,self.weight:re())
+  self.output:polar(1,self.weight)
   self.output:expandAs(input)
 --  print('before mul forw 4')
   -- self.output:cmul(input)
@@ -33,9 +40,14 @@ end
 
 function c:updateGradInput(input, gradOutput)
     -- self.gradInput:resizeAs(input)
-    self.gradInput:polar(1,self.weight:re()):cmul(gradOutput)
-    self.module:backward(input,gradOutput:cmul(input))
+    self.gradInput:polar(1,self.weight):cmul(gradOutput)
     return self.gradInput
+end
+
+function c:accGradParameters(input, gradOutput, scale)
+  if self.update then
+    self.module:backward(input,gradOutput:cmul(input))
+  end
 end
 
 return c

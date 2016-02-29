@@ -14,7 +14,7 @@ def plot(img, title='Image', savePath=None, cmap='hot', show=True):
         plt.imsave(savePath + '.png', img)
 
     plt.close()
-    
+
 def zplot(img, suptitle='Image', savePath=None, cmap=['hot','hsv'], title=['Abs','Phase'], show=True):
     im1, im2 = img
     fig, (ax1,ax2) = plt.subplots(1,2)
@@ -36,7 +36,8 @@ def zplot(img, suptitle='Image', savePath=None, cmap=['hot','hsv'], title=['Abs'
         plt.imsave(savePath + '.png', img)
 
     plt.close()
-    
+
+
 # a = np.random.randn(50,50)
 # b = np.random.randn(50,50)
 # c = a + 1j*b

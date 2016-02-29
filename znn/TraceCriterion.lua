@@ -1,6 +1,6 @@
 local nn = require 'nn'
 
-local c, parent = torch.class('znn.TraceCriterion', 'nn.Criterion')
+local c, parent = torch.class('znn.TracePenalty', 'nn.Module')
 
 function c:__init()
   parent.__init(self)
@@ -12,9 +12,9 @@ function c:updateOutput(R)
   return self.output
 end
 
-function c:updateGradInput(input, gradOutput)
+function c:updateGradInput(input, target)
     self.gradInput:resizeAs(input)
-    
+
     return self.gradInput
 end
 

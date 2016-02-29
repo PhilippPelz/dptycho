@@ -53,6 +53,86 @@ CMAKE_SOURCE_DIR = /home/philipp/projects/dptycho
 CMAKE_BINARY_DIR = /home/philipp/projects/dptycho/build
 
 #=============================================================================
+# Directory level rules for directory znn
+
+# Convenience name for "all" pass in the directory.
+znn/all: znn/lib/all
+.PHONY : znn/all
+
+# Convenience name for "clean" pass in the directory.
+znn/clean: znn/lib/clean
+.PHONY : znn/clean
+
+# Convenience name for "preinstall" pass in the directory.
+znn/preinstall: znn/lib/preinstall
+.PHONY : znn/preinstall
+
+#=============================================================================
+# Directory level rules for directory znn/lib
+
+# Convenience name for "all" pass in the directory.
+znn/lib/all: znn/lib/THZNN/all
+.PHONY : znn/lib/all
+
+# Convenience name for "clean" pass in the directory.
+znn/lib/clean: znn/lib/THZNN/clean
+.PHONY : znn/lib/clean
+
+# Convenience name for "preinstall" pass in the directory.
+znn/lib/preinstall: znn/lib/THZNN/preinstall
+.PHONY : znn/lib/preinstall
+
+#=============================================================================
+# Directory level rules for directory znn/lib/THZNN
+
+# Convenience name for "all" pass in the directory.
+znn/lib/THZNN/all: znn/lib/THZNN/CMakeFiles/THZNN.dir/all
+.PHONY : znn/lib/THZNN/all
+
+# Convenience name for "clean" pass in the directory.
+znn/lib/THZNN/clean: znn/lib/THZNN/CMakeFiles/THZNN.dir/clean
+.PHONY : znn/lib/THZNN/clean
+
+# Convenience name for "preinstall" pass in the directory.
+znn/lib/THZNN/preinstall:
+.PHONY : znn/lib/THZNN/preinstall
+
+#=============================================================================
+# Target rules for target znn/lib/THZNN/CMakeFiles/THZNN.dir
+
+# All Build rule for target.
+znn/lib/THZNN/CMakeFiles/THZNN.dir/all:
+	$(MAKE) -f znn/lib/THZNN/CMakeFiles/THZNN.dir/build.make znn/lib/THZNN/CMakeFiles/THZNN.dir/depend
+	$(MAKE) -f znn/lib/THZNN/CMakeFiles/THZNN.dir/build.make znn/lib/THZNN/CMakeFiles/THZNN.dir/build
+	$(CMAKE_COMMAND) -E cmake_progress_report /home/philipp/projects/dptycho/build/CMakeFiles  1
+	@echo "Built target THZNN"
+.PHONY : znn/lib/THZNN/CMakeFiles/THZNN.dir/all
+
+# Include target in all.
+all: znn/lib/THZNN/CMakeFiles/THZNN.dir/all
+.PHONY : all
+
+# Build rule for subdir invocation for target.
+znn/lib/THZNN/CMakeFiles/THZNN.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/philipp/projects/dptycho/build/CMakeFiles 1
+	$(MAKE) -f CMakeFiles/Makefile2 znn/lib/THZNN/CMakeFiles/THZNN.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/philipp/projects/dptycho/build/CMakeFiles 0
+.PHONY : znn/lib/THZNN/CMakeFiles/THZNN.dir/rule
+
+# Convenience name for target.
+THZNN: znn/lib/THZNN/CMakeFiles/THZNN.dir/rule
+.PHONY : THZNN
+
+# clean rule for target.
+znn/lib/THZNN/CMakeFiles/THZNN.dir/clean:
+	$(MAKE) -f znn/lib/THZNN/CMakeFiles/THZNN.dir/build.make znn/lib/THZNN/CMakeFiles/THZNN.dir/clean
+.PHONY : znn/lib/THZNN/CMakeFiles/THZNN.dir/clean
+
+# clean rule for target.
+clean: znn/lib/THZNN/CMakeFiles/THZNN.dir/clean
+.PHONY : clean
+
+#=============================================================================
 # Special targets to cleanup operation of make.
 
 # Special rule to run CMake to check the build system integrity.

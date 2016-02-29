@@ -12,6 +12,8 @@ function c:loadHDF5(filepath,ptycho)
   local f = hdf5.open(filepath, 'r')
   local ret  = {}
   ret.Znums = f:read('/Znums'):all():int()
+  ret.a_k = f:read('/measurements'):all()
+  ret.K = ret.a_k:size(1)
   ret.deltas = {}
   ret.atompot = {}
   ret.atomconv = {}

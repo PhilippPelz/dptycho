@@ -143,6 +143,19 @@ depend:
 	$(CMAKE_COMMAND) -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
 .PHONY : depend
 
+#=============================================================================
+# Target rules for targets named THZNN
+
+# Build rule for target.
+THZNN: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 THZNN
+.PHONY : THZNN
+
+# fast build rule for target.
+THZNN/fast:
+	$(MAKE) -f znn/lib/THZNN/CMakeFiles/THZNN.dir/build.make znn/lib/THZNN/CMakeFiles/THZNN.dir/build
+.PHONY : THZNN/fast
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -155,6 +168,7 @@ help:
 	@echo "... install/strip"
 	@echo "... list_install_components"
 	@echo "... rebuild_cache"
+	@echo "... THZNN"
 .PHONY : help
 
 

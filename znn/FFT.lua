@@ -10,13 +10,15 @@ end
 
 function c:updateOutput(input)
   -- plt:plot(input[1]:zfloat(),'fft in')
+  local I = input:clone():abs():pow(2):sum()
+  print(string.format('integrated intensity: %f',I))
   input:fftBatched()
   -- plt:plot(input[1]:zfloat(),'fft out')
   return input
 end
 
 function c:updateGradInput(input, gradOutput)
-    return gradOutput:ifft()
+    return gradOutput:ifftBatched()
 end
 
 return c

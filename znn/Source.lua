@@ -8,6 +8,15 @@ local c, parent = torch.class('znn.Source', 'nn.Module')
 function c:__init(ctor,init)
   parent.__init(self)
   self.weight = init or ctor()
+  self.update = true
+end
+
+function c:immutable()
+  self.update = false
+end
+
+function c:mutable()
+  self.update = true
 end
 
 function c:updateOutput(input)
@@ -15,8 +24,10 @@ function c:updateOutput(input)
 end
 
 function c:updateGradInput(input, gradOutput)
+  if self.update then
     self.gradInput = gradOutput
-    return self.gradInput
+  end
+  return gradOutput
 end
 
 return c

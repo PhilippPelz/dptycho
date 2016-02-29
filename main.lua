@@ -5,23 +5,21 @@ require 'zcutorch'
 require 'pprint'
 
 local dataloader = require 'dptycho.io.dataloader'
-local znn = require 'dptycho.znn'
+
 require 'nn'
 require 'cunn'
 local cudnn = require 'cudnn'
+local znn = require 'dptycho.znn'
+
 cudnn.benchmark = true
 cudnn.fastest = true
 local u = require 'dptycho.util'
+local stats = require "dptycho.util.stats"
 local plot = require 'dptycho.io.plot'
 local builder = require 'dptycho.core.netbuilder'
 local plt = plot()
 
-local function printMem()
-  local freeMemory, totalMemory = cutorch.getMemoryUsage(cutorch.getDevice())
-  freeMemory = freeMemory / (1024*1024)
-  totalMemory = totalMemory / (1024*1024)
-  print(string.format('free: %d MB, total: %d MB, used: %d MB',freeMemory,totalMemory,totalMemory -freeMemory))
-end
+
 -- torch.setdefaulttensortype('torch.CudaTensor')
 --torch.setdefaulttensortype('torch.ZCudaTensor')
 --print(type(torch.ZCudaTensor()))
@@ -38,32 +36,61 @@ params.dx = 0.240602
 -- pprint(data.deltas)
 -- pprint(data.atompot)
 
+-- table of networks
 local model = builder.build_model(params)
-
-
+-- data.deltas:size():totable()
+local init = stats.truncnorm(data.deltas:size():totable(),0,1,0.3,0.05)
+-- plt:plot(init,'init 1')
+-- pprint(init)
+data.deltas:copy(init)
+pprint(data.deltas)
 local r_atom = math.floor(params.Vsize / params.dx)
 r_atom = ( r_atom % 2 == 0 ) and ( r_atom - 1 ) or r_atom
 print(string.format('r_atom = %d',r_atom))
+local r_atom_xy = r_atom
+local r_atom_z = 1
 
-local nInputPlane = data.Znums:size(1)
-local nOutputPlane = data.Znums:size(1)
-local filter = torch.ones(nOutputPlane,nInputPlane,1,r_atom,r_atom):cuda()
-local bias = torch.zeros(nOutputPlane):cuda()
-local dT, dW, dH = 1,1,1
-local padT, padW, padH = 1, (r_atom-1)/2, (r_atom-1)/2
+-- plt:plot(data.a_k[1]:float(),'measurement 1')
 
-local net = nn.Sequential()
+local net = model[1]
+local y = 1
+local wse = znn.WSECriterion(y):cuda()
+local weight_regul = znn.AtomRadiusPenalty(data.Znums:size(1),r_atom_xy,r_atom_z,0.1)
+-- local d  = data.deltas:select(2,1)
+-- pprint(d)
+local weight_penalty = weight_regul:forward(data.deltas)
+print(string.format('weight penalty: %f',weight_penalty))
 
-net:add(znn.VolumetricConvolutionFixedFilter(nInputPlane, nOutputPlane, 1, r_atom, r_atom , dT, dW, dH, padT, padW, padH, filter, bias))
-net:add(nn.Threshold(1,1,true):cuda())
+local a_model = net:forward()
+-- plt:plot(a_model:clone():float(),'a_modelput 1')
+local error = wse:forward(a_model,data.a_k[1])
 
--- pprint(data.deltas[1])
-local res = net:forward(data.deltas)
+print(a_model:max())
+print(a_model:min())
+-- print(a_model:float())
+print(data.a_k[1]:max())
+print(data.a_k[1]:min())
+-- print(data.a_k[1]:float())
+print(string.format('Error of measurement %d: %-3.5f',1,error))
+pprint(data.a_k[1])
+local dLdW = wse:backward(a_model,data.a_k[1])
+plt:plot(dLdW:float(),'dLdW')
+net:backward(nil,dLdW)
 
-pprint(res)
-print(res:sum())
+-- local m = znn.SupportMask({params.M,params.M},params.M/2)
 
-printMem()
+-- local m = u.initial_probe({params.M,params.M},0.5)
+
+-- local net = znn.AtomRadiusPenalty(data.Znums:size(1),r_atom,1)
+--
+-- pprint(data.deltas)
+-- plt:plot(data.deltas[1][3]:float(),'deltas 3')
+-- local res = net:forward(data.deltas)
+-- plt:plot(res[1][3]:float(),'res 3')
+-- pprint(res)
+-- print(res)
+
+u.printMem()
 
 -- for k,v in ipairs(model) do
 --   local res = v:forward(data.probe)
@@ -71,11 +98,6 @@ printMem()
 --   -- pprint(res)
 --   -- plt:plot(res:float(),'result')
 -- end
-
-
-
-
-
 
 
 

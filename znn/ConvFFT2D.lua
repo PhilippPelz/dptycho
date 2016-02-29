@@ -15,18 +15,20 @@ function c:updateOutput(input)
   -- self.output:resizeAs(input):copy(input)
 --  plt:plot(input:zfloat(),'in')
   -- pprint(input)
-  input:fft(input)
+  input:fftBatched()
   --   plt:plot(self.output:zfloat(),'in fft')
   input:cmul(self.filter)
   --   plt:plot(self.output:zfloat(),'in cmul')
-  input:ifft()
+  input:ifftBatched()
+  local I = input:clone():abs():pow(2):sum()
+  print(string.format('integrated intensity: %f',I))
   -- pprint(input)
   -- plt:plot(input[1]:zfloat(),'out after prop')
   return input
 end
 
 function c:updateGradInput(input, gradOutput)
-    return gradOutput:fft():cmul(self.inv_filter):ifft()
+    return gradOutput:fftBatched():cmul(self.inv_filter):ifftBatched()
 end
 
 return c

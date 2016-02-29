@@ -13,13 +13,14 @@ function c:updateOutput(input)
   --  print('ComplexAbs')
   --  local r = input:abs()
   --  print('ComplexAbs2')
-  local out = input:abs()
+  self.output = input:abs()
   -- plt:plot(out[1]:float(),'abs out')
-  return out
+  return self.output
 end
 
 function c:updateGradInput(input, gradOutput)
-    self.gradInput:resizeAs(input)
+    -- self.gradInput:resizeAs(input)
+    pprint(gradOutput)
     self.gradInput:polar(gradOutput,0)
     return self.gradInput
 end
