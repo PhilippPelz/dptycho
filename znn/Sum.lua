@@ -21,7 +21,7 @@ function Sum:updateOutput(input)
 end
 
 function Sum:updateGradInput(input, gradOutput)
-  self.gradInput = gradOutput:repeatTensor(unpack(self.rep))
+  self.gradInput = gradOutput:view(unpack(self.rep))
   print('in Sum:updateGradInput')
   pprint(self.gradInput)
   return self.gradInput

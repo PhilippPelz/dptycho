@@ -9,6 +9,7 @@ znn = classic.module(...)
 --m.Sum = require 'Sum'
 
 require 'dptycho.znn.SupportMask'
+require 'dptycho.znn.MultiCriterionVariableWeights'
 require 'dptycho.znn.SqrtInPlace'
 require 'dptycho.znn.Sqrt'
 require 'dptycho.znn.WeightedL1Cost'

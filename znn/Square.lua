@@ -3,7 +3,7 @@ require 'dptycho.znn'
 require 'pprint'
 local Square, parent = torch.class('znn.Square','nn.Module')
 
-function Square:__init(args)
+function Square:__init()
    parent.__init(self)
 end
 

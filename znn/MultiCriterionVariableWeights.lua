@@ -1,3 +1,4 @@
+local nn = require 'nn'
 local c, parent = torch.class('znn.MultiCriterionVariableWeights', 'nn.Criterion')
 
 function c:__init()

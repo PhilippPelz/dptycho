@@ -14,6 +14,9 @@ function Sqrt:updateOutput(input)
       self.output:cdata(),
       self.eps
    )
+   print('in Sqrt:updateOutput')
+   pprint(self.output)
+   print('\n')
    return self.output
 end
 
@@ -23,8 +26,11 @@ function Sqrt:updateGradInput(input, gradOutput)
       input:cdata(),
       gradOutput:cdata(),
       self.gradInput:cdata(),
-      input:sqrt():cuda():cdata()
+      self.output:cdata()
    )
+   print('in Sqrt:updateGradInput')
+   pprint(self.gradInput)
+   print('\n')
    return self.gradInput
 end
 
