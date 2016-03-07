@@ -36,10 +36,10 @@ function m.load_sim_and_allocate(file)
   return ret
 end
 
-function m.load_sim_and_allocate_stacked(file,ptycho)
+function m.load_sim_and_allocate_stacked(path,file,ptycho)
   local ret = {}
   local d = dataloader()
-  local data = d:loadHDF5(file,ptycho)
+  local data = d:loadHDF5(path,file,ptycho)
 --  pprint(data)
   ret.nslices = data.deltas[1]:size():totable()[1]
   ret.prop = data.propagator:zcuda()
@@ -47,7 +47,7 @@ function m.load_sim_and_allocate_stacked(file,ptycho)
   ret.probe = data.probe:zcuda()
   ret.positions = data.positions
   ret.Znums = data.Znums
-  ret.a_k = data.a_k:cuda():sqrt()
+  ret.a_k = data.a_k:cuda()--:sqrt()
 
   local ps = ret.probe[1]:size():totable()
   local s = data.atompot[1]:size():totable()
@@ -135,6 +135,10 @@ function m.copytable(obj, seen)
   s[obj] = res
   for k, v in pairs(obj) do res[m.copytable(k, s)] = m.copytable(v, s) end
   return res
+end
+
+function m.printf(s,...)
+  print(string.format(s,...))
 end
 
 return m

@@ -25,9 +25,9 @@ function c:updateOutput(input)
   self.weight = self.module:forward(input)
 --  print('after mul forw')
 --  plt:plot(self.phase:zfloat(),'mod_out')
-  --   pprint(input)
+    -- pprint(input)
 --  pprint(self.phase)
---  plt:plot(input:zfloat(),'input')
+ -- plt:plot(input[1]:zfloat(),'CMulModule input')
 --  print('before mul forw 2')
   -- self.output:resizeAs(input)
 --  print('before mul forw 3')
@@ -35,7 +35,9 @@ function c:updateOutput(input)
   self.output:expandAs(input)
 --  print('before mul forw 4')
   -- self.output:cmul(input)
-  return input:cmul(self.output)
+  self.output:cmul(input)
+  -- plt:plot(self.output[1]:zfloat(),'CMulModule out')
+  return self.output
 end
 
 function c:updateGradInput(input, gradOutput)
@@ -45,8 +47,12 @@ function c:updateGradInput(input, gradOutput)
 end
 
 function c:accGradParameters(input, gradOutput, scale)
+  -- print('in ConvParams:updateGradInput')
+  -- pprint(input)
+  -- pprint(gradOutput)
+  gradOutput:cmul(input)
   if self.update then
-    self.module:backward(input,gradOutput:cmul(input))
+    self.module:backward(input,gradOutput:arg())
   end
 end
 

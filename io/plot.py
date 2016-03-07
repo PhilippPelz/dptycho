@@ -37,6 +37,15 @@ def zplot(img, suptitle='Image', savePath=None, cmap=['hot','hsv'], title=['Abs'
 
     plt.close()
 
+import numpy as np
+from mayavi import mlab
+def plot3d(arr,title,vmin = 0,vmax = 0.7):
+    mlab.figure(1, fgcolor=(1, 1, 1), bgcolor=(0, 0, 0))
+    src = mlab.pipeline.scalar_field(arr)
+    mlab.pipeline.volume(src, vmin=vmin, vmax=vmax)
+    mlab.colorbar(title=title, orientation='vertical', nb_labels=7)
+    mlab.show()
+
 
 # a = np.random.randn(50,50)
 # b = np.random.randn(50,50)

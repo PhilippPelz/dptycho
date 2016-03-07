@@ -3,6 +3,8 @@ local c, parent = torch.class('znn.WeightedL1Cost','nn.L1Cost')
 function c:__init(weight)
    parent.__init(self)
    self.w = weight
+   self.gradInput = torch.CudaTensor()
+   self.output = torch.CudaTensor()
 end
 
 function c:updateOutput(input)

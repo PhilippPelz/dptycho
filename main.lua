@@ -17,14 +17,14 @@ local u = require 'dptycho.util'
 local stats = require "dptycho.util.stats"
 local plot = require 'dptycho.io.plot'
 local builder = require 'dptycho.core.netbuilder'
+local optim = require "optim"
+
 local plt = plot()
 
 
--- torch.setdefaulttensortype('torch.CudaTensor')
---torch.setdefaulttensortype('torch.ZCudaTensor')
---print(type(torch.ZCudaTensor()))
---local data = u.load_sim_and_allocate('/home/philipp/projects/slicepp/Examples/configs/ball2.h5')
-local data = u.load_sim_and_allocate_stacked('/home/philipp/projects/slicepp/Examples/configs/ball2.h5',true)
+local path = '/home/philipp/projects/slicepp/Examples/configs/'
+local file = 'ball2.h5'
+local data = u.load_sim_and_allocate_stacked(path,file,true)
 
 local params = {}
 params.data = data
@@ -33,107 +33,120 @@ params.E = 80e3
 params.M = data.probe:size(2)
 params.dx = 0.240602
 
--- pprint(data.deltas)
--- pprint(data.atompot)
-
 -- table of networks
-local model = builder.build_model(params)
+local build = builder(params)
+-- collectGarbage()
 -- data.deltas:size():totable()
 local init = stats.truncnorm(data.deltas:size():totable(),0,1,0.3,0.05)
 -- plt:plot(init,'init 1')
 -- pprint(init)
 data.deltas:copy(init)
-pprint(data.deltas)
-local r_atom = math.floor(params.Vsize / params.dx)
-r_atom = ( r_atom % 2 == 0 ) and ( r_atom - 1 ) or r_atom
-print(string.format('r_atom = %d',r_atom))
-local r_atom_xy = r_atom
-local r_atom_z = 1
+-- pprint(data.deltas)
 
+-- plt:plot3d(data.deltas[1]:float())
 -- plt:plot(data.a_k[1]:float(),'measurement 1')
 
-local net = model[1]
+local model
+local weight_penalty
 local y = 1
 local wse = znn.WSECriterion(y):cuda()
-local weight_regul = znn.AtomRadiusPenalty(data.Znums:size(1),r_atom_xy,r_atom_z,0.1)
+local weight_regul = znn.AtomRadiusPenalty(data.Znums:size(1),params.r_atom_xy,params.r_atom_z,0.1)
+
+local gradParameters = data.gradWeights
+local parameters = data.deltas
+
 -- local d  = data.deltas:select(2,1)
 -- pprint(d)
-local weight_penalty = weight_regul:forward(data.deltas)
-print(string.format('weight penalty: %f',weight_penalty))
 
-local a_model = net:forward()
--- plt:plot(a_model:clone():float(),'a_modelput 1')
-local error = wse:forward(a_model,data.a_k[1])
-
--- print(a_model:max())
--- print(a_model:min())
--- print(a_model:float())
--- print(data.a_k[1]:max())
--- print(data.a_k[1]:min())
--- print(data.a_k[1]:float())
-print(string.format('Error of measurement %d: %-3.5f',1,error))
-pprint(data.a_k[1])
-local dLdW = wse:backward(a_model,data.a_k[1])
--- plt:plot(dLdW:float(),'dLdW')
-print('before backward')
-net:backward(nil,dLdW)
-
--- local m = znn.SupportMask({params.M,params.M},params.M/2)
-
--- local m = u.initial_probe({params.M,params.M},0.5)
-
--- local net = znn.AtomRadiusPenalty(data.Znums:size(1),r_atom,1)
---
--- pprint(data.deltas)
--- plt:plot(data.deltas[1][3]:float(),'deltas 3')
--- local res = net:forward(data.deltas)
--- plt:plot(res[1][3]:float(),'res 3')
--- pprint(res)
--- print(res)
-
-u.printMem()
-
--- for k,v in ipairs(model) do
---   local res = v:forward(data.probe)
---   print(k)
---   -- pprint(res)
---   -- plt:plot(res:float(),'result')
+-- local err, outputs
+-- feval = function(x)
+--   --  model:zeroGradParameters()
+--    outputs = model:forward()
+--    err = criterion:forward(outputs, labels)
+--    local gradOutputs = criterion:backward(outputs, labels)
+--    model:backward(inputs, gradOutputs)
+--    return err, gradParameters
 -- end
+-- optim.sgd(feval, parameters, optimState)
+-- local diff = torch.CudaTensor(data.a_k[i])
 
+local state = {
+  learningRate = 1e-2
+}
+local dLdW, err, regul_err, outputs, mask
+local epochs = 10
 
+local feval = function(x)
+  --  model:zeroGradParameters()
+   return err, gradParameters
+end
+local max_grad = 1e3
+local timer = torch.Timer()
+for e=1,epochs do
+  regul_err = weight_regul:forward(parameters)
+  print(string.format('%03d regul error: %-3.5f',e,regul_err))
 
--- local ctor = torch.ZCudaTensor
+  local dRdW = weight_regul:backward(parameters)
+  -- pprint(dRdW)
+  -- plt:plot3d(dRdW[1]:float())
+  -- plt:plot3d(build.coverage[1]:float(),'build.coverage')
+  err = 0
+  for i=1, params.K do
+    model = build:get_tower(i)
+    outputs = model:forward()
+    -- plt:plot(outputs:clone():float(),'model output '..i)
+
+    -- plt:plotcompare({outputs:float(),data.a_k[i]:float()})
+    err = err + wse:forward(outputs,data.a_k[i])
+    -- print(string.format('%03d WS    error: %-3.5f',i,err))
+    dLdW = wse:backward(outputs,data.a_k[i])
+    -- plt:plot(dLdW:float(),'dLdW')
+    model:backward(nil,dLdW)
+
+    collectgarbage()
+    -- u.printMem()
+  end
+  print(string.format('gradParameters min: %f max:%f',gradParameters:min(),gradParameters:max()))
+  -- pprint(gradParameters)
+  -- pprint(build.coverage)
+  print(string.format('dRdW           min: %f max:%f',dRdW:min(),dRdW:max()))
+  print(string.format('coverage       min: %f max:%f',build.coverage:min(),build.coverage:max()))
+  u.printf('average error: %f',err/params.K)
+  -- pprint(dRdW)
+  -- plt:plot3d(dRdW[1]:float())
+  mask = torch.gt(gradParameters,max_grad)
+  gradParameters:maskedFill(mask,max_grad)
+  mask = torch.lt(gradParameters,-max_grad)
+  gradParameters:maskedFill(mask,-max_grad)
+  -- plt:plot3d(gradParameters[1]:float(),'gradParameters',0,1)
+  gradParameters:add(dRdW)
+  -- plt:plot3d(gradParameters[1]:float(),'gradParameters add')
+
+  gradParameters:cmul(build.coverage)
+  optim.adam(feval, parameters, state)
+  u.printf('Time elapsed after epoch %d: %f seconds',e, timer:time().real)
+  print('----------------------------------------------------------------')
+  -- plt:plot3d(parameters[1]:float(),'parameters epoch ' .. e)
+  collectgarbage()
+  u.printMem()
+end
 --
--- local params = {}
--- local geo = {}
--- geo.z = 50e-2
--- geo.E = 2e5
--- geo.pix_size = 15e-6
--- geo.M = 256
--- params.geo = geo
---
--- params.is_simulation = true
--- params.sim_data = data
--- params.r_j = data.positions
--- params.I_i = data.measurements
---
--- local net = nn.Sequential()
--- for i=1,data.nslices do
---   local arm = nn.Sequential()
---   arm:add(znn.ConvParams(data.Wsize,data.atompot,data.inv_atompot,data.deltas[i],data.gradWeights[i]))
---   arm:add(znn.Sum(1,ctor))
---
---   net:add(znn.CMulModule(arm,ctor))
---   net:add(znn.ConvFFT2D(data.prop,data.bwprop))
+--   weight_penalty = weight_regul:forward(data.deltas)
+--   print(string.format('weight penalty: %f',weight_penalty))
 -- end
--- --net:add(znn.FFT())
--- net:add(znn.ComplexAbs())
--- net:add(znn.Square())
--- -- add nn.Sum(1) here for multi mode
--- -- net:add(nn.Sqrt())
---
--- local res = net:forward(data.probe)
---
--- --psh = res:fftshift()
--- --plt:plot(psh:zfloat(),'shifted')
--- plt:plot(res:float(),'shifted')
+local function generate_measurements()
+  local f = hdf5.open('/home/philipp/projects/slicepp/Examples/configs/a_k.h5', 'w')
+  for i=1, params.K do
+    model = build:get_tower(i)
+    outputs = model:forward()
+    -- plt:plot(outputs:float(),'model output '..i)
+    -- plt:plotcompare({outputs:float(),data.a_k[1]:float()})
+    data.a_k[i]:copy(outputs)
+    print(i)
+  end
+
+  f:write('/a_k',data.a_k:float())
+  f:close()
+end
+
+-- generate_measurements()

@@ -27,6 +27,7 @@ function c:__init(size1,radius,type1)
   -- pprint(mask)
   -- pprint(size1)
   self.weight = torch.ZFloatTensor(unpack(size1)):copy(mask):zcuda()
+  self.output = torch.ZCudaTensor()
   -- pprint(self.weight)
 end
 
@@ -34,14 +35,16 @@ function c:updateOutput(input)
   -- print('forward mask')
   -- pprint(input)
   -- pprint(self.weight)
-  return input:cmul(self.weight)
+  self.output:resizeAs(input):copy(input)
+  return self.output:cmul(self.weight)
 end
 
 function c:updateGradInput(input, gradOutput)
   if self.update then
     gradOutput:cmul(self.weight)
   end
-  return gradOutput
+  self.gradInput = gradOutput
+  return self.gradInput
 end
 
 return c

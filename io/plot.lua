@@ -14,7 +14,7 @@ function c:_init()
   local plotcode = d:loadText(PYTHON_PLOTFILE)
 --  print(plotcode)
 --  py.exec(plotcode)
-    py.exec([=[import matplotlib.pyplot as plt
+  py.exec([=[import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 plt.style.use('ggplot')
@@ -30,7 +30,7 @@ def plot(img, title='Image', savePath=None, cmap='hot', show=True):
         plt.imsave(savePath + '.png', img)
 
     plt.close()
-    
+
 def zplot(img, suptitle='Image', savePath=None, cmap=['hot','hsv'], title=['Abs','Phase'], show=True):
     im1, im2 = img
     fig, (ax1,ax2) = plt.subplots(1,2)
@@ -51,10 +51,19 @@ def zplot(img, suptitle='Image', savePath=None, cmap=['hot','hsv'], title=['Abs'
     if savePath is not None:
         plt.imsave(savePath + '.png', img)
 
-    plt.close()]=])
+    plt.close()
+
+from mayavi import mlab
+def plot3d(arr,title,vmin = 0,vmax = 0.7):
+    mlab.figure(1, fgcolor=(1, 1, 1), bgcolor=(0, 0, 0))
+    src = mlab.pipeline.scalar_field(arr)
+    mlab.pipeline.volume(src, vmin=vmin, vmax=vmax)
+    mlab.colorbar(title=title, orientation='vertical', nb_labels=7)
+    mlab.show()]=])
+
 --  print('loaded')
   return self
-end 
+end
 
 local plot = argcheck{
             nonamed=true,
@@ -65,8 +74,8 @@ local plot = argcheck{
             {name="savepath", default=py.None,type='string'},
             {name="cmap", default='hot',type='string'},
             {name="show", default=true, type='bool'},
-            call =  
-                function (self,img, title, savepath, cmap, show)    
+            call =
+                function (self,img, title, savepath, cmap, show)
                   py.eval('plot(img,title,savepath,cmap,show)',{img = img, title=title, savepath=savepath, cmap=cmap, show=show})
                 end
             }
@@ -80,8 +89,8 @@ plot = argcheck{
             {name="savepath", default=py.None,type='string'},
             {name="cmap", default='hot',type='string'},
             {name="show", default=true, type='bool'},
-            call =  
-                function (self,img, title, savepath, cmap, show)    
+            call =
+                function (self,img, title, savepath, cmap, show)
 --                  print(torch.type(img))
                   py.eval('plot(img,title,savepath,cmap,show)',{img = img, title=title, savepath=savepath, cmap=cmap, show=show})
                 end
@@ -97,10 +106,39 @@ plot = argcheck{
             {name="cmap", default={'hot','hsv'}, type='table'},
             {name="title", default={'Abs','Phase'}, type='table'},
             {name="show", default=true, type='bool'},
-            call =  
-                function (self,img, suptitle, savepath, cmap, title, show)    
+            call =
+                function (self,img, suptitle, savepath, cmap, title, show)
                   py.eval('zplot(img,suptitle,savepath,cmap,title,show)',{img = {img:abs(),img:arg()}, suptitle=suptitle, savepath=savepath, cmap=cmap,title=title, show=show})
                 end
             }
-c.plot = plot            
+c.plotcompare = argcheck{
+            nonamed=true,
+            name = "plot",
+            overload = plot,
+            {name="self", type='table'},
+            {name="imgs", type='table'},
+            {name="suptitle", default='Image', type='string'},
+            {name="savepath", default=py.None, type='string'},
+            {name="cmap", default={'hot','hot'}, type='table'},
+            {name="title", default={'Img1','Img2'}, type='table'},
+            {name="show", default=true, type='bool'},
+            call =
+                function (self,imgs, suptitle, savepath, cmap, title, show)
+                  py.eval('zplot(img,suptitle,savepath,cmap,title,show)',{img = imgs, suptitle=suptitle, savepath=savepath, cmap=cmap,title=title, show=show})
+                end
+            }
+c.plot3d = argcheck{
+            nonamed=true,
+            name = "plot3d",
+            {name="self", type='table'},
+            {name="arr", type='torch.FloatTensor'},
+            {name="title", default='Image', type='string'},
+            {name="vmin", default=0, type='number'},
+            {name="vmax", default=0.7, type='number'},
+            call =
+                function (self, arr, title, vmin, vmax)
+                  py.eval('plot3d(arr,title,vmin,vmax)',{arr = arr, title=title, vmin=vmin, vmax=vmax})
+                end
+            }
+c.plot = plot
 return c

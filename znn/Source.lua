@@ -8,7 +8,10 @@ local c, parent = torch.class('znn.Source', 'nn.Module')
 function c:__init(ctor,init)
   parent.__init(self)
   self.weight = init or ctor()
+  self.gradInput = torch.ZCudaTensor()
+  self.output = torch.ZCudaTensor()
   self.update = true
+  return self
 end
 
 function c:immutable()
@@ -25,9 +28,13 @@ end
 
 function c:updateGradInput(input, gradOutput)
   if self.update then
-    self.gradInput = gradOutput
+    -- print('Source:updateGradInput')
+    -- pprint(self.gradInput)
+    -- pprint(gradOutput)
+    self.gradInput:resizeAs(gradOutput)
+    self.gradInput:copy(gradOutput)
   end
-  return gradOutput
+  return self.gradInput
 end
 
 return c

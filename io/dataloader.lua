@@ -7,12 +7,16 @@ local c = classic.class(...)
 function c:_init()
 end
 
-function c:loadHDF5(filepath,ptycho)
+function c:loadHDF5(path,file,ptycho)
   local pos = ptycho or false
-  local f = hdf5.open(filepath, 'r')
+  local f = hdf5.open(path..file, 'r')
+
   local ret  = {}
   ret.Znums = f:read('/Znums'):all():int()
-  ret.a_k = f:read('/measurements'):all()
+  local f2 = hdf5.open(path..'a_k.h5', 'r')
+  ret.a_k = f2:read('/a_k'):all()
+  f2:close()
+  -- ret.a_k = f:read('/measurements'):all()
   ret.K = ret.a_k:size(1)
   ret.deltas = {}
   ret.atompot = {}
@@ -39,6 +43,7 @@ function c:loadHDF5(filepath,ptycho)
 --  plt.imagesc(self.probe[{{},{},1}],'color')
   if pos then
     ret.positions = f:read('/positions'):all():squeeze()
+    -- print('positions read')
   end
   local propagator = f:read('/propagator'):all():squeeze()
   local potential = f:read('/potentialSlices'):all():squeeze()
@@ -56,6 +61,8 @@ function c:loadHDF5(filepath,ptycho)
   ret.propagator = torch.ZFloatTensor(s):copy(propagator)
   ret.potential = torch.ZFloatTensor(potsize):copy(potential)
 --  pprint(ret.atompot)
+
+  f:close()
   return ret
 end
 

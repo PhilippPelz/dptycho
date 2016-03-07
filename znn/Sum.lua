@@ -8,11 +8,15 @@ function Sum:__init(dimension,size)
   --  parent.__init(self)
    dimension = dimension or 1
    self.dimension = dimension
-   self.rep = u.copytable(size)
-   for i=1,#size do
-     size[i] = 1
+   self.view = u.copytable(size)
+   self.expand = u.copytable(size)
+   for i=1,#size-2 do
+     self.view[i] = 1
    end
-   self.rep[self.dimension] = size[self.dimension]
+  --  for i=#size,#size-1,-1 do
+  --    self.expand[i] = 1
+  --  end
+
 end
 
 function Sum:updateOutput(input)
@@ -21,9 +25,16 @@ function Sum:updateOutput(input)
 end
 
 function Sum:updateGradInput(input, gradOutput)
-  self.gradInput = gradOutput:view(unpack(self.rep))
-  print('in Sum:updateGradInput')
-  pprint(self.gradInput)
+  -- print('sum view')
+  -- pprint(self.view)
+  -- print('sum expand')
+  -- pprint(self.expand)
+  self.gradInput = gradOutput:view(unpack(self.view))
+  -- pprint(self.gradInput)
+  self.gradInput:expand(unpack(self.expand))
+  -- pprint(self.gradInput)
+  -- print('in Sum:updateGradInput')
+  -- pprint(self.gradInput)
   return self.gradInput
 end
 

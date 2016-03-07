@@ -25,8 +25,8 @@ function Select:updateGradInput(input, gradOutput)
   --  self.gradInput:zero()
   --  self.gradInput:select(self.dimension,self.index):copy(gradOutput)
    self.gradInput = gradOutput:view(unpack(self.sizes))
-   print('in Select:updateGradInput')
-   pprint(self.gradInput)
-   print('\n')
+  --  print('in Select:updateGradInput')
+  --  pprint(self.gradInput)
+  --  print('\n')
    return self.gradInput
 end

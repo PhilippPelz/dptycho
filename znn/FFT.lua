@@ -5,20 +5,25 @@ local plt = plot()
 local c, parent = torch.class('znn.FFT', 'nn.Module')
 
 function c:__init()
---  parent.__init(self)
+ parent.__init(self)
+ self.gradInput = torch.ZCudaTensor()
+ -- self.output = torch.CudaTensor()
 end
 
 function c:updateOutput(input)
   -- plt:plot(input[1]:zfloat(),'fft in')
-  local I = input:clone():abs():pow(2):sum()
-  print(string.format('integrated intensity: %f',I))
+  -- local I = input:clone():abs():pow(2):sum()
+  -- print(string.format('integrated intensity: %f',I))
   input:fftBatched()
   -- plt:plot(input[1]:zfloat(),'fft out')
   return input
 end
 
 function c:updateGradInput(input, gradOutput)
-    return gradOutput:ifftBatched()
+    -- plt:plot(gradOutput[1]:zfloat(),'FFT gradOutput 1 ')
+    self.gradInput = gradOutput:ifftBatched()
+    -- plt:plot(self.gradInput[1]:zfloat(),'FFT gradOutput after')
+    return self.gradInput
 end
 
 return c

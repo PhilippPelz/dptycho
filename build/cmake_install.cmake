@@ -69,6 +69,7 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
     "/home/philipp/projects/dptycho/znn/Source.lua"
     "/home/philipp/projects/dptycho/znn/ComplexAbs.lua"
     "/home/philipp/projects/dptycho/znn/WeightedL1Cost.lua"
+    "/home/philipp/projects/dptycho/znn/Threshold.lua"
     "/home/philipp/projects/dptycho/znn/TracePenalty.lua"
     "/home/philipp/projects/dptycho/znn/init.lua"
     "/home/philipp/projects/dptycho/znn/WeightedLinearCriterion.lua"
