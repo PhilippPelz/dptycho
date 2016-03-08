@@ -147,7 +147,8 @@ function c:get_tower(i)
   -- in: [1,M,M]  out: [M,M]
   net:add(znn.Select(1,1))
   net:add(znn.Sqrt())
-  return net
+  local slice = {{},{},{pos[1]+1,pos[1]+self.p.M},{pos[2]+1,pos[2]+self.p.M}}
+  return net, self.data.deltas[slice], self.data.gradWeights[slice]
 end
 
 return c

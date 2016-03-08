@@ -9,7 +9,7 @@ function c:__init(module,ctor,output)
   parent.__init(self)
   self.module = module
   self.gradInput = output
-  self.output = output
+  self.output = torch.ZCudaTensor()
   self.update = true
 end
 function c:immutable()
@@ -29,7 +29,7 @@ function c:updateOutput(input)
 --  pprint(self.phase)
  -- plt:plot(input[1]:zfloat(),'CMulModule input')
 --  print('before mul forw 2')
-  -- self.output:resizeAs(input)
+  self.output:resizeAs(input)
 --  print('before mul forw 3')
   self.output:polar(1,self.weight)
   self.output:expandAs(input)
@@ -50,9 +50,9 @@ function c:accGradParameters(input, gradOutput, scale)
   -- print('in ConvParams:updateGradInput')
   -- pprint(input)
   -- pprint(gradOutput)
-  gradOutput:cmul(input)
+  self.output:cmul(gradOutput)
   if self.update then
-    self.module:backward(input,gradOutput:arg())
+    self.module:backward(input,self.output:im():mul(2))
   end
 end
 

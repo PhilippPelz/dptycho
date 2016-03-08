@@ -1,6 +1,8 @@
 require 'nn'
 require 'dptycho.znn'
 require 'pprint'
+local plot = require 'io.plot'
+local plt = plot()
 local u = require "dptycho.util"
 local Sum, parent = torch.class('znn.Sum', 'nn.Module')
 
@@ -21,6 +23,7 @@ end
 
 function Sum:updateOutput(input)
   input:sum(self.dimension)
+  -- plt:plot(input[1]:float(),'Sum out')
   return input
 end
 

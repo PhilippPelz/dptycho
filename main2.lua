@@ -71,8 +71,8 @@ local parameters = data.deltas
 -- local diff = torch.CudaTensor(data.a_k[i])
 
 local state = {
-  learningRate = 1e-2,
-  --lrd=1e-6,
+  learningRate = 1,
+  lrd=1e-6,
   momentum=0.9,
   nesterov=false
 }
@@ -108,14 +108,14 @@ for e=1,epochs do
     -- plt:plot(dLdW:float(),'dLdW')
     -- u.printMem()
     -- pprint(dRdW)
-    -- plt:plot(outputs:float(),'model output '..i)
+    -- plt:plot(outputs:clone():float(),'model output '..i)
     -- plt:plotcompare({outputs:float(),data.a_k[i]:float()})
   -- end
     -- pprint(gradParameters)
     -- pprint(build.coverage)
     -- print(string.format('coverage       min: %f max:%f',build.coverage:min(),build.coverage:max()))
     -- u.printf('average error: %f',err/params.K)
-    u.printf('E: %-10.2f   E_reg: %-10.2f   min,max: param (%-7.2f,%-7.2f,%-7.2f) dParam (%-7.2f,%-7.2f) dRdW (%-7.2f,%-7.2f)',err,regul_err,parameters:min(),parameters:max(),parameters:mean(),grad:min(),grad:max(),dRdW:min(),dRdW:max())
+    u.printf('E: %-10.2f   E_reg: %-10.2f   min,max: dParam (%-7.2f,%-7.2f) dRdW (%-7.2f,%-7.2f)',err,regul_err,grad:min(),grad:max(),dRdW:min(),dRdW:max())
     err = 0
     -- pprint(dRdW)
     -- plt:plot3d(dRdW[1]:float())
@@ -125,7 +125,7 @@ for e=1,epochs do
     -- gradParameters:maskedFill(mask,-max_grad)
     -- plt:plot3d(gradParameters[1]:float(),'gradParameters',0,1)
     grad:add(dRdW)
-    -- plt:plot3d(grad[1]:float(),'grad')
+
     -- gradParameters:cmul(build.coverage)
     -- optim.adam(feval, parameters, state)
     optim.sgd(feval, del, state)

@@ -22,7 +22,10 @@ function c:updateGradInput(input, gradOutput)
     -- self.gradInput:resizeAs(input)
     -- print('in ComplexAbs:updateGradInput')
     -- pprint(gradOutput)
-    self.gradInput:polar(gradOutput,0):cmul(input:conj())
+    self.gradInput:zero()
+    self.gradInput:copyRe(gradOutput):cmul(input:conj())
+    -- pprint(self.gradInput)
+    -- plt:plot(self.gradInput:zfloat(),'ComplexAbs gradInput')
     return self.gradInput
 end
 

@@ -47,6 +47,7 @@ function c:updateOutput(input)
 --  print('ConvParams out')
 --  pprint(self.output)
   self.output = self.tmp:re()
+
   return self.output
 end
 
@@ -58,16 +59,17 @@ function c:accGradParameters(input, gradOutput)
     -- pprint(gradOutput)
     -- pprint(self.inv_filter)
     -- pprint(self.gradWeight)
+    -- plt:plot(gradOutput[1][1]:float(),'gradOutput')
     self.tmp:zero()
     self.tmp:copyRe(gradOutput)
     self.tmp:fftBatched()
-    self.tmp:cmul(self.filter)
+    self.tmp:cmul(self.inv_filter)
     self.tmp:ifftBatched()
     self.gradWeight:add(self.tmp:re())
 
     -- pprint(self.gradWeight)
     -- pprint(self.gradWeight)
-    -- plt:plot(self.gradWeight[1]:float(),'gradWeight')
+    -- plt:plot(self.gradWeight[1][1]:float(),'gradWeight')
     return self.gradWeight
 end
 
