@@ -122,8 +122,9 @@ for e=1,epochs do
   gradParameters:add(dRdW)
   -- plt:plot3d(gradParameters[1]:float(),'gradParameters add')
 
-  gradParameters:cmul(build.coverage)
+  -- gradParameters:cmul(build.coverage)
   optim.adam(feval, parameters, state)
+  gradParameters:zero()
   u.printf('Time elapsed after epoch %d: %f seconds',e, timer:time().real)
   print('----------------------------------------------------------------')
   -- plt:plot3d(parameters[1]:float(),'parameters epoch ' .. e)

@@ -7,16 +7,17 @@ local c, parent = torch.class('znn.FFT', 'nn.Module')
 function c:__init()
  parent.__init(self)
  self.gradInput = torch.ZCudaTensor()
- -- self.output = torch.CudaTensor()
+ self.output = torch.ZCudaTensor()
 end
 
 function c:updateOutput(input)
   -- plt:plot(input[1]:zfloat(),'fft in')
   -- local I = input:clone():abs():pow(2):sum()
   -- print(string.format('integrated intensity: %f',I))
-  input:fftBatched()
+  self.output:resizeAs(input)
+  self.output:fftBatched(input)
   -- plt:plot(input[1]:zfloat(),'fft out')
-  return input
+  return self.output
 end
 
 function c:updateGradInput(input, gradOutput)

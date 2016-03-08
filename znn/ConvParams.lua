@@ -61,7 +61,7 @@ function c:accGradParameters(input, gradOutput)
     self.tmp:zero()
     self.tmp:copyRe(gradOutput)
     self.tmp:fftBatched()
-    self.tmp:cmul(self.inv_filter)
+    self.tmp:cmul(self.filter)
     self.tmp:ifftBatched()
     self.gradWeight:add(self.tmp:re())
 
