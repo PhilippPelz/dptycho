@@ -68,7 +68,7 @@ znn/lib/THZNN/libTHZNN.so: znn/lib/THZNN/CMakeFiles/THZNN.dir/./THZNN_generated_
 znn/lib/THZNN/libTHZNN.so: znn/lib/THZNN/CMakeFiles/THZNN.dir/build.make
 znn/lib/THZNN/libTHZNN.so: /usr/local/cuda-7.5/lib64/libcudart.so
 znn/lib/THZNN/libTHZNN.so: /home/philipp/torch/install/lib/libTH.so
-znn/lib/THZNN/libTHZNN.so: /usr/local/lib/libopenblas.so
+znn/lib/THZNN/libTHZNN.so: /opt/OpenBLAS/lib/libopenblas.so
 znn/lib/THZNN/libTHZNN.so: znn/lib/THZNN/CMakeFiles/THZNN.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --red --bold "Linking CXX shared module libTHZNN.so"
 	cd /home/philipp/projects/dptycho/build/znn/lib/THZNN && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/THZNN.dir/link.txt --verbose=$(VERBOSE)
