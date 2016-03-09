@@ -42,7 +42,11 @@ end
 
 function c:updateGradInput(input, gradOutput)
     -- self.gradInput:resizeAs(input)
+    -- pprint(gradOutput)
+    -- plt:plot(gradOutput:zfloat(),'CMulModule gradOutput')
+    print('in CMulModule:updateGradInput')
     self.gradInput:polar(1,self.weight):cmul(gradOutput)
+    -- plt:plot(self.gradInput[1]:zfloat(),'CMulModule gradInput')
     return self.gradInput
 end
 
@@ -52,7 +56,7 @@ function c:accGradParameters(input, gradOutput, scale)
   -- pprint(gradOutput)
   self.output:cmul(gradOutput)
   if self.update then
-    self.module:backward(input,self.output:im():mul(2))
+    self.module:backward(input,self.output:im():mul(-2))
   end
 end
 

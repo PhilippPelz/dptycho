@@ -9,7 +9,7 @@ function c:__init(Znums,r_atom_xy,r_atom_z,weight)
   local nOutputPlane = Znums
   local filter = torch.ones(nOutputPlane,nInputPlane,r_atom_z,r_atom_xy,r_atom_xy):cuda()
   local bias = torch.zeros(nOutputPlane):cuda()
-  local dT, dW, dH = 1,3,3
+  local dT, dW, dH = 1,2,2
   local padT, padW, padH = (r_atom_z-1)/2, (r_atom_xy-1)/2, (r_atom_xy-1)/2
   local kT, kW, kH = r_atom_z, r_atom_xy, r_atom_xy
 

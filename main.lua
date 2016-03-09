@@ -32,23 +32,23 @@ params.dx = 0.240602
 local build = builder(params)
 local init = stats.truncnorm(data.deltas:size():totable(),0,1,0.3,0.05)
 -- plt:plot(init,'init 1')
--- pprint(init)
--- data.deltas:copy(init)
+-- pprint(data.deltas)
+data.deltas[1][40]:copy(init[1][40])
 -- pprint(data.deltas)
 
 -- plt:plot3d(data.deltas[1]:float())
 -- plt:plot(data.a_k[1]:float(),'measurement 1')
 
 local model, del, grad
-local weight_penalty
+local weight_penalty = 1e-3
 local y = 1
 local wse = znn.WSECriterion(y):cuda()
-local weight_regul = znn.AtomRadiusPenalty(data.Znums:size(1),params.r_atom_xy,params.r_atom_z,0.1)
+local weight_regul = znn.AtomRadiusPenalty(data.Znums:size(1),params.r_atom_xy,params.r_atom_z,weight_penalty)
 
 local gradParameters = data.gradWeights
 local parameters = data.deltas
 local state = {
-  learningRate = 1e-2,
+  learningRate = 1e-1,
   --lrd=1e-6,
   momentum=0.9,
   nesterov=false
@@ -77,33 +77,35 @@ for e=1,epochs do
 
     regul_err = weight_regul:forward(parameters)
     outputs = model:forward()
+    -- plt:plotcompare({outputs:float(),data.a_k[i]:float()})
     err = err + wse:forward(outputs,data.a_k[i])
     dLdW = wse:backward(outputs,data.a_k[i])
+    -- plt:plot(dLdW:float(),'dLdW')
     dRdW = weight_regul:backward(del)
     model:backward(nil,dLdW)
 
     collectgarbage()
-    -- plt:plot(dLdW:float(),'dLdW')
+
     -- u.printMem()
     -- pprint(dRdW)
     -- plt:plot(outputs:float(),'model output '..i)
     -- plt:plotcompare({outputs:float(),data.a_k[i]:float()})
   -- end
-    -- pprint(gradParameters)
-    -- pprint(build.coverage)
+    -- pprint(dLdW)
+    -- pprint(dRdW)
     -- print(string.format('coverage       min: %f max:%f',build.coverage:min(),build.coverage:max()))
     -- u.printf('average error: %f',err/params.K)
     u.printf('E: %-10.2f   E_reg: %-10.2f   min,max: param (%-7.2f,%-7.2f,%-7.2f) dParam (%-7.2f,%-7.2f) dRdW (%-7.2f,%-7.2f)',err,regul_err,parameters:min(),parameters:max(),parameters:mean(),grad:min(),grad:max(),dRdW:min(),dRdW:max())
     err = 0
     -- pprint(dRdW)
-    -- plt:plot3d(dRdW[1]:float())
+    -- plt:plot(dRdW[1][39]:float())
     -- mask = torch.gt(gradParameters,max_grad)
     -- gradParameters:maskedFill(mask,max_grad)
     -- mask = torch.lt(gradParameters,-max_grad)
     -- gradParameters:maskedFill(mask,-max_grad)
     -- plt:plot3d(gradParameters[1]:float(),'gradParameters',0,1)
-    grad:add(dRdW)
-    plt:plot3d(grad[1]:float(),'grad')
+    -- grad:add(dRdW)
+    -- plt:plot3d(grad[1]:float(),'grad')
     -- gradParameters:cmul(build.coverage)
     -- optim.adam(feval, parameters, state)
     optim.sgd(feval, del, state)
@@ -115,7 +117,7 @@ for e=1,epochs do
   print('----------------------------------------------------------------')
   -- plt:plot3d(parameters[1]:float(),'parameters epoch ' .. e)
   collectgarbage()
-  u.printMem()
+  -- u.printMem()
 end
 
 --   weight_penalty = weight_regul:forward(data.deltas)

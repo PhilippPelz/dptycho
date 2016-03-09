@@ -111,6 +111,8 @@ function c:get_tower(i)
   -- in: [R,M,M]  out: [R,M,M]
   net:add(self.mask)
 
+
+
   for l=1,self.p.L do
     local slice = {{},{l},{pos[1]+1,pos[1]+self.p.M},{pos[2]+1,pos[2]+self.p.M}}
     -- print('slice')
@@ -147,6 +149,8 @@ function c:get_tower(i)
   -- in: [1,M,M]  out: [M,M]
   net:add(znn.Select(1,1))
   net:add(znn.Sqrt())
+
+  -- u.printf("built a %d layer neural network",#net.modules)
   local slice = {{},{},{pos[1]+1,pos[1]+self.p.M},{pos[2]+1,pos[2]+self.p.M}}
   return net, self.data.deltas[slice], self.data.gradWeights[slice]
 end
