@@ -36,7 +36,8 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho" TYPE FILE FILES
     "/home/philipp/projects/dptycho/init.lua"
     "/home/philipp/projects/dptycho/main.lua"
-    "/home/philipp/projects/dptycho/main2.lua"
+    "/home/philipp/projects/dptycho/recon_singleslice.lua"
+    "/home/philipp/projects/dptycho/gen_singleslice.lua"
     "/home/philipp/projects/dptycho/test/test.lua"
     )
 endif()

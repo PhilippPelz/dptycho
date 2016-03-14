@@ -61,10 +61,11 @@ function c:_init(params)
   params.sigma =  2.0 * pi * _gamma * params.lam * m0 * e / h / h * 1e18 -- interaction constant (1/(Vm))
   self.probe_size = self.data.probe:size():totable()
   self.mask = znn.SupportMask(self.probe_size,self.probe_size[#self.probe_size]/2)
-  self.out_tmp = torch.ZCudaTensor.new({math.max(self.p.Z,self.p.R),self.p.M,self.p.M})
+  self.R_tmp = torch.ZCudaTensor.new({self.p.R,self.p.M,self.p.M})
+  self.Z_tmp = torch.ZCudaTensor.new({self.p.Z,self.p.M,self.p.M})
 
   -- calculate coverage
-  self:get_coverage()
+  -- self:get_coverage()
 end
 
 function c:get_coverage()
@@ -109,7 +110,7 @@ function c:get_tower(i)
   source:immutable()
   net:add(source)
   -- in: [R,M,M]  out: [R,M,M]
-  net:add(self.mask)
+  -- net:add(self.mask)
 
   for l=1,self.p.L do
     local slice = {{},{l},{pos[1]+1,pos[1]+self.p.M},{pos[2]+1,pos[2]+self.p.M}}
@@ -118,26 +119,25 @@ function c:get_tower(i)
     local deltas = self.data.deltas[slice]
     local grads = self.data.gradWeights[slice]
     -- local cover = self.coverage[slice]
-    local deltas_size = deltas:size():totable()
+    local deltas_size = self.Z_tmp:size():totable()
 
     local arm = nn.Sequential()
     -- in: nil,     out: f[Z,M,M]
-    arm:add(znn.ConvParams(self.data.Wsize,self.data.atompot,self.data.inv_atompot,deltas,grads,self.out_tmp:narrow(1,1,self.p.Z)))
+    arm:add(znn.ConvParams(self.data.Wsize,self.data.atompot,self.data.inv_atompot,deltas,grads,self.Z_tmp))
     -- in: f[Z,M,M]  out: f[Z,M,M]
-    arm:add(znn.Threshold(0,0,true):cuda())
+    -- arm:add(znn.Threshold(0,0,true):cuda())
     -- in: f[Z,M,M]  out: f[1,M,M]
     arm:add(znn.Sum(1,deltas_size))
 
-
-    -- in: c[R,M,M]  out: c[R,M,M]
-    net:add(znn.CMulModule(arm,ctor,self.out_tmp:narrow(1,1,self.p.R)))
     -- in: [R,M,M]  out: [R,M,M]
-    net:add(znn.ConvFFT2D(self.data.prop,self.data.bwprop))
+    -- net:add(znn.ConvFFT2D(self.data.prop,self.data.bwprop))
+    -- in: c[R,M,M]  out: c[R,M,M]
+    net:add(znn.CMulModule(arm,ctor,self.R_tmp))
   end
   -- propagate to fourier space
   net:add(znn.FFT())
   -- in: cx[R,M,M]  out: f[R,M,M]
-  net:add(znn.ComplexAbs(self.out_tmp[1]))
+  net:add(znn.ComplexAbs(self.R_tmp))
   -- in: [R,M,M]  out: [R,M,M]
   net:add(znn.Square())
   -- sum the mode intensities
