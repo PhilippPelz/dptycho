@@ -10,7 +10,6 @@ function c:__init(module,ctor,output)
   self.module = module
   self.gradInput = output
   self.output = torch.ZCudaTensor()
-  self.gradWeight = torch.ZCudaTensor()
   self.update = true
 end
 function c:immutable()
@@ -21,19 +20,23 @@ function c:mutable()
   self.update = true
 end
 function c:updateOutput(input)
-  -- print('in CMulModule updateOutput')
+--  print('before mul forw')
+--  print('before mul forw 1')
   self.weight = self.module:forward(input)
-  -- pprint(self.weight)
-  -- pprint(input)
-  -- plt:plot(self.weight[1]:float(),'weight')
-  -- plt:plot(input[1]:zfloat(),'input')
-  self.output:resizeAs(self.weight)
+--  print('after mul forw')
+--  plt:plot(self.phase:zfloat(),'mod_out')
+    -- pprint(input)
+--  pprint(self.phase)
+ -- plt:plot(input[1]:zfloat(),'CMulModule input')
+--  print('before mul forw 2')
+  self.output:resizeAs(input)
+--  print('before mul forw 3')
   self.output:polar(1,self.weight)
-  -- plt:plot(self.output[1]:zfloat(),'self.output 1')
   self.output:expandAs(input)
-  -- plt:plot(self.output[1]:zfloat(),'self.output 2')
-  self.output=self.output:cmul(input)
-  -- plt:plot(self.output[1]:zfloat(),'self.output 3')
+--  print('before mul forw 4')
+  -- self.output:cmul(input)
+  self.output:cmul(input)
+  -- plt:plot(self.output[1]:zfloat(),'CMulModule out')
   return self.output
 end
 
@@ -47,12 +50,9 @@ function c:accGradParameters(input, gradOutput, scale)
   -- print('in ConvParams:updateGradInput')
   -- pprint(input)
   -- pprint(gradOutput)
-  self.gradWeight:resizeAs(input)
-  self.gradWeight:copy(input):conj():cmul(gradOutput)
-  self.gradWeight = self.gradWeight:im():mul(-2)
-  -- plt:plot(self.gradWeight[1]:float(),'CMulModule gradWeight')
+  self.output:cmul(gradOutput)
   if self.update then
-    self.module:backward(input,self.gradWeight)
+    self.module:backward(input,self.output:im():mul(2))
   end
 end
 

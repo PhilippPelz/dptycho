@@ -1,7 +1,6 @@
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/init.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/main.lua
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/recon_singleslice.lua
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/gen_singleslice.lua
+/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/main2.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/test.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/init.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/potential.lua

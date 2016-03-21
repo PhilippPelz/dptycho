@@ -25,7 +25,7 @@ function c:updateGradInput(input, gradOutput)
     self.gradInput:zero()
     self.gradInput:copyRe(gradOutput):cmul(input:conj())
     -- pprint(self.gradInput)
-    -- plt:plot(self.gradInput[1]:zfloat(),'ComplexAbs gradInput')
+    -- plt:plot(self.gradInput:zfloat(),'ComplexAbs gradInput')
     return self.gradInput
 end
 

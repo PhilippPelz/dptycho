@@ -1,7 +1,7 @@
 local classic = require 'classic'
 local py = require('fb.python')
 local argcheck = require('argcheck')
-local dataloader = require 'dptycho.io.dataloader'
+local dataloader = require 'io.dataloader'
 
 local PYTHON_PLOTFILE = "/home/philipp/projects/dptycho-devel/plot.py"
 --local PYTHON_PLOTFILE = "./plot.py"

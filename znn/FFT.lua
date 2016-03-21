@@ -16,7 +16,7 @@ function c:updateOutput(input)
   -- print(string.format('integrated intensity: %f',I))
   self.output:resizeAs(input)
   self.output:fftBatched(input)
-  -- plt:plot(self.output[1]:zfloat(),'fft out')
+  -- plt:plot(input[1]:zfloat(),'fft out')
   return self.output
 end
 
