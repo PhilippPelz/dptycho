@@ -3,21 +3,25 @@ require 'torch'
 require 'ztorch'
 require 'zcutorch'
 require 'pprint'
-require 'nn'
-require 'cunn'
 
 local dataloader = require 'dptycho.io.dataloader'
+
+require 'nn'
+require 'cunn'
 local cudnn = require 'cudnn'
 local znn = require 'dptycho.znn'
+
+cudnn.benchmark = true
+cudnn.fastest = true
 local u = require 'dptycho.util'
 local stats = require "dptycho.util.stats"
 local plot = require 'dptycho.io.plot'
 local builder = require 'dptycho.core.netbuilder'
 local optim = require "optim"
+
 local plt = plot()
 
-cudnn.benchmark = true
-cudnn.fastest = true
+
 local path = '/home/philipp/projects/slicepp/Examples/configs/'
 local file = 'ball2.h5'
 local data = u.load_sim_and_allocate_stacked(path,file,true)
@@ -29,11 +33,14 @@ params.E = 80e3
 params.M = data.probe:size(2)
 params.dx = 0.240602
 
+-- table of networks
 local build = builder(params)
+-- collectGarbage()
+-- data.deltas:size():totable()
 local init = stats.truncnorm(data.deltas:size():totable(),0,1,0.3,0.05)
 -- plt:plot(init,'init 1')
 -- pprint(init)
--- data.deltas:copy(init)
+data.deltas:copy(init)
 -- pprint(data.deltas)
 
 -- plt:plot3d(data.deltas[1]:float())
@@ -47,9 +54,25 @@ local weight_regul = znn.AtomRadiusPenalty(data.Znums:size(1),params.r_atom_xy,p
 
 local gradParameters = data.gradWeights
 local parameters = data.deltas
+
+-- local d  = data.deltas:select(2,1)
+-- pprint(d)
+
+-- local err, outputs
+-- feval = function(x)
+--   --  model:zeroGradParameters()
+--    outputs = model:forward()
+--    err = criterion:forward(outputs, labels)
+--    local gradOutputs = criterion:backward(outputs, labels)
+--    model:backward(inputs, gradOutputs)
+--    return err, gradParameters
+-- end
+-- optim.sgd(feval, parameters, optimState)
+-- local diff = torch.CudaTensor(data.a_k[i])
+
 local state = {
-  learningRate = 1e-2,
-  --lrd=1e-6,
+  learningRate = 1,
+  lrd=1e-6,
   momentum=0.9,
   nesterov=false
 }
@@ -65,8 +88,7 @@ for e=1,epochs do
   -- plt:plot3d(dRdW[1]:float())
   -- plt:plot3d(build.coverage[1]:float(),'build.coverage')
   err = 0
-  --params.K
-  for i=1,1  do
+  for i=1, params.K do
 
     model, del, grad = build:get_tower(i)
 
@@ -75,7 +97,7 @@ for e=1,epochs do
        return err, grad
     end
 
-    regul_err = weight_regul:forward(parameters)
+    regul_err = weight_regul:forward(del)
     outputs = model:forward()
     err = err + wse:forward(outputs,data.a_k[i])
     dLdW = wse:backward(outputs,data.a_k[i])
@@ -86,14 +108,14 @@ for e=1,epochs do
     -- plt:plot(dLdW:float(),'dLdW')
     -- u.printMem()
     -- pprint(dRdW)
-    -- plt:plot(outputs:float(),'model output '..i)
+    -- plt:plot(outputs:clone():float(),'model output '..i)
     -- plt:plotcompare({outputs:float(),data.a_k[i]:float()})
   -- end
     -- pprint(gradParameters)
     -- pprint(build.coverage)
     -- print(string.format('coverage       min: %f max:%f',build.coverage:min(),build.coverage:max()))
     -- u.printf('average error: %f',err/params.K)
-    u.printf('E: %-10.2f   E_reg: %-10.2f   min,max: param (%-7.2f,%-7.2f,%-7.2f) dParam (%-7.2f,%-7.2f) dRdW (%-7.2f,%-7.2f)',err,regul_err,parameters:min(),parameters:max(),parameters:mean(),grad:min(),grad:max(),dRdW:min(),dRdW:max())
+    u.printf('E: %-10.2f   E_reg: %-10.2f   min,max: dParam (%-7.2f,%-7.2f) dRdW (%-7.2f,%-7.2f)',err,regul_err,grad:min(),grad:max(),dRdW:min(),dRdW:max())
     err = 0
     -- pprint(dRdW)
     -- plt:plot3d(dRdW[1]:float())
@@ -103,7 +125,7 @@ for e=1,epochs do
     -- gradParameters:maskedFill(mask,-max_grad)
     -- plt:plot3d(gradParameters[1]:float(),'gradParameters',0,1)
     grad:add(dRdW)
-    plt:plot3d(grad[1]:float(),'grad')
+
     -- gradParameters:cmul(build.coverage)
     -- optim.adam(feval, parameters, state)
     optim.sgd(feval, del, state)
