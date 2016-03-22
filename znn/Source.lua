@@ -23,7 +23,8 @@ function c:mutable()
 end
 
 function c:updateOutput(input)
-  return self.weight:clone()
+  self.output = self.weight:clone()
+  return self.output
 end
 
 function c:updateGradInput(input, gradOutput)

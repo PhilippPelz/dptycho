@@ -22,9 +22,13 @@ function Sum:__init(dimension,size)
 end
 
 function Sum:updateOutput(input)
-  input:sum(self.dimension)
-  -- plt:plot(input[1]:float(),'Sum out')
-  return input
+  -- print('Sum in')
+  -- pprint(input)
+  self.output = input:sum(self.dimension)
+  -- plt:plot(self.output[1]:float(),'Sum out')
+  -- print('Sum out')
+  -- pprint(self.output)
+  return self.output
 end
 
 function Sum:updateGradInput(input, gradOutput)
@@ -32,11 +36,10 @@ function Sum:updateGradInput(input, gradOutput)
   -- pprint(self.view)
   -- print('sum expand')
   -- pprint(self.expand)
+  -- pprint(gradOutput)
   self.gradInput = gradOutput:view(unpack(self.view))
   -- pprint(self.gradInput)
-  self.gradInput:expand(unpack(self.expand))
-  -- pprint(self.gradInput)
-  -- print('in Sum:updateGradInput')
+  self.gradInput = self.gradInput:expand(unpack(self.expand))
   -- pprint(self.gradInput)
   return self.gradInput
 end
