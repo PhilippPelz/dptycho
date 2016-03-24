@@ -1,6 +1,10 @@
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/init.lua
+/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/ptycho.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/main.lua
+/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/ptycho_old.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/main2.lua
+/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/ptysimul.lua
+/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/ptyrecon.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/test.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/init.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/potential.lua
@@ -21,6 +25,7 @@
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/znn/WSECriterion.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/znn/Sum.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/znn/AddConst.lua
+/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/znn/CMul.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/znn/FFT.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/znn/THZNN.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/znn/VolumetricConvolutionFixedFilter.lua

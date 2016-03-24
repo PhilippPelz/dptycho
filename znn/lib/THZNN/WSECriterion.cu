@@ -5,10 +5,11 @@
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
 #include <thrust/inner_product.h>
+#include <thrust/complex.h>
 #if CUDA_VERSION >= 7000
 #include <thrust/system/cuda/execution_policy.h>
 #endif
-
+#include <stdlib.h>
 struct mse_functor
 {
   mse_functor() {}
@@ -19,6 +20,7 @@ struct mse_functor
     return z*z;
   }
 };
+
 
 void THNN_CudaWSECriterion_updateOutput(THCState *state, THCudaTensor *input, THCudaTensor *target, THCudaTensor *output, float weight)
 {
@@ -94,4 +96,72 @@ void THNN_CudaWSECriterion_updateGradInput(THCState *state, THCudaTensor *input,
 
   THCudaTensor_free(state, input);
   THCudaTensor_free(state, target);
+}
+
+template <typename T> struct InvSigma : public thrust::unary_function<T, T> {
+  T sigma;
+  InvSigma(T _sigma) : sigma(_sigma) {}
+  __host__ __device__ void operator()(T* out,T* in) { *out = T(1) / (*in + sigma); }
+  __host__ __device__ void operator()(T* out) { *out = T(1) / (*out + sigma); }
+};
+
+TH_API void THNN_CudaInvSigma(THCState* state, THCudaTensor* self_, THCudaTensor* src, float sigma) {
+  THAssert(THCudaTensor_checkGPU(state, 2, self_, src));
+  THArgCheck(THCudaTensor_nElement(state, self_) == THCudaTensor_nElement(state, src), 3, "sizes do not match (self_,src1)");
+  if (self_ == src) {
+    if (!THCudaTensor_pointwiseApply1(state, self_, InvSigma<float>(sigma))) {
+      THArgCheck(false, 2, CUTORCH_DIM_WARNING);
+    }
+  } else {
+    THCudaTensor_resizeAs(state, self_, src);
+
+    if (!THCudaTensor_pointwiseApply2(state, self_, src, InvSigma<float>(sigma))) {
+      THArgCheck(false, 2, CUTORCH_DIM_WARNING);
+    }
+  }
+
+  THCudaCheck(cudaGetLastError());
+}
+
+struct ModProj {
+	__device__ __forceinline__ void operator()(float* norm, float* abs, ccx* out) {
+    if(*out != ccx(0)){
+		    *out = (*out / *norm)* *abs ;
+        // *out = thrust::polar(*abs,thrust::arg(*out));
+    }
+    else {
+        *out = ccx(0);
+    }
+	}
+
+	__device__ __forceinline__ void operator()(ccx* out, ccx* in1, float* in2) {
+    if(*in1 != ccx(0)){
+		    *out = *in1 / thrust::abs(*in1) * *in2;
+    } else {
+        *out = ccx(0);
+    }
+	}
+};
+
+void THNN_ZCudaP_Mod(THCState *state, THZCudaTensor *self_, THZCudaTensor *src1, THCudaTensor *norm, THCudaTensor *f)
+{
+  THAssert(THZCudaTensor_checkGPU(state, 2, self_, src1));
+  THAssert(THCudaTensor_checkGPU(state, 1, f));
+  THArgCheck(THZCudaTensor_nElement(state, self_) == THCudaTensor_nElement(state, f), 5, "sizes do not match (result,abs)");
+  THArgCheck(THZCudaTensor_nElement(state, self_) == THCudaTensor_nElement(state, norm), 4, "sizes do not match (result,norm)");
+  if (self_ == src1) {
+    // self *= src2
+    if (!THZCudaTensor_pointwiseApply3FFZ(state, norm, f, self_, ModProj())) {
+      THArgCheck(false, 2, CUTORCH_DIM_WARNING);
+    }
+  } else {
+    printf("out-of-place modulus projection not supported!");
+    exit(1);
+    // THZCudaTensor_resizeAs(state, self_, src1);
+
+    // self = src1 * src2
+    // if (!THZCudaTensor_pointwiseApply3ZZF(state, self_, src1, f, ModProj())) {
+      // THArgCheck(false, 2, CUTORCH_DIM_WARNING);
+    // }
+  }
 }
