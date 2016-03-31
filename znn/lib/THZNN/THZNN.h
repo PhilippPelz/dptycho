@@ -19,3 +19,5 @@ TH_API void THNN_CudaInvSigma(THCState *state, THCudaTensor *self_,
 TH_API void THNN_ZCudaP_Mod(THCState *state, THZCudaTensor *self_,
                             THZCudaTensor *src1, THCudaTensor *norm,
                             THCudaTensor *f);
+TH_API void THNN_ZCudaClipMinMax(THCState *state, THZCudaTensor *self_,
+                                 THZCudaTensor *src1, float min, float max);

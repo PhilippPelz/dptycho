@@ -126,18 +126,10 @@ TH_API void THNN_CudaInvSigma(THCState* state, THCudaTensor* self_, THCudaTensor
 struct ModProj {
 	__device__ __forceinline__ void operator()(float* norm, float* abs, ccx* out) {
     if(*out != ccx(0)){
-		    *out = (*out / *norm)* *abs ;
+		    *out = *out * (*abs/ (*norm+1e-6f)) ;
         // *out = thrust::polar(*abs,thrust::arg(*out));
     }
     else {
-        *out = ccx(0);
-    }
-	}
-
-	__device__ __forceinline__ void operator()(ccx* out, ccx* in1, float* in2) {
-    if(*in1 != ccx(0)){
-		    *out = *in1 / thrust::abs(*in1) * *in2;
-    } else {
         *out = ccx(0);
     }
 	}
@@ -164,4 +156,46 @@ void THNN_ZCudaP_Mod(THCState *state, THZCudaTensor *self_, THZCudaTensor *src1,
       // THArgCheck(false, 2, CUTORCH_DIM_WARNING);
     // }
   }
+}
+struct TensorClipMax {
+  float _max;
+  float _min;
+  TensorClipMax(float min,float max) : _max(max), _min(min) {}
+  __device__ __forceinline__ void operator()(ccx* o, ccx* i) const {
+    float ro = i->real();
+    float io = i->imag();
+    if(ro>_max) ro = _max;
+    if(io>_max) io = _max;
+    if(ro<_min) ro = _min;
+    if(io<_min) io = _min;
+    *o = ccx(ro,io);
+  }
+
+  __device__ __forceinline__ void operator()(ccx* v) const {
+    float ro = v->real();
+    float io = v->imag();
+    if(ro>_max) ro = _max;
+    if(io>_max) io = _max;
+    if(ro<_min) ro = _min;
+    if(io<_min) io = _min;
+    *v = ccx(ro,io);
+  }
+};
+
+void THNN_ZCudaClipMinMax(THCState *state, THZCudaTensor *self_,
+                              THZCudaTensor *src, float min, float max){
+THAssert(THZCudaTensor_checkGPU(state, 2, self_, src));
+if (self_ == src) {
+  if (!THZCudaTensor_pointwiseApply1(state, self_, TensorClipMax(min,max))) {
+    THArgCheck(false, 2, CUTORCH_DIM_WARNING);
+  }
+} else {
+  THZCudaTensor_resizeAs(state, self_, src);
+
+  if (!THZCudaTensor_pointwiseApply2(state, self_, src, TensorClipMax(min,max))) {
+    THArgCheck(false, 2, CUTORCH_DIM_WARNING);
+  }
+}
+
+THZCudaCheck(cudaGetLastError());
 }
