@@ -31,7 +31,7 @@ def plot(img, title='Image', savePath=None, cmap='hot', show=True):
 
     plt.close()
 
-def zplot(img, suptitle='Image', savePath=None, cmap=['hot','hsv'], title=['Abs','Phase'], show=True):
+def zplot(img, suptitle='Image', savePath=None, cmap=['hot','Greys'], title=['Abs','Phase'], show=True):
     im1, im2 = img
     fig, (ax1,ax2) = plt.subplots(1,2)
     div1 = make_axes_locatable(ax1)

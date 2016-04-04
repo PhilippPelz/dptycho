@@ -199,3 +199,119 @@ if (self_ == src) {
 
 THZCudaCheck(cudaGetLastError());
 }
+
+__device__ int ind3d(int x, int y, int z, int X, int Y){
+  return z * (X * Y) + y * Y + x;
+}
+
+__global__ void batched_bilinear_interpolation_kernel(ccx * dest, ccx * src, const int X, const int Y, int shx, int shy, float shiftx, float shifty)
+{
+   const int z = blockIdx.z;
+   const int x = threadIdx.x + blockDim.x * blockIdx.x;
+   const int y = threadIdx.y + blockDim.y * blockIdx.y;
+
+   if ((x<X)&&(y<Y)) {
+    const int    ind_x = x+shx;
+    const float  a     = shiftx;
+
+    const int    ind_y = y+shy;
+    const float  b     = shifty;
+
+    if(shiftx == 0.0f && shifty == 0.0f && x>=0 && y >= 0){
+      dest[ind3d(x,y,z,X,Y)] = src[ind3d(ind_x,ind_y,z,X,Y)];
+    } else if (ind_x < 0 || ind_y < 0 || ind_x+1 >= X || ind_y + 1 > Y){
+      dest[ind3d(x,y,z,X,Y)] = 0;
+    } else {
+      dest[ind3d(x,y,z,X,Y)] = (1-a)*(1-b)*src[ind3d(ind_x,ind_y,z,X,Y)] +
+                                (a)*(1-b)*src[ind3d(ind_x+1,ind_y,z,X,Y)] +
+                                (1-a)*(b)*src[ind3d(ind_x,ind_y+1,z,X,Y)] +
+                                a*b*src[ind3d(ind_x+1,ind_y+1,z,X,Y)];
+    }
+   }
+}
+
+TH_API void THNN_ZCudaBatchedBilinearInterpolation(THCState *state,
+                                                   THZCudaTensor *self_,
+                                                   THZCudaTensor *src1,
+                                                   float u, float v){
+  THAssert(THZCudaTensor_checkGPU(state, 2, self_, src1));
+  THArgCheck(self_ != src1, 2, "source and destination must be two distinct tensors");
+  THArgCheck(THZCudaTensor_nElement(state, self_) == THZCudaTensor_nElement(state, src1), 3, "sizes do not match (self_,src1)");
+  u *= -1;
+  v *=-1;
+  int xi = 0, yi = 0;
+  while(u < 0.0f){
+    u+=1.0f;
+    xi--;
+  }
+  while(v < 0.0f){
+    v+=1.0f;
+    yi--;
+  }
+  while(u > 1.0f){
+    u-=1.0f;
+    xi++;
+  }
+  while(v > 1.0f){
+    v-=1.0f;
+    yi++;
+  }
+  long iz = THZCudaTensor_size(state, self_, 0);
+  long ix = THZCudaTensor_size(state, self_, 1);
+  long iy = THZCudaTensor_size(state, self_, 2);
+
+  printf("xi,u,yi,v = %d,%f,%d,%f\n",xi,u,yi,v);
+
+  dim3 threadsPerBlock(16, 16);
+  dim3 numBlocks(ix / threadsPerBlock.x, iy / threadsPerBlock.y, iz);
+
+  ccx* dest_data = (ccx*)THZCudaTensor_data(state, self_);
+  ccx* src_data = (ccx*)THZCudaTensor_data(state, src1);
+
+  batched_bilinear_interpolation_kernel<<<numBlocks,threadsPerBlock>>>(dest_data,src_data,ix,iy,xi,yi,u,v);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int i = 0;

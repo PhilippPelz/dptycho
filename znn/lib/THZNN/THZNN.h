@@ -21,3 +21,8 @@ TH_API void THNN_ZCudaP_Mod(THCState *state, THZCudaTensor *self_,
                             THCudaTensor *f);
 TH_API void THNN_ZCudaClipMinMax(THCState *state, THZCudaTensor *self_,
                                  THZCudaTensor *src1, float min, float max);
+
+TH_API void THNN_ZCudaBatchedBilinearInterpolation(THCState *state,
+                                                   THZCudaTensor *self_,
+                                                   THZCudaTensor *src1,
+                                                   float shiftx, float shifty);

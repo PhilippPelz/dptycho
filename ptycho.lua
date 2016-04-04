@@ -14,7 +14,7 @@ local zt = require "ztorch.complex"
 local path = '/home/philipp/drop/Public/'
 local file = 'po.h5'
 
-local engine = require 'dptycho.core.ptycho.RAAR_engine'
+local engine = require 'dptycho.core.ptycho.DM_engine'
 
 
 local par = {}
@@ -35,9 +35,7 @@ local pr = f:read('/pr'):all():cuda()
 local pi = f:read('/pi'):all():cuda()
 local probe = torch.ZCudaTensor.new(pr:size()):copyIm(pi):copyRe(pr)
 local solution = torch.ZCudaTensor.new(o_r:size()):copyIm(o_i):copyRe(o_r)
-
-
-
+-- plt:plot(solution:zfloat(),'solution')
 o_r = nil
 o_i = nil
 pr = nil
@@ -45,11 +43,9 @@ pi = nil
 collectgarbage()
 
 -- frames
-local K = a:size(1)
-local M = a:size(2)
-local MM = M*M
+
 local nmodes_probe = 1
 local nmodes_object = 1
 
-local ngin = engine(pos,a,nmodes_probe,nmodes_object,solution,probe)
+local ngin = engine(pos,a,nmodes_probe,nmodes_object,solution,nil)
 ngin:iterate(100)

@@ -38,6 +38,7 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
     "/home/philipp/projects/dptycho/ptycho.lua"
     "/home/philipp/projects/dptycho/main.lua"
     "/home/philipp/projects/dptycho/ptycho_old.lua"
+    "/home/philipp/projects/dptycho/test_shift.lua"
     "/home/philipp/projects/dptycho/main2.lua"
     "/home/philipp/projects/dptycho/ptysimul.lua"
     "/home/philipp/projects/dptycho/ptyrecon.lua"
@@ -50,6 +51,15 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
     "/home/philipp/projects/dptycho/core/init.lua"
     "/home/philipp/projects/dptycho/core/potential.lua"
     "/home/philipp/projects/dptycho/core/netbuilder.lua"
+    )
+endif()
+
+if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho" TYPE FILE FILES
+    "/home/philipp/projects/dptycho/core/ptycho/init.lua"
+    "/home/philipp/projects/dptycho/core/ptycho/RAAR_engine.lua"
+    "/home/philipp/projects/dptycho/core/ptycho/DM_engine.lua"
+    "/home/philipp/projects/dptycho/core/ptycho/base_engine.lua"
     )
 endif()
 
