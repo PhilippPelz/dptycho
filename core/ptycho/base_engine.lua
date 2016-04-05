@@ -21,27 +21,38 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   self.P_Qz = torch.ZCudaTensor.new(K,Np,M,M)
   self.P_Fz = torch.ZCudaTensor.new(K,Np,M,M)
 
-  local z1_store = self.z:storage()
-  local z2_store = self.P_Qz:storage()
-  local z3_store = self.P_Fz:storage()
+  local P_Qz_storage = self.P_Qz:storage()
+  local P_Fz_storage = self.P_Fz:storage()
 
-  local z1_pointer = tonumber(torch.data(z1_store,true))
-  local z2_pointer = tonumber(torch.data(z2_store,true))
-  local z3_pointer = tonumber(torch.data(z3_store,true))
+  local z2_pointer = tonumber(torch.data(P_Qz_storage,true))
+  local z3_pointer = tonumber(torch.data(P_Fz_storage,true))
 
-  local z1_real_storage = torch.CudaStorage(z1_store:size()*2,z1_pointer)
-  local z2_real_storage = torch.CudaStorage(z2_store:size()*2,z2_pointer)
-  local z3_real_storage = torch.CudaStorage(z3_store:size()*2,z3_pointer)
+  local P_Qz_storage_real = torch.CudaStorage(P_Qz_storage:size()*2,z2_pointer)
+  local P_Fz_storage_real = torch.CudaStorage(P_Fz_storage:size()*2,z3_pointer)
 
-  self.P_tmp = torch.ZCudaTensor.new(z1_store,1,{Np,M,M})
-  self.P_tmp2 = torch.ZCudaTensor.new(z2_store,1,{Np,M,M})
-  self.O_tmp = torch.ZCudaTensor.new(z3_store,1,{No,Nx,Ny})
+  -- buffers for refine_probe, P_Qz and P_Fz available
+  self.P_tmp = torch.ZCudaTensor.new(P_Qz_storage,1,{Np,M,M})
+  self.P_tmp2 = torch.ZCudaTensor.new(P_Qz_storage,Np*M*M+1,{Np,M,M})
+  self.a_tmp2 = torch.CudaTensor.new(P_Fz_storage_real,1,torch.LongStorage{1,M,M})
+  self.a_tmp3 = torch.CudaTensor.new(P_Qz_storage_real,((2*Np*M*M*2)+1),torch.LongStorage{1,M,M})
+  self.P_real2 = torch.CudaTensor.new(P_Qz_storage_real,((2*Np*M*M*2)+1*M*M+1),torch.LongStorage{Np,M,M})
 
-  self.P_real = torch.CudaTensor.new(z1_real_storage,1,torch.LongStorage{Np,M,M})
-  self.a_tmp = torch.CudaTensor.new(z1_real_storage,1,torch.LongStorage{1,M,M})
-  self.a_tmp2 = torch.CudaTensor.new(z2_real_storage,1,torch.LongStorage{1,M,M})
-  self.fdev = torch.CudaTensor.new(z3_real_storage,1,torch.LongStorage{1,M,M})
-  self.O_real_tmp = torch.CudaTensor.new(z1_real_storage,1,torch.LongStorage{1,Nx,Ny})
+  -- self.P_tmp = torch.ZCudaTensor.new(Np,M,M)
+  -- self.P_tmp2 = torch.ZCudaTensor.new(Np,M,M)
+  -- self.a_tmp2 = torch.CudaTensor.new(1,M,M)
+  -- self.a_tmp3 = torch.CudaTensor.new(1,M,M)
+  -- self.P_real2 = torch.CudaTensor.new(Np,M,M)
+
+  -- buffers used in P_F, points to the not used P_Qz
+  self.P_real = torch.CudaTensor.new(P_Qz_storage_real,1,torch.LongStorage{Np,M,M})
+  self.a_tmp = torch.CudaTensor.new(P_Qz_storage_real,Np*M*M+1,torch.LongStorage{1,M,M})
+
+  -- not used atm
+  self.fdev = torch.CudaTensor.new(P_Fz_storage_real,1,torch.LongStorage{1,M,M})
+
+  -- used in image_error
+  self.O_real_tmp = torch.CudaTensor.new(P_Qz_storage_real,1,torch.LongStorage{1,Nx,Ny})
+  self.O_tmp = torch.ZCudaTensor.new(P_Fz_storage,1,{No,Nx,Ny})
 
   self.O = self.O:zcuda():fillRe(1)
   self.O_denom:zero()
@@ -95,7 +106,7 @@ function engine:_init(pos,a,nmodes_probe,nmodes_object,solution,probe)
                     x.THNN.ClipMinMax(x:cdata(),x:cdata(),min,max)
                   end
 
-  self.probe_update_start = 1
+  self.probe_update_start = 5
   self.update_probe = true
   pprint(self.O)
   for i=1,self.K do
@@ -110,12 +121,12 @@ function engine:_init(pos,a,nmodes_probe,nmodes_object,solution,probe)
   self:update_z_from_O(self.z)
   self.norm_a = self.a:sum()
   self.mean_counts = self.norm_a/self.K/self.MM
-  -- self.O_mask = self.O_denom:lt(1e-8)
+  self.O_mask = self.O_denom:lt(1e-8)
   -- plt:plot(self.O_mask[1]:float(),'O_mask')
   -- plt:plot(self.O[1]:abs():float(),'self.O')
   -- printMinMax(self.O,'O')
   u.printMem()
-  plt:plot(self.P[1]:zfloat(),'self.P - init')
+  -- plt:plot(self.P[1]:zfloat(),'self.P - init')
   -- printMinMax(self.P,'probe')
 end
 
@@ -140,9 +151,8 @@ end
 function engine:merge_frames(z, mul_merge, merge_memory, merge_memory_views)
   local tmp = self.P_tmp
   merge_memory:fillRe(1e-4):fillIm(0)
-  pprint(z)
   for k, view in ipairs(merge_memory_views) do
-    view[k]:add(tmp:conj(mul_merge):cmul(z[k]):sum(1))
+    view:add(tmp:conj(mul_merge):cmul(z[k]):sum(1))
   end
   self.O:cmul(self.O_denom)
 end
@@ -192,19 +202,8 @@ function engine:P_F(z_in,z_out)
     z_out[k]:fftBatched(z_in[k])
     abs = abs:normZ(z_out[k]):sum(1)
     abs:sqrt()
-
     module_error = module_error + da:add(abs,-1,self.a[k]):sum()
-
-    -- self.fdev:add(abs,-1,self.a[k]):pow(2)
-    -- local power = self.fdev:sum()/self.fdev:nElement()
-    --
-    -- if power > self.pbound then
     abs:expandAs(z_out[k])
-      -- local renorm = math.sqrt(self.pbound/power)
-      -- u.printf('%i: power=%g, pbound = %g, renorm = %g',k,power,self.pbound, renorm)
-      -- self.fdev:sqrt():mul(renorm):add(self.a[k])
-    -- printMinMax(a[k],'engine:P_F a[k]    ')
-    -- plt:plot(z_out[k][1]:abs():float():log(),'z_out[k] - before P_Mod')
     self.P_Mod(z_out[k],abs,self.a[k])
     z_out[k]:ifftBatched()
   end
@@ -214,32 +213,36 @@ function engine:P_F(z_in,z_out)
 end
 
 function engine:refine_probe()
+  local new_probe = self.P_tmp
   local oview_conj = self.P_tmp2
-  local denom = self.a_tmp
+  local dP = self.P_tmp2
+  local dP_abs = self.P_real2
+  local denom = self.a_tmp3
   local tmp = self.a_tmp2
-  self.P_tmp:zero()
+
+  new_probe:zero()
   denom:zero()
-  for k=1,self.K do
-    local ovk = self.O_views[k]:repeatTensor(self.Np,1,1)
+
+  for k, view in ipairs(self.O_views) do
+    local ovk = view:repeatTensor(self.Np,1,1)
     oview_conj:conj(ovk)
-    self.P_tmp:add(oview_conj:cmul(self.z[k]))
-    denom:add(tmp:normZ(self.O_views[k]))
+    new_probe:add(oview_conj:cmul(self.z[k]))
+    denom:add(tmp:normZ(view))
   end
 
-  self.P_tmp:cdiv(denom)
-  self.P_tmp = self.support:forward(self.P_tmp)
-  local dP = self.P_tmp2:add(self.P_tmp,-1,self.P):abs()
-  -- plt:plot(dP[1]:float(),'dP')
-  local probe_change = dP:sum()
-  self.P:copy(self.P_tmp)
+  new_probe:cdiv(denom)
+  new_probe = self.support:forward(new_probe)
+
+  local probe_change = dP_abs:absZ(dP:add(new_probe,-1,self.P)):sum()
+  self.P:copy(new_probe)
 
   self:calculateO_denom()
   return probe_change
 end
 
 function engine:overlap_error(z_in,z_out)
-  local tmpz = self.P_Fz
-  return tmpz:add(z_in,-1,z_out):norm():sum() / z_out:norm():sum()
+  local result = self.P_Fz
+  return result:add(z_in,-1,z_out):norm():sum() / z_out:norm():sum()
 end
 
 function engine:image_error()
