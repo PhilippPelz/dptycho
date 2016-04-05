@@ -36,22 +36,25 @@ function engine:iterate(steps)
         local probe_change = self:refine_probe()
         if not probe_change_0 then probe_change_0 = probe_change end
         self:update_O(self.z)
-        -- plt:plot(self.O[1]:abs():float(),'self.O')
         if probe_change < .1 * probe_change_0 then break end
         u.printf('probe change : %g',probe_change)
       end
 
       self:update_z_from_O(self.z)
     end
-    if i % 5 == 0 then
-      plt:plot(self.O[1]:cmul(self.O_mask):zfloat(),'object - it '..i)
+
+    if i % 20 == 0 then
+      plt:plot(self.O[1]:zfloat(),'object - it '..steps)
       plt:plot(self.P[1]:zfloat(),'new probe')
     end
+
     image_error = self:image_error()
 
     u.printf('iteration %03d: e_mod = %g    e_overlap = %g    e_image = %g',i,mod_error,overlap_error,image_error)
     print('--------------------------------------------------------------------------------')
   end
+  plt:plot(self.O[1]:zfloat(),'object - it '..steps)
+  plt:plot(self.P[1]:zfloat(),'new probe')
 end
 
 return engine

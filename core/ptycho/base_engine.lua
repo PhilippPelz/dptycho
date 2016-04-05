@@ -37,12 +37,6 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   self.a_tmp3 = torch.CudaTensor.new(P_Qz_storage_real,((2*Np*M*M*2)+1),torch.LongStorage{1,M,M})
   self.P_real2 = torch.CudaTensor.new(P_Qz_storage_real,((2*Np*M*M*2)+1*M*M+1),torch.LongStorage{Np,M,M})
 
-  -- self.P_tmp = torch.ZCudaTensor.new(Np,M,M)
-  -- self.P_tmp2 = torch.ZCudaTensor.new(Np,M,M)
-  -- self.a_tmp2 = torch.CudaTensor.new(1,M,M)
-  -- self.a_tmp3 = torch.CudaTensor.new(1,M,M)
-  -- self.P_real2 = torch.CudaTensor.new(Np,M,M)
-
   -- buffers used in P_F, points to the not used P_Qz
   self.P_real = torch.CudaTensor.new(P_Qz_storage_real,1,torch.LongStorage{Np,M,M})
   self.a_tmp = torch.CudaTensor.new(P_Qz_storage_real,Np*M*M+1,torch.LongStorage{1,M,M})
@@ -56,10 +50,10 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
   self.O = self.O:normal():zcuda()
   self.O_denom:zero()
-  self.P:zero():add(1)
+  self.P:add(1)
 end
 
-function engine:_init(pos,a,nmodes_probe,nmodes_object,solution,probe)
+function engine:_init(pos,a,nmodes_probe,nmodes_object,solution,probe,dpos)
 
   self.solution = solution
   self.pos = pos
@@ -68,7 +62,6 @@ function engine:_init(pos,a,nmodes_probe,nmodes_object,solution,probe)
   self.K = a:size(1)
   self.M = a:size(2)
   self.MM = self.M*self.M
-
 
   self.Np = nmodes_probe
   self.No = nmodes_object
@@ -251,9 +244,9 @@ function engine:image_error()
     local c = self.O[1]:dot(self.solution)
     -- print(c)
     local phase_diff = c/zt.abs(c)
-    -- print('phase difference: ',phase_diff)
+    print('phase difference: ',phase_diff)
     self.O_tmp:mul(self.O,phase_diff)
-    norm:normZ(self.O_tmp:add(-1,self.solution):cmul(self.O_mask))
+    norm:normZ(self.O_tmp:add(-1,self.solution)):cmul(self.O_mask)
     return norm:sum()/self.solution:norm():sum()
   end
 end

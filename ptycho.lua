@@ -35,7 +35,7 @@ local pr = f:read('/pr'):all():cuda()
 local pi = f:read('/pi'):all():cuda()
 local probe = torch.ZCudaTensor.new(pr:size()):copyIm(pi):copyRe(pr)
 local solution = torch.ZCudaTensor.new(o_r:size()):copyIm(o_i):copyRe(o_r)
--- plt:plot(solution:zfloat(),'solution')
+plt:plot(solution:zfloat(),'solution')
 o_r = nil
 o_i = nil
 pr = nil
@@ -47,5 +47,5 @@ collectgarbage()
 local nmodes_probe = 1
 local nmodes_object = 1
 
-local ngin = engine(pos,a,nmodes_probe,nmodes_object,solution,nil)
+local ngin = engine(pos,a,nmodes_probe,nmodes_object,solution,probe)
 ngin:iterate(100)
