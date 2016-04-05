@@ -21,18 +21,29 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   self.P_Qz = torch.ZCudaTensor.new(K,Np,M,M)
   self.P_Fz = torch.ZCudaTensor.new(K,Np,M,M)
 
-  self.z_tmp = torch.ZCudaTensor.new(K,Np,M,M)
-  self.P_tmp = torch.ZCudaTensor.new(Np,M,M)
-  self.P_tmp2 = torch.ZCudaTensor.new(Np,M,M)
-  self.O_tmp = torch.ZCudaTensor.new(No,Nx,Ny)
+  local z1_store = self.z:storage()
+  local z2_store = self.P_Qz:storage()
+  local z3_store = self.P_Fz:storage()
 
-  self.P_real = torch.CudaTensor.new(Np,M,M)
-  self.a_tmp = torch.CudaTensor.new(1,M,M)
-  self.a_tmp2 = torch.CudaTensor.new(1,M,M)
-  self.fdev = torch.CudaTensor.new(1,M,M)
-  self.O_real_tmp = torch.CudaTensor.new(1,Nx,Ny)
+  local z1_pointer = tonumber(torch.data(z1_store,true))
+  local z2_pointer = tonumber(torch.data(z2_store,true))
+  local z3_pointer = tonumber(torch.data(z3_store,true))
 
-  self.O:zcuda():fillRe(1)
+  local z1_real_storage = torch.CudaStorage(z1_store:size()*2,z1_pointer)
+  local z2_real_storage = torch.CudaStorage(z2_store:size()*2,z2_pointer)
+  local z3_real_storage = torch.CudaStorage(z3_store:size()*2,z3_pointer)
+
+  self.P_tmp = torch.ZCudaTensor.new(z1_store,1,{Np,M,M})
+  self.P_tmp2 = torch.ZCudaTensor.new(z2_store,1,{Np,M,M})
+  self.O_tmp = torch.ZCudaTensor.new(z3_store,1,{No,Nx,Ny})
+
+  self.P_real = torch.CudaTensor.new(z1_real_storage,1,torch.LongStorage{Np,M,M})
+  self.a_tmp = torch.CudaTensor.new(z1_real_storage,1,torch.LongStorage{1,M,M})
+  self.a_tmp2 = torch.CudaTensor.new(z2_real_storage,1,torch.LongStorage{1,M,M})
+  self.fdev = torch.CudaTensor.new(z3_real_storage,1,torch.LongStorage{1,M,M})
+  self.O_real_tmp = torch.CudaTensor.new(z1_real_storage,1,torch.LongStorage{1,Nx,Ny})
+
+  self.O = self.O:zcuda():fillRe(1)
   self.O_denom:zero()
   self.P:zero():add(1)
 end
@@ -42,11 +53,11 @@ function engine:_init(pos,a,nmodes_probe,nmodes_object,solution,probe)
   self.solution = solution
   self.pos = pos
   self.a = a
-  self.norm_a = self.a:sum()
+
   self.K = a:size(1)
   self.M = a:size(2)
   self.MM = self.M*self.M
-  self.mean_counts = self.norm_a/self.K/self.MM
+
 
   self.Np = nmodes_probe
   self.No = nmodes_object
@@ -57,8 +68,6 @@ function engine:_init(pos,a,nmodes_probe,nmodes_object,solution,probe)
 
   self:allocateBuffers(self.K,self.No,self.Np,self.M,self.Nx,self.Ny)
 
-  -- plt:plot(self.O[1]:zfloat(),'object')
-
   if probe then
     self.P[1]:copy(probe)
   end
@@ -68,11 +77,6 @@ function engine:_init(pos,a,nmodes_probe,nmodes_object,solution,probe)
   self.P = support:forward(self.P)
   -- self.P:mul(self.mean_counts*3)
   self.support = znn.SupportMask(probe_size,probe_size[#probe_size]*5/12)
-
-
-  plt:plot(self.P[1]:zfloat(),'self.P - init')
-  -- pprint(self.z_tmp)
-
   self.O_views = {}
   self.O_tmp_views = {}
   self.O_denom_views = {}
@@ -93,23 +97,25 @@ function engine:_init(pos,a,nmodes_probe,nmodes_object,solution,probe)
 
   self.probe_update_start = 1
   self.update_probe = true
-
+  pprint(self.O)
   for i=1,self.K do
     local slice = {{},{pos[i][1],pos[i][1]+self.M-1},{pos[i][2],pos[i][2]+self.M-1}}
-    -- pprint(slice)
+
     self.O_views[i] = self.O[slice]
     self.O_tmp_views[i] = self.O[slice]
     self.O_denom_views[i] = self.O_denom[slice]
   end
 
   self:calculateO_denom()
-  self:update_frames(self.z)
-
-  self.O_mask = self.O_denom:lt(1e-8)
+  self:update_z_from_O(self.z)
+  self.norm_a = self.a:sum()
+  self.mean_counts = self.norm_a/self.K/self.MM
+  -- self.O_mask = self.O_denom:lt(1e-8)
   -- plt:plot(self.O_mask[1]:float(),'O_mask')
   -- plt:plot(self.O[1]:abs():float(),'self.O')
   -- printMinMax(self.O,'O')
   u.printMem()
+  plt:plot(self.P[1]:zfloat(),'self.P - init')
   -- printMinMax(self.P,'probe')
 end
 
@@ -132,8 +138,9 @@ function engine:calculateO_denom()
 end
 
 function engine:merge_frames(z, mul_merge, merge_memory, merge_memory_views)
-  local tmp = self.z_tmp[1]
+  local tmp = self.P_tmp
   merge_memory:fillRe(1e-4):fillIm(0)
+  pprint(z)
   for k, view in ipairs(merge_memory_views) do
     view[k]:add(tmp:conj(mul_merge):cmul(z[k]):sum(1))
   end
@@ -148,7 +155,7 @@ function engine:update_frames(z,mul_split,merge_memory_views)
 end
 
 function engine:merge_and_split_pair(i,j,mul_merge,mul_split,result)
-  local tmp = self.z_tmp[1]
+  local tmp = self.P_tmp
   self.O_tmp:zero()
   self.O_tmp_views[i]:add(tmp:conj(mul_merge):cmul(self.z[i]):sum(1))
   self.O_tmp:cmul(self.O_denom)
@@ -230,34 +237,9 @@ function engine:refine_probe()
   return probe_change
 end
 
-function engine:simpleRefineProbe()
-  -- simple ePIE update
-  local oview_conj = self.P_tmp
-  local sub = self.P_tmp
-  local denom = self.P_tmp
-  for k=1,self.K do
-    local ovk = self.O_views[k]:repeatTensor(self.Np,1,1)
-    oview_conj:conj(ovk)
-    self.z_tmp[k]:cmul(self.P_Fz[k],oview_conj)
-    -- plt:plot(self.z_tmp[k][1]:zfloat(),'z_tmp[k] 1 - simpleRefineProbe')
-    sub:norm(ovk)
-    denom:copy(sub)
-    sub:cmul(self.P)
-    self.z_tmp[k]:add(-1,sub)
-    -- plt:plot(self.z_tmp[k][1]:zfloat(),'z_tmp[k] 2 - simpleRefineProbe')
-    denom:add(denom:mean()*1e-4)
-    self.z_tmp[k]:cdiv(denom)
-  end
-  self.z_tmp = self.z_tmp:sum(1)
-  -- plt:plot(self.z_tmp[1][1]:zfloat(),'self.z_tmp - simpleRefineProbe')
-  self.P:add(self.z_tmp)
-
-  self:calculateO_denom()
-  -- plt:plot(self.O_denom[1]:float(),'new O_denom - simpleRefineProbe')
-end
-
 function engine:overlap_error(z_in,z_out)
-  return self.z_tmp:add(z_in,-1,z_out):norm():sum() / z_out:norm():sum()
+  local tmpz = self.P_Fz
+  return tmpz:add(z_in,-1,z_out):norm():sum() / z_out:norm():sum()
 end
 
 function engine:image_error()

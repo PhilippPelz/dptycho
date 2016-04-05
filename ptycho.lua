@@ -47,5 +47,5 @@ collectgarbage()
 local nmodes_probe = 1
 local nmodes_object = 1
 
-local ngin = engine(pos,a,nmodes_probe,nmodes_object,solution,nil)
+local ngin = engine(pos,a,nmodes_probe,nmodes_object,solution,probe)
 ngin:iterate(100)

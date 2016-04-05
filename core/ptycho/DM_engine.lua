@@ -10,7 +10,6 @@ function engine:_init(pos,a,nmodes_probe,nmodes_object,solution,probe)
 end
 
 function engine:DM_update()
-  -- printMinMax(self.z,   'z                             ')
   self:P_Q(self.z,self.P_Qz)
   local overlap_error = self:overlap_error(self.z,self.P_Qz)
 
