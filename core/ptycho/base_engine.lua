@@ -54,7 +54,7 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   self.O_real_tmp = torch.CudaTensor.new(P_Qz_storage_real,1,torch.LongStorage{1,Nx,Ny})
   self.O_tmp = torch.ZCudaTensor.new(P_Fz_storage,1,{No,Nx,Ny})
 
-  self.O = self.O:zcuda():fillRe(1)
+  self.O = self.O:normal():zcuda()
   self.O_denom:zero()
   self.P:zero():add(1)
 end
