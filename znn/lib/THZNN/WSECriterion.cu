@@ -122,7 +122,6 @@ TH_API void THNN_CudaInvSigma(THCState* state, THCudaTensor* self_, THCudaTensor
 
   THCudaCheck(cudaGetLastError());
 }
-<<<<<<< HEAD
 // --   fmag = np.sqrt(np.abs(I))
 // -- af=np.sqrt(af2)
 // -- fdev = af - fmag
@@ -135,7 +134,8 @@ struct ModProj_renorm {
   ModProj_renorm(float _renorm) : renorm(_renorm) {}
 	__device__ __forceinline__ void operator()(float* fm, float* fdev, float* a, float* af, ccx* out) {
       //fm = (1-fmask) + fmask*(fmag + fdev*renorm)/(af + 1e-10)
-      float fac = (1-*fm) + *fm * (*a+*fdev* (renorm)) / (*af + 1e-6f);
+      // float fac = (1-*fm) + *fm * (*a+*fdev* (renorm)) / (*af + 1e-6f);
+      float fac = (1-*fm) + *fm * (*a) / (*af + 1e-6f);
 	    *out = *out * fac ;
 	}
 };
@@ -153,8 +153,6 @@ void THNN_ZCudaP_Mod_renorm(THCState *state, THZCudaTensor *self, THCudaTensor *
     THArgCheck(false, 2, CUTORCH_DIM_WARNING);
   }
 }
-=======
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
 
 struct ModProj {
 	__device__ __forceinline__ void operator()(float* norm, float* abs, ccx* out) {
@@ -190,10 +188,7 @@ void THNN_ZCudaP_Mod(THCState *state, THZCudaTensor *self_, THZCudaTensor *src1,
     // }
   }
 }
-<<<<<<< HEAD
 
-=======
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
 struct TensorClipMax {
   float _max;
   float _min;
@@ -241,11 +236,7 @@ __device__ int ind3d(int x, int y, int z, int X, int Y){
   return z * (X * Y) + y * Y + x;
 }
 
-<<<<<<< HEAD
 __global__ void batched_bilinear_interpolation_kernelZ(ccx * dest, ccx * src, const int X, const int Y, int shx, int shy, float shiftx, float shifty)
-=======
-__global__ void batched_bilinear_interpolation_kernel(ccx * dest, ccx * src, const int X, const int Y, int shx, int shy, float shiftx, float shifty)
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
 {
    const int z = blockIdx.z;
    const int x = threadIdx.x + blockDim.x * blockIdx.x;
@@ -258,7 +249,6 @@ __global__ void batched_bilinear_interpolation_kernel(ccx * dest, ccx * src, con
     const int    ind_y = y+shy;
     const float  b     = shifty;
 
-<<<<<<< HEAD
     ccx h00, h01, h10, h11;
     if (((ind_x)   < X)&&((ind_y)   < Y) && ((ind_x)   > 0)&&((ind_y)   > 0)) h00 = src[ind3d(ind_x,ind_y,z,X,Y)];  else    h00 =0;
     if (((ind_x+1) < X)&&((ind_y)   < Y) && ((ind_x+1) > 0)&&((ind_y)   > 0)) h10 = src[ind3d(ind_x+1,ind_y,z,X,Y)];     else    h10 = 0;
@@ -269,18 +259,6 @@ __global__ void batched_bilinear_interpolation_kernel(ccx * dest, ccx * src, con
                               (a)*(1-b)*h10 +
                               (1-a)*(b)*h01 +
                               a*b*h11;
-=======
-    if(shiftx == 0.0f && shifty == 0.0f && x>=0 && y >= 0){
-      dest[ind3d(x,y,z,X,Y)] = src[ind3d(ind_x,ind_y,z,X,Y)];
-    } else if (ind_x < 0 || ind_y < 0 || ind_x+1 >= X || ind_y + 1 > Y){
-      dest[ind3d(x,y,z,X,Y)] = 0;
-    } else {
-      dest[ind3d(x,y,z,X,Y)] = (1-a)*(1-b)*src[ind3d(ind_x,ind_y,z,X,Y)] +
-                                (a)*(1-b)*src[ind3d(ind_x+1,ind_y,z,X,Y)] +
-                                (1-a)*(b)*src[ind3d(ind_x,ind_y+1,z,X,Y)] +
-                                a*b*src[ind3d(ind_x+1,ind_y+1,z,X,Y)];
-    }
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
    }
 }
 
@@ -313,7 +291,6 @@ TH_API void THNN_ZCudaBatchedBilinearInterpolation(THCState *state,
   long iz = THZCudaTensor_size(state, self_, 0);
   long ix = THZCudaTensor_size(state, self_, 1);
   long iy = THZCudaTensor_size(state, self_, 2);
-<<<<<<< HEAD
   // ZTensorInfo<unsigned int> aInfo(state, self_);
   // ZTensorInfo<unsigned int> bInfo(state, a);
   int dest_cont = THZCudaTensor_isContiguous(state,self_);
@@ -323,18 +300,10 @@ TH_API void THNN_ZCudaBatchedBilinearInterpolation(THCState *state,
 
   dim3 threadsPerBlock(16, 16);
   dim3 numBlocks((ix / threadsPerBlock.x) + 1, (iy / threadsPerBlock.y) + 1, iz);
-=======
-
-  printf("xi,u,yi,v = %d,%f,%d,%f\n",xi,u,yi,v);
-
-  dim3 threadsPerBlock(16, 16);
-  dim3 numBlocks(ix / threadsPerBlock.x, iy / threadsPerBlock.y, iz);
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
 
   ccx* dest_data = (ccx*)THZCudaTensor_data(state, self_);
   ccx* src_data = (ccx*)THZCudaTensor_data(state, src1);
 
-<<<<<<< HEAD
   batched_bilinear_interpolation_kernelZ<<<numBlocks,threadsPerBlock>>>(dest_data,src_data,ix,iy,xi,yi,u,v);
 }
 
@@ -402,8 +371,6 @@ TH_API void THNN_CudaBatchedBilinearInterpolation(THCState *state,
   float* dest_data = THCudaTensor_data(state, self_);
   float* src_data = THCudaTensor_data(state, src1);
 
-=======
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
   batched_bilinear_interpolation_kernel<<<numBlocks,threadsPerBlock>>>(dest_data,src_data,ix,iy,xi,yi,u,v);
 }
 

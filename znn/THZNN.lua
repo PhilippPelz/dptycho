@@ -29,7 +29,6 @@ TH_API void THNN_CudaInvSigma(THCState *state, THCudaTensor *self_,
 TH_API void THNN_ZCudaP_Mod(THCState *state, THZCudaTensor *self_,
                             THZCudaTensor *src1, THCudaTensor *norm,
                             THCudaTensor *f);
-<<<<<<< HEAD
 TH_API void THNN_ZCudaP_Mod_renorm(THCState *state, THZCudaTensor *self,
                                    THCudaTensor *fm, THCudaTensor *fdev,
                                    THCudaTensor *a, THCudaTensor *af,
@@ -46,15 +45,6 @@ TH_API void THNN_CudaBatchedBilinearInterpolation(THCState *state,
                                                   THCudaTensor *self_,
                                                   THCudaTensor *src1,
                                                   float shiftx, float shifty);
-=======
-TH_API void THNN_ZCudaClipMinMax(THCState *state, THZCudaTensor *self_,
-                                 THZCudaTensor *src1, float min, float max);
-
-TH_API void THNN_ZCudaBatchedBilinearInterpolation(THCState *state,
-                                                   THZCudaTensor *self_,
-                                                   THZCudaTensor *src1,
-                                                   float shiftx, float shifty);
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
 ]]
 
 local preprocessed = string.gsub(THZNN_h, 'TH_API ', '')
@@ -98,7 +88,6 @@ end
 
 local shift = argcheck{
    nonamed=true,
-<<<<<<< HEAD
    {name="dst", type='torch.CudaTensor'},
    {name="src", type='torch.CudaTensor'},
    {name="shift", type = 'torch.FloatTensor'},
@@ -115,19 +104,13 @@ local shift = argcheck{
 
 local shiftZ = argcheck{
    nonamed=true,
-=======
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
    {name="dst", type='torch.ZCudaTensor'},
    {name="src", type='torch.ZCudaTensor'},
    {name="shift", type = 'torch.FloatTensor'},
    call = function(dst, src, shift)
       -- pprint(shift)
       local shsq = shift:squeeze()
-<<<<<<< HEAD
       -- pprint(shsq)
-=======
-      pprint(shsq)
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
       local shiftx = shsq[1]
       local shifty = shsq[2]
       dst.THNN.BatchedBilinearInterpolation(dst:cdata(),src:cdata(),shiftx,shifty)
@@ -135,11 +118,7 @@ local shiftZ = argcheck{
    end
 }
 
-<<<<<<< HEAD
 local dxZ = argcheck{
-=======
-local dx = argcheck{
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
    nonamed=true,
    {name="dst", type='torch.ZCudaTensor'},
    {name="src", type='torch.ZCudaTensor'},
@@ -154,7 +133,6 @@ local dx = argcheck{
    end
 }
 
-<<<<<<< HEAD
 local dx2Z = argcheck{
    nonamed=true,
    {name="dst", type='torch.ZCudaTensor'},
@@ -190,9 +168,6 @@ local dxdyZ = argcheck{
 }
 
 local dyZ = argcheck{
-=======
-local dy = argcheck{
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
    nonamed=true,
    {name="dst", type='torch.ZCudaTensor'},
    {name="src", type='torch.ZCudaTensor'},
@@ -200,7 +175,6 @@ local dy = argcheck{
    {name="dybw", type='torch.ZCudaTensor'},
    call = function(dst, src, dyfw, dybw)
       dyfw:shift(src,torch.FloatTensor({0,-1})):add(-1,src)
-<<<<<<< HEAD
       dybw:shift(src,torch.FloatTensor({0,1})):mul(-1):add(src)
       --
       dst:add(dyfw,dybw)
@@ -284,9 +258,6 @@ local dy = argcheck{
    call = function(dst, src, dyfw, dybw)
       dyfw:shift(src,torch.FloatTensor({0,-1}))
       dybw:shift(src,torch.FloatTensor({0,1})):mul(-1)
-=======
-      dybw:shift(src,torch.FloatTensor({0,1+1e-7})):mul(-1):add(src)
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
       --
       dst:add(dyfw,dybw)
       dst[{{},{},{2,-2}}]:mul(0.5)
@@ -294,7 +265,6 @@ local dy = argcheck{
    end
 }
 
-<<<<<<< HEAD
 local dy2 = argcheck{
    nonamed=true,
    {name="dst", type='torch.CudaTensor'},
@@ -323,11 +293,6 @@ rawset( Zmeta, 'dy', dyZ)
 rawset( Zmeta, 'dx2', dx2Z)
 rawset( Zmeta, 'dy2', dy2Z)
 rawset( Zmeta, 'dxdy', dxdyZ)
-=======
-rawset( Zmeta, 'shift', shift)
-rawset( Zmeta, 'dx', dx)
-rawset( Zmeta, 'dy', dy)
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
 -- for name, f in pairs(Zfunctions) do
 --   Zkernels[name] = f
 --   Zmeta.THNN[name] = f

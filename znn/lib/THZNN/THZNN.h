@@ -19,13 +19,10 @@ TH_API void THNN_CudaInvSigma(THCState *state, THCudaTensor *self_,
 TH_API void THNN_ZCudaP_Mod(THCState *state, THZCudaTensor *self_,
                             THZCudaTensor *src1, THCudaTensor *norm,
                             THCudaTensor *f);
-<<<<<<< HEAD
 TH_API void THNN_ZCudaP_Mod_renorm(THCState *state, THZCudaTensor *self,
                                    THCudaTensor *fm, THCudaTensor *fdev,
                                    THCudaTensor *a, THCudaTensor *af,
                                    float renorm);
-=======
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
 TH_API void THNN_ZCudaClipMinMax(THCState *state, THZCudaTensor *self_,
                                  THZCudaTensor *src1, float min, float max);
 
@@ -33,11 +30,8 @@ TH_API void THNN_ZCudaBatchedBilinearInterpolation(THCState *state,
                                                    THZCudaTensor *self_,
                                                    THZCudaTensor *src1,
                                                    float shiftx, float shifty);
-<<<<<<< HEAD
 
 TH_API void THNN_CudaBatchedBilinearInterpolation(THCState *state,
                                                   THCudaTensor *self_,
                                                   THCudaTensor *src1,
                                                   float shiftx, float shifty);
-=======
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453

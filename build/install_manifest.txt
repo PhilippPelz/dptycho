@@ -1,39 +1,23 @@
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/ptycho_old.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/init.lua
-<<<<<<< HEAD
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/ptycho.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/ptycho2.lua
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/main.lua
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/ptycho_old.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/test_shift.lua
-=======
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/test_shift.lua
+/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/ptycho_nosubpix.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/ptycho.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/main.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/ptyrecon.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/ptysimul.lua
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/main2.lua
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/ptysimul.lua
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/ptyrecon.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/test.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/netbuilder.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/init.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/potential.lua
-<<<<<<< HEAD
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/netbuilder.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/init.lua
+/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/DM_engine.lua
+/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/base_engine_shifted.lua
+/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/base_engine.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/params.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/RAAR_engine.lua
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/base_engine_shifted.lua
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/DM_engine.lua
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/base_engine.lua
-=======
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/init.lua
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/DM_engine.lua
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/base_engine.lua
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/RAAR_engine.lua
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/io/init.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/io/plot.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/io/dataloader.lua
@@ -58,12 +42,7 @@
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/znn/VolumetricConvolutionFixedFilter.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/znn/ConvFFT2D.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/znn/AddConst.lua
-<<<<<<< HEAD
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/znn/CMul.lua
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/znn/FFT.lua
-=======
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/znn/WSECriterion.lua
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/znn/THZNN.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/znn/Sqrt.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/znn/Sum.lua

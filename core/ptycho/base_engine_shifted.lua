@@ -80,30 +80,18 @@ function engine:refine_positions()
   local b = torch.FloatTensor(2*self.K,1)
   local bv = b:view(b:nElement())
 
-  -- self.tmp = torch.ZCudaTensor.new(self.Np,self.M,self.M)
-  local zRy = torch.ZCudaTensor.new(self.Np,self.M,self.M)
-  local zRx = torch.ZCudaTensor.new(self.Np,self.M,self.M)
-  local P3 = torch.ZCudaTensor.new(self.Np,self.M,self.M)
-  local Rx = torch.ZCudaTensor.new(self.Np,self.M,self.M)
-  local Ry = torch.ZCudaTensor.new(self.Np,self.M,self.M)
+  self.P_Fz:zero()
 
-  local r1 = torch.ZCudaTensor.new(self.Np,self.M,self.M)
-  local r2 = torch.ZCudaTensor.new(self.Np,self.M,self.M)
-  local r3 = torch.ZCudaTensor.new(self.Np,self.M,self.M)
-  local z_under = torch.ZCudaTensor.new(self.Np,self.M,self.M)
+  local zRy = self.P_tmp1_PFstore
+  local zRx = self.P_tmp2_PFstore
+  local Rx = self.P_tmp3_PFstore
+  local Ry = self.P_tmp4_PFstore
 
-  -- self.P_Fz:zero()
-
-  -- local zRy = self.P_tmp1_PFstore
-  -- local zRx = self.P_tmp2_PFstore
-  -- local Rx = self.P_tmp3_PFstore
-  -- local Ry = self.P_tmp4_PFstore
-  --
-  -- local r1 = self.P_tmp5_PFstore
-  -- local r2 = self.P_tmp6_PFstore
-  -- local r3 = self.P_tmp7_PFstore
-  -- local z_under = self.P_tmp9_PFstore
-  -- local r4 = torch.ZCudaTensor.new(self.Np,self.M,self.M)
+  local r1 = self.P_tmp5_PFstore
+  local r2 = self.P_tmp6_PFstore
+  local r3 = self.P_tmp7_PFstore
+  local z_under = self.P_tmp9_PFstore
+  local r4 = torch.ZCudaTensor.new(self.Np,self.M,self.M)
   for i = 1, self.K do
     xlua.progress(i,self.K)
     Rx:dx(self.P,zRx,zRy)
@@ -139,7 +127,6 @@ function engine:refine_positions()
         Hx_ij = zRx:dot(zRy).re
       end
 
-      -- u.printf('%3d overlap %3d: %s',i,j,tostring(self:do_frames_overlap(i,j)))
       -- overlaps[{i,j}] = self:do_frames_overlap(i,j) and 1 or 0
       if self:do_frames_overlap(i,j) then
 
@@ -170,13 +157,22 @@ function engine:refine_positions()
   -- gnuplot.plot('H[1]',H[1]:clone(),'+')
 
   local ksi, LU = torch.gesv(b,H)
+  local max,imax = torch.max(ksi,1)
+  -- if max[1][1] > 5 then
+  --   plt:plot(H:clone():log(),'H')
+  --   gnuplot.plot('b',b:clone(),'+')
+  --   local answer=io.read()
+  -- end
   -- pprint(ksi)
   -- self.dpos:zero()
   for i=1,self.K do
     local p = torch.FloatTensor{-ksi[i][1],-ksi[i+self.K][1]}
-    u.printf('%04d : %g,%g',i,-ksi[i][1],-ksi[i+self.K][1])
-    self.dpos[i]:add(p:clamp(-5,5))
+    -- u.printf('%04d : %g,%g',i,-ksi[i][1],-ksi[i+self.K][1])
+    self.dpos[i]:add(p:clamp(-1,1))
   end
+
+  plt:scatter_positions(self.dpos:clone():add(self.pos:float()),self.dpos_solution:clone():add(self.pos:float()))
+
   -- print(self.ksi)
   -- self.dpos:add(self.ksi:mul(-1))
   -- print(self.dpos_solution)
@@ -187,9 +183,9 @@ function engine:refine_positions()
   self:update_O(self.z)
   self:update_z_from_O(self.P_Qz)
   -- print(self.dpos)
-  local max,imax = torch.max(ksi,1)
+
   u.printf('ksi[%d] = %g, pos_error = %g, max_pos_error = %g', imax[1][1] , max[1][1] , pos_err, max_err)
-  local answer=io.read()
+  -- local answer=io.read()
 end
 
 function engine:prepare_P_ksi(P,k)

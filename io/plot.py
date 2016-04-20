@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-import pyE17.utils as u
+# from mpl_toolkits.axes_grid1 import make_axes_locatable
+# import pyE17.utils as u
 plt.style.use('ggplot')
 
 def plot(img, title='Image', savePath=None, cmap='hot', show=True):
@@ -37,6 +37,12 @@ def zplot(img, suptitle='Image', savePath=None, cmap=['hot','hsv'], title=['Abs'
         plt.imsave(savePath + '.png', img)
 
     plt.close()
+    
+def scatter_positions(pos1,pos2):
+    fig, ax = plt.subplots()
+    ax.scatter(pos1[0],pos1[1],c='r')
+    ax.scatter(pos2[0],pos2[1],c='b')
+    plt.show()
 
 import numpy as np
 from mayavi import mlab
@@ -103,9 +109,12 @@ class ReconPlot():
 
 a = np.random.randn(50,50)
 b = np.random.randn(50,50)
+pos1=np.random.randn(2,100)
+pos2=np.random.randn(2,100)
 c = a + 1j*b
 err1 = x = np.linspace(0, 2 * np.pi, 400)
 err2 = x = np.linspace(0, 2 * np.pi, 400) * 2
 # plot(a)
 # zplot([a,b])
-recon_plot([np.abs(c),np.angle(c),c,err1,err2])
+# recon_plot([np.abs(c),np.angle(c),c,err1,err2])
+scatter_positions(pos1, pos2)

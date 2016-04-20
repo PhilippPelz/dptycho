@@ -52,6 +52,16 @@ def zplot(img, suptitle='Image', savePath=None, cmap=['hot','Greys'], title=['Ab
         plt.imsave(savePath + '.png', img)
 
     plt.close()
+i = 0
+def scatter_positions(pos1,pos2):
+    global i
+    fig, ax = plt.subplots()
+    ax.scatter(pos1[:,0],pos1[:,1],c='r')
+    ax.scatter(pos2[:,0],pos2[:,1],c='b')
+    fig.savefig('positions_%d.png'%i)
+    i = i + 1
+    #plt.show()
+    plt.close()
 
 from mayavi import mlab
 def plot3d(arr,title,vmin = 0,vmax = 0.7):
@@ -158,6 +168,18 @@ c.plot3d = argcheck{
                 end
             }
 c.plot = plot
+
+c.scatter_positions = argcheck{
+            nonamed=true,
+            name = "scatter_positions",
+            {name="self", type='table'},
+            {name="pos1", type='torch.FloatTensor'},
+            {name="pos2", type='torch.FloatTensor'},
+            call =
+                function (self, pos1, pos2)
+                  py.eval('scatter_positions(pos1,pos2)',{pos1 = pos1, pos2=pos2})
+                end
+            }
 
 
 return c
