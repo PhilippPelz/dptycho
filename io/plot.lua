@@ -111,6 +111,23 @@ plot = argcheck{
                   py.eval('zplot(img,suptitle,savepath,cmap,title,show)',{img = {img:abs(),img:arg()}, suptitle=suptitle, savepath=savepath, cmap=cmap,title=title, show=show})
                 end
             }
+
+c.plotReIm = argcheck{
+            nonamed=true,
+            name = "plot",
+            {name="self", type='table'},
+            {name="img", type='torch.ZFloatTensor'},
+            {name="suptitle", default='Image', type='string'},
+            {name="savepath", default=py.None, type='string'},
+            {name="cmap", default={'hot','hot'}, type='table'},
+            {name="title", default={'Re','Im'}, type='table'},
+            {name="show", default=true, type='bool'},
+            call =
+                function (self,img, suptitle, savepath, cmap, title, show)
+                  py.eval('zplot(img,suptitle,savepath,cmap,title,show)',{img = {img:re(),img:im()}, suptitle=suptitle, savepath=savepath, cmap=cmap,title=title, show=show})
+                end
+            }
+
 c.plotcompare = argcheck{
             nonamed=true,
             name = "plot",
@@ -141,4 +158,6 @@ c.plot3d = argcheck{
                 end
             }
 c.plot = plot
+
+
 return c

@@ -10,16 +10,12 @@ local optim = require "optim"
 local znn = require "dptycho.znn"
 local plt = plot()
 local zt = require "ztorch.complex"
+local stats = require "dptycho.util.stats"
 
 local path = '/home/philipp/drop/Public/'
-<<<<<<< HEAD
-local file = 'po2.h5'
-=======
-local file = 'po.h5'
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
+local file = 'moon2.h5'
 
 local engine = require 'dptycho.core.ptycho.DM_engine'
-
 
 local par = {}
 par.i = 50
@@ -29,12 +25,20 @@ par.probe_change_start = 1
 local f = hdf5.open(path..file,'r')
 
 local a = f:read('/data_unshift'):all():cuda()
-local pos = f:read('/scan_info/positions_int'):all():int()
-<<<<<<< HEAD
+local fmask = a:clone():fill(1)
+local pos = f:read('/scan_info/positions_int'):all():int():add(1)
+local dpos = pos:clone():float():zero()
+
+local dpos_solution = pos:clone():float():zero()
+
+-- dpos:add(-1,pos:float())
+
+-- local errpos = stats.truncnorm({pos:size(1),pos:size(2)},-5,5,0,3)
+-- print(errpos:max(),errpos:min())
+-- dpos:add(errpos:float())
+-- print(dpos)
+-- dpos:zero()
 -- local pos = f:read('/positions_int'):all():int()
-=======
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
-pos:add(1)
 -- local dx_spec = f:read('/scan_info/dx_spec')
 -- local w = f:read('/fmask'):all():cuda()
 local o_r = f:read('/or'):all():cuda()
@@ -43,13 +47,9 @@ local pr = f:read('/pr'):all():cuda()
 local pi = f:read('/pi'):all():cuda()
 local probe = torch.ZCudaTensor.new(pr:size()):copyIm(pi):copyRe(pr)
 local solution = torch.ZCudaTensor.new(o_r:size()):copyIm(o_i):copyRe(o_r)
-<<<<<<< HEAD
-local dpos = pos:clone():float():zero()
--- plt:plotReIm(solution:zfloat(),'solution')
--- plt:plotReIm(probe:zfloat(),'probe')
-=======
-plt:plot(solution:zfloat(),'solution')
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
+-- local dpos = pos:clone():float():zero()
+-- plt:plot(solution:zfloat(),'solution')
+-- plt:plot(probe:zfloat(),'probe')
 o_r = nil
 o_i = nil
 pr = nil
@@ -60,12 +60,31 @@ collectgarbage()
 
 local nmodes_probe = 1
 local nmodes_object = 1
+-- pprint(a)
 
-<<<<<<< HEAD
-local ngin = engine(pos,a,nmodes_probe,nmodes_object,solution,probe,dpos)
--- ngin:generate_data('/home/philipp/drop/Public/po.h5')
-ngin:iterate(200)
-=======
-local ngin = engine(pos,a,nmodes_probe,nmodes_object,solution,probe)
-ngin:iterate(100)
->>>>>>> 5400af4241e2b79a156cfca7ef79ec71554c2453
+par = {
+  nmodes_probe = 1,
+  nmodes_object = 1,
+  probe = nil,
+  plot_every = 50,
+  plot_start = 15,
+  beta = 1,
+  fourier_relax_factor = 5e-2,
+  position_refinement_start = 300,
+  position_refinement_every = 5,
+  probe_update_start = 5,
+  object_inertia = 0.1,
+  probe_inertia = 1e-9,
+  P_Q_iterations = 10
+}
+par.pos = pos
+par.dpos = dpos
+par.dpos_solution = dpos_solution
+par.solution = solution
+par.a = a
+par.fmask = fmask
+par.probe = probe
+
+local ngin = engine(par)
+-- ngin:generate_data('/home/philipp/drop/Public/moon_subpix2.h5')
+ngin:iterate(250)
