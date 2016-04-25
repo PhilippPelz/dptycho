@@ -73,8 +73,6 @@ function engine:_init(par)
 
   if par.probe then
     self.probe_solution = par.probe
-    -- self.P[1]:copy(par.probe)
-    -- self.O[1]:copy(self.solution)
   end
 
   if par.copy_solution then
@@ -96,20 +94,6 @@ function engine:_init(par)
 
   self.max_power = self.a_tmp_real_PQstore:cmul(self.a,self.fm):pow(2):max()
   self.power_threshold = 0.25 * self.fourier_relax_factor^2 * self.max_power / self.MM
-
-  self.P_Mod =  function(x,abs,measured_abs)
-                  x.THNN.P_Mod(x:cdata(),x:cdata(),abs:cdata(),measured_abs:cdata())
-                end
-  self.P_Mod_renorm =  function(x,fm,fdev,a,af,renorm)
-                  x.THNN.P_Mod_renorm(x:cdata(),fm:cdata(),fdev:cdata(),a:cdata(),af:cdata(),renorm)
-                end
-  self.InvSigma = function(x,sigma)
-                    x.THNN.InvSigma(x:cdata(),x:cdata(),sigma)
-                  end
-  self.ClipMinMax = function(x,min,max)
-                    x.THNN.ClipMinMax(x:cdata(),x:cdata(),min,max)
-                  end
-
   self.update_positions = false
   self.update_probe = false
   self.object_inertia = par.object_inertia * self.K
@@ -135,6 +119,22 @@ function engine:_init(par)
   -- print(P_fluence,P_extent,beam_fluence,beam_fluence/P_fluence/P_extent)
   u.printf('power_threshold is %g',self.power_threshold)
   u.printMem()
+end
+
+function engine:P_Mod(x,abs,measured_abs)
+  x.THNN.P_Mod(x:cdata(),x:cdata(),abs:cdata(),measured_abs:cdata())
+end
+
+function engine:P_Mod_renorm(x,fm,fdev,a,af,renorm)
+  x.THNN.P_Mod_renorm(x:cdata(),fm:cdata(),fdev:cdata(),a:cdata(),af:cdata(),renorm)
+end
+
+function engine:InvSigma(x,sigma)
+  x.THNN.InvSigma(x:cdata(),x:cdata(),sigma)
+end
+
+function engine:ClipMinMax(x,min,max)
+  x.THNN.ClipMinMax(x:cdata(),x:cdata(),min,max)
 end
 
 function engine:update_views()
@@ -163,9 +163,35 @@ end
 -- 1 x probe real
 -- 3 x z
 function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
+  local _, total_memory = cutorch.getMemoryUsage(cutorch.getDevice())
+
+  local object_probe_memory, frames_memory = 0,0
+  local Fsize_bytes ,Zsize_bytes = 4,8
+
   self.O = torch.ZCudaTensor.new(No,Nx,Ny)
   self.O_denom = torch.CudaTensor(self.O:size())
   self.P = torch.ZCudaTensor.new(Np,M,M)
+
+  object_probe_memory = object_probe_memory + self.O:nElement() * Zsize_bytes
+  object_probe_memory = object_probe_memory + self.O_denom:nElement() * Fsize_bytes
+  object_probe_memory = object_probe_memory + self.P:nElement() * Zsize_bytes
+
+  local batches = 1
+  for n_batches = 1,50 do
+    frames_memory = (K/n_batches)*Np*M*M * Zsize_bytes
+    if object_probe_memory + frames_memory * 3 < total_memory * 0.98 then
+      batches = n_batches
+      u.printf('Using %d batches for the reconstruction.')
+      u.printf('Total memory requirement:')
+      u.printf('-- object  :    %5d MB' % self.O:nElement() * Zsize_bytes / 2^20)
+      u.printf('-- probe   :    %5d MB' % self.P:nElement() * Zsize_bytes / 2^20)
+      u.printf('-- o_denom :    %5d MB' % self.O_denom:nElement() * Fsize_bytes / 2^20)
+      u.printf('-- frames  : 3x %5d MB' % frames_memory / 2^20)
+      print(   '====================================================')
+      u.printf('-- Total   :    %5d MB' % object_probe_memory + frames_memory * 3 / 2^20)
+      break
+    end
+  end
 
   self.z = torch.ZCudaTensor.new(K,Np,M,M)
   self.P_Qz = torch.ZCudaTensor.new(K,Np,M,M)
