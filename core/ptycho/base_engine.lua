@@ -134,11 +134,13 @@ function engine:_init(par)
   -- print(P_fluence,max_measured_I,self.P_tmp1_real_PQstore:normZ(self.P):sum())
   -- plt:plot(self.P[1][1]:zfloat(),'probe - it '..0)
 
+  print(   '----------------------------------------------------')
   u.printf('K = %d',self.K)
   u.printf('N = (%d,%d)',self.Nx,self.Ny)
   u.printf('M = %d',self.M)
   u.printf('power_threshold is %g',self.power_threshold)
-  u.printMem()
+  print(   '----------------------------------------------------')
+  -- u.printMem()
 end
 
 function engine.P_Mod(x,abs,measured_abs)
@@ -183,32 +185,29 @@ end
 -- 1 x probe real
 -- 3 x z
 function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
-  local _, total_memory = cutorch.getMemoryUsage(cutorch.getDevice())
 
-  local object_probe_memory, frames_memory = 0,0
+  local frames_memory = 0
   local Fsize_bytes ,Zsize_bytes = 4,8
 
   self.O = torch.ZCudaTensor.new(No,1,Nx,Ny)
   self.O_denom = torch.CudaTensor(self.O:size())
   self.P = torch.ZCudaTensor.new(1,Np,M,M)
 
-  object_probe_memory = object_probe_memory + self.O:nElement() * Zsize_bytes
-  object_probe_memory = object_probe_memory + self.O_denom:nElement() * Fsize_bytes
-  object_probe_memory = object_probe_memory + self.P:nElement() * Zsize_bytes
-
+  local free_memory, total_memory = cutorch.getMemoryUsage(cutorch.getDevice())
+  local used_memory = total_memory - free_memory
   local batches = 1
   for n_batches = 1,50 do
     frames_memory = (K/n_batches)*No*Np*M*M * Zsize_bytes
-    if object_probe_memory + frames_memory * 3 < total_memory * 0.98 then
+    if used_memory + frames_memory * 3 < total_memory * 0.98 then
       batches = n_batches
+      print(   '----------------------------------------------------')
       u.printf('Using %d batches for the reconstruction.',batches )
-      u.printf('Total memory requirement:')
-      u.printf('-- object  :    %-5.2f MB' , self.O:nElement() * Zsize_bytes * 1.0 / 2^20)
-      u.printf('-- probe   :    %-5.2f MB' , self.P:nElement() * Zsize_bytes * 1.0 / 2^20)
-      u.printf('-- o_denom :    %-5.2f MB' , self.O_denom:nElement() * Fsize_bytes * 1.0 / 2^20)
+      u.printf('Total memory requirements:')
+      u.printf('-- used  :    %-5.2f MB' , used_memory * 1.0 / 2^20)
       u.printf('-- frames  : 3x %-5.2f MB' , frames_memory / 2^20)
       print(   '====================================================')
-      u.printf('-- Total   :    %-5.2f MB' , (object_probe_memory + frames_memory * 3.0) / 2^20)
+      u.printf('-- Total   :    %-5.2f MB (%2.1f percent)' , (used_memory + frames_memory * 3.0) / 2^20,(used_memory + frames_memory * 3.0)/ total_memory * 100)
+      u.printf('-- Avail   :    %-5.2f MB' , total_memory * 1.0 / 2^20)
       break
     end
   end

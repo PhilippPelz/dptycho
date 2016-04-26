@@ -98,29 +98,13 @@ function engine:refine_positions()
     xlua.progress(i,self.K)
     Rx[1]:dx(self.P[1],zRx[1],zRy[1])
     Ry[1]:dy(self.P[1],zRx[1],zRy[1])
-    -- plt:plotReIm(Rx[1][1]:zfloat(),'Ry[1]')
-    -- plt:plotReIm(Ry[1][1]:zfloat(),'Ry[1]')
-    -- zS11:dx2(self.P,zRx,zRy)
-    -- zS22:dy2(self.P,zRx,zRy)
-    -- zSx:dxdy(self.P,zRx,zRy,r1,r2)
 
     zRx = self:split_single(i,Rx,zRx)
-    -- plt:plotReIm(zRx[1][1]:zfloat(),'zRx[1]')
     zRy = self:split_single(i,Ry,zRy)
-    -- plt:plotReIm(zRx[1][1]:zfloat(),'zRx[1]')
-    -- plt:plotReIm(zRy[1][1]:zfloat(),'zRy[1]')
     z_under:add(self.z[i],-1,self.P_Qz[i])
 
     bv[i] = z_under:dot(zRx).re
     bv[self.K + i] = z_under:dot(zRy).re
-    if i == 1 then
-      -- plt:plotReIm(z_under[i][1]:zfloat(),'z_under[i]')
-      -- plt:plotReIm(Rx[1]:zfloat(),'Rx')
-      -- plt:plotReIm(Ry[1]:zfloat(),'Ry')
-      -- plt:plotReIm(zRx[1]:zfloat(),'zRx')
-      -- plt:plotReIm(zRy[1]:zfloat(),'zRy')
-      -- u.printf('bv[%d] = %f,    bv[%d] = %f',i,bv[i],self.K + i,bv[self.K + i])
-    end
     for j=1, self.K do
       local H1_ij = 0
       local H2_ij = 0
@@ -138,12 +122,6 @@ function engine:refine_positions()
         local O22_ij = self:merge_and_split_pair(i,j,Ry,self.z[j],Ry,r2)
         local Ox_ij = self:merge_and_split_pair(i,j,Rx,self.z[j],Ry,r3)
 
-        -- if i == 1 then
-        --   plt:plotReIm(O11_ij[1]:zfloat(),'O11_ij')
-        --   plt:plotReIm(O22_ij[1]:zfloat(),'O22_ij')
-        --   plt:plotReIm(Ox_ij[1]:zfloat(),'Ox_ij')
-        -- end
-
         H1_ij = H1_ij - self.z[i]:dot(O11_ij).re
         H2_ij = H2_ij - self.z[i]:dot(O22_ij).re
         Hx_ij = Hx_ij - self.z[i]:dot(Ox_ij).re
@@ -154,21 +132,9 @@ function engine:refine_positions()
       Hx2[{i,j}] = Hx_ij
     end
   end
-  -- plt:plot(overlaps,'overlaps')
-  -- plt:plot(H:clone():log(),'H')
-  -- plt:plot(b,'b')
-  -- gnuplot.plot('b',b:clone(),'+')
-  -- gnuplot.plot('H[1]',H[1]:clone(),'+')
 
   local ksi, LU = torch.gesv(b,H)
   local max,imax = torch.max(ksi,1)
-  -- if max[1][1] > 5 then
-  --   plt:plot(H:clone():log(),'H')
-  --   gnuplot.plot('b',b:clone(),'+')
-  --   local answer=io.read()
-  -- end
-  -- pprint(ksi)
-  -- self.dpos:zero()
   for i=1,self.K do
     local p = torch.FloatTensor{-ksi[i][1],-ksi[i+self.K][1]}
     -- u.printf('%04d : %g,%g',i,-ksi[i][1],-ksi[i+self.K][1])
@@ -177,9 +143,6 @@ function engine:refine_positions()
 
   plt:scatter_positions(self.dpos:clone():add(self.pos:float()),self.dpos_solution:clone():add(self.pos:float()))
 
-  -- print(self.ksi)
-  -- self.dpos:add(self.ksi:mul(-1))
-  -- print(self.dpos_solution)
   local dp = self.dpos_solution:clone():add(-1,self.dpos):abs()
   local max_err = dp:max()
   local pos_err = self.dpos_solution:clone():add(-1,self.dpos):abs():sum()/self.K
