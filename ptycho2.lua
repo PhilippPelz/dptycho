@@ -67,6 +67,8 @@ collectgarbage()
 
 -- frames
 
+DEBUG = true
+
 local nmodes_probe = 1
 local nmodes_object = 1
 -- pprint(a)

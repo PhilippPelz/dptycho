@@ -146,10 +146,9 @@ function engine:refine_positions()
   local dp = self.dpos_solution:clone():add(-1,self.dpos):abs()
   local max_err = dp:max()
   local pos_err = self.dpos_solution:clone():add(-1,self.dpos):abs():sum()/self.K
+
   self:calculateO_denom()
-  self:update_O(self.z)
-  self:update_z_from_O(self.P_Qz)
-  -- print(self.dpos)
+  self:P_Q_plain()
 
   u.printf('ksi[%d] = %g, pos_error = %g, max_pos_error = %g', imax[1][1] , max[1][1] , pos_err, max_err)
   -- local answer=io.read()
@@ -158,16 +157,18 @@ end
 -- buffers:
 --  0 x sizeof(P) el R
 --  1 x sizeof(z[k]) el C
-function engine:merge_frames(z, mul_merge, merge_memory, merge_memory_views)
+function engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
   local product_shifted = self.zk_tmp1_PQstore
   local mul_merge_shifted = self.P_tmp1_PQstore
   merge_memory:mul(self.object_inertia)
   local pos = torch.FloatTensor{1,1}
   for k, view in ipairs(merge_memory_views) do
     pos:fill(1):cmul(self.dpos[k])
+    self:maybe_copy_new_batch(self.z,self.z_h,k)
+    local ind = self.k_to_batch_index[k]
     mul_merge_shifted[1]:shift(mul_merge[1],pos)
     mul_merge_shifted[1]:conj()
-    product_shifted = product_shifted:cmul(z[k],mul_merge_shifted:expandAs(z[k])):sum(self.P_dim)
+    product_shifted = product_shifted:cmul(self.z[ind],mul_merge_shifted:expandAs(self.z[ind])):sum(self.P_dim)
     view:add(product_shifted)
   end
   merge_memory:cmul(self.O_denom)
@@ -176,20 +177,17 @@ end
 -- buffers:
 --  0 x sizeof(P) el R
 --  1 x sizeof(P) el C
-function engine:update_frames(z,mul_split,merge_memory_views)
-  -- print('update_frames shifted')
-  local mul_split_shifted = self.zk_tmp1_PFstore
+-- free buffer: P_Fz
+function engine:update_frames(mul_split,merge_memory_views)
+  local z = self.P_Qz
+  local mul_split_shifted = self.P_tmp1_PFstore
   local pos = torch.FloatTensor{1,1}
   for k, view in ipairs(merge_memory_views) do
-    local ov = view:expandAs(z[k])
+    self:maybe_copy_new_batch(self.P_Qz,self.P_Qz_h,k)
+    local ind = self.k_to_batch_index[k]
     pos:fill(1):cmul(self.dpos[k])
-    -- print(pos)
     mul_split_shifted[1]:shift(mul_split[1],pos)
-    for i = 2, self.No do
-      mul_split_shifted[i]:copy(mul_split_shifted[1])
-    end
-    -- plt:plot(mul_split_shifted[1]:zfloat(),'mul_split_shifted')
-    z[k]:cmul(mul_split_shifted,ov)
+    z[ind]:cmul(mul_split_shifted:expandAs(z[ind]),view:expandAs(z[ind]))
   end
 end
 
@@ -198,7 +196,6 @@ end
 --  2 x sizeof(P) el C
 --  1 x sizeof(P) el R
 function engine:refine_probe()
-  -- print('refine_probe shifted '..self.i)
   local new_P = self.P_tmp1_PQstore
   local oview_conj = self.zk_tmp1_PQstore
   local oview_conj_shifted = self.zk_tmp2_PQstore
@@ -215,14 +212,16 @@ function engine:refine_probe()
 
   local pos = torch.FloatTensor{1,1}
   for k, view in ipairs(self.O_views) do
+    self:maybe_copy_new_batch(self.z,self.z_h,k)
+    local ind = self.k_to_batch_index[k]
     denom_shifted:zero()
     pos:fill(-1):cmul(self.dpos[k])
-    oview_conj:conj(view:expandAs(self.z[k]))
+    oview_conj:conj(view:expandAs(self.z[ind]))
 
     denom_tmp = denom_tmp:normZ(oview_conj):sum(self.O_dim)
     denom_shifted[1]:shift(denom_tmp[1],pos)
 
-    oview_conj:cmul(self.z[k])
+    oview_conj:cmul(self.z[ind])
     for o = 1, self.No do
       oview_conj_shifted[o]:shift(oview_conj[o],pos)
     end

@@ -121,7 +121,7 @@ function engine:_init(par)
 
   self:update_views()
   self:calculateO_denom()
-  self:update_z_from_O(self.z)
+  self:update_frames(self.P,self.O_views)
 
   self.norm_a = self.a_tmp2_real_PQstore:cmul(self.a,self.fm):pow(2):sum()
   local max_measured_I = self.a_tmp2_real_PQstore:cmul(self.a,self.fm):pow(2):sum(2):sum(3):max()
@@ -179,6 +179,22 @@ function engine:replace_default_params(p)
   return par
 end
 
+function engine:maybe_copy_new_batch(z,z_h,k)
+  if (k-1) % self.batch_size == 0 then
+    local batch = math.floor(k/self.batch_size) + 1
+    print('batch '..batch)
+    local old_batch_start, old_batch_end, old_batch_size = table.unpack(self.old_batch_params)
+    local batch_start, batch_end, batch_size = table.unpack(self.batch_params[batch])
+    self.old_batch_params = self.batch_params[batch]
+    local last_z, last_zh = table.unpack(self.last_z_zh)
+    self.last_z_zh = {z,z_h}
+    u.debug('old_batch_start, old_batch_end, old_batch_size = (%d,%d,%d)',old_batch_start, old_batch_end, old_batch_size)
+    u.debug('batch_start, batch_end, batch_size             = (%d,%d,%d)',batch_start, batch_end, batch_size)
+    last_zh[{{old_batch_start,old_batch_end},{},{},{},{}}]:copy(last_z[{{1,old_batch_size},{},{},{},{}}])
+    z[{{1,batch_size},{},{},{},{}}]:copy(z_h[{{batch_start,batch_end},{},{},{},{}}])
+  end
+end
+
 -- total memory requirements:
 -- 1 x object complex
 -- 1 x object real
@@ -197,7 +213,7 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   local used_memory = total_memory - free_memory
   local batches = 1
   for n_batches = 1,50 do
-    frames_memory = (K/n_batches)*No*Np*M*M * Zsize_bytes
+    frames_memory = math.ceil(K/n_batches)*No*Np*M*M * Zsize_bytes
     if used_memory + frames_memory * 3 < total_memory * 0.98 then
       batches = n_batches
       print(   '----------------------------------------------------')
@@ -212,9 +228,41 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     end
   end
 
+  batches = 2
+
+  self.batch_params = {}
+  local batch_size = math.ceil(self.K / batches)
+  for i = 0,batches do
+    local relative_end  = self.K - (i+1)*batch_size
+    local data_finished = relative_end > 0 and 0 or relative_end
+    self.batch_params[#self.batch_params+1] = {i*batch_size+1,(i+1)*batch_size-data_finished,batch_size-data_finished}
+  end
+
+  self.k_to_batch_index = {}
+  for k = 0, self.K do
+    self.k_to_batch_index[k+1] = (k % batch_size) + 1
+  end
+  self.batch_size = batch_size
+  self.batches = batches
+  K = batch_size
+  u.debug('batch_size = %d',batch_size)
+
   self.z = torch.ZCudaTensor.new(torch.LongStorage{K,No,Np,M,M})
   self.P_Qz = torch.ZCudaTensor.new(torch.LongStorage{K,No,Np,M,M})
   self.P_Fz = torch.ZCudaTensor.new(torch.LongStorage{K,No,Np,M,M})
+
+  if self.batches > 1 then
+    self.z_h = torch.ZFloatTensor.new(torch.LongStorage{self.K,No,Np,M,M})
+    self.P_Qz_h = torch.ZFloatTensor.new(torch.LongStorage{self.K,No,Np,M,M})
+    self.P_Fz_h = torch.ZFloatTensor.new(torch.LongStorage{self.K,No,Np,M,M})
+
+    self.old_batch_params = self.batch_params[1]
+    local old_batch_start, old_batch_end, old_batch_size = table.unpack(self.old_batch_params)
+    u.debug('old_batch_start, old_batch_end, old_batch_size = (%d,%d,%d)',old_batch_start, old_batch_end, old_batch_size)
+    -- self.z[{{1,old_batch_size},{},{},{},{}}]:copy(self.z_h[{{old_batch_start,old_batch_end},{},{},{},{}}])
+    -- self.P_Qz[{{1,old_batch_size},{},{},{},{}}]:copy(self.P_Qz_h[{{old_batch_start,old_batch_end},{},{},{},{}}])
+    -- self.P_Fz[{{1,old_batch_size},{},{},{},{}}]:copy(self.P_Fz_h[{{old_batch_start,old_batch_end},{},{},{},{}}])
+  end
 
   local P_Qz_storage = self.P_Qz:storage()
   local P_Fz_storage = self.P_Fz:storage()
@@ -238,31 +286,29 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_PQstore:nElement() + 1
   self.zk_tmp2_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{No,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_PQstore:nElement() + 1
-  self.zk_tmp3_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{No,Np,M,M})
-  P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp3_PQstore:nElement() + 1
 
   self.O_tmp_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{No,1,Nx,Ny})
   P_Qstorage_offset = P_Qstorage_offset + self.O_tmp_PQstore:nElement()
 
   -- offset for real arrays
   P_Qstorage_offset = P_Qstorage_offset*2 + 1
-  self.P_tmp1_real_PQstore = torch.CudaTensor.new(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
+
+  self.P_tmp1_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_real_PQstore:nElement() + 1
-  self.P_tmp2_real_PQstore = torch.CudaTensor.new(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
+  self.P_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp2_real_PQstore:nElement() + 1
-  self.P_tmp3_real_PQstore = torch.CudaTensor.new(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
+  self.P_tmp3_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_real_PQstore:nElement() + 1
-  self.a_tmp_real_PQstore = torch.CudaTensor.new(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,1,M,M})
+  self.a_tmp_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,1,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.a_tmp_real_PQstore:nElement() + 1
-  self.a_tmp2_real_PQstore = torch.CudaTensor.new(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{self.K,M,M})
-  P_Qstorage_offset = P_Qstorage_offset + self.a_tmp2_real_PQstore:nElement() + 1
-  self.zk_tmp1_real_PQstore = torch.CudaTensor.new(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{No,Np,M,M})
+
+  self.zk_tmp1_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{No,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_real_PQstore:nElement() + 1
-  self.zk_tmp2_real_PQstore = torch.CudaTensor.new(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{No,Np,M,M})
+  self.zk_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{No,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_real_PQstore:nElement() + 1
 
-  self.Oview_tmp1_real_PQstore = torch.CudaTensor.new(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{No,1,M,M})
-  P_Qstorage_offset = P_Qstorage_offset + self.Oview_tmp1_real_PQstore:nElement() + 1
+  self.a_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,1,torch.LongStorage{self.K,M,M})
+  P_Qstorage_offset = P_Qstorage_offset + self.a_tmp2_real_PQstore:nElement() + 1
 
   -- buffers in P_Fz_storage
 
@@ -331,12 +377,6 @@ function engine:update_iteration_dependent_parameters(it)
   self.do_plot = it % self.plot_every == 0 and it > self.plot_start
 end
 
-function engine.repeatInto(x,y)
-  for i = 1,y:size(1) do
-    y[i]:copy(x)
-  end
-end
-
 function engine:generate_data(filename)
   self.P[1]:copy(self.probe_solution)
   self.O[1]:copy(self.solution)
@@ -393,71 +433,84 @@ function engine:calculateO_denom()
 end
 
 -- P_Qz, P_Fz free to use
-function engine:merge_frames(z, mul_merge, merge_memory, merge_memory_views)
+function engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
   local mul_merge_repeated = self.zk_tmp1_PQstore
   merge_memory:mul(self.object_inertia)
   for k, view in ipairs(merge_memory_views) do
-    mul_merge_repeated:conj(mul_merge:expandAs(z[k]))
-    view:add(mul_merge_repeated:cmul(z[k]):sum(self.P_dim))
+    self:maybe_copy_new_batch(self.z,self.z_h,k)
+    local ind = self.k_to_batch_index[k]
+    mul_merge_repeated:conj(mul_merge:expandAs(self.z[ind]))
+    view:add(mul_merge_repeated:cmul(self.z[ind]):sum(self.P_dim))
   end
   merge_memory:cmul(self.O_denom)
 end
 
-
-function engine:update_O(z_in)
-  self:merge_frames(z_in,self.P,self.O,self.O_views)
-end
-
 -- P_Fz free
-function engine:update_frames(z,mul_split,merge_memory_views)
+function engine:update_frames(mul_split,merge_memory_views)
+  local z = self.P_Qz
   for k, view in ipairs(merge_memory_views) do
-    z[k]:copy(view:expandAs(z[k])):cmul(mul_split:expandAs(z[k]))
+    self:maybe_copy_new_batch(self.P_Qz,self.P_Qz_h,k)
+    local ind = self.k_to_batch_index[k]
+    z[ind]:cmul(view:expandAs(z[ind]),mul_split:expandAs(z[ind]))
   end
 end
 
-function engine:update_O(z_in)
-  self:merge_frames(z_in,self.P,self.O,self.O_views)
+function engine:P_Q_plain()
+  self:merge_frames(self.P,self.O,self.O_views)
+  self:update_frames(self.P,self.O_views)
 end
 
-function engine:update_z_from_O(z_out)
-  self:update_frames(z_out,self.P,self.O_views)
+function engine:P_Q()
+  if self.update_probe then
+    for _ = 1,self.P_Q_iterations do
+      self.j = _
+      probe_change = self:refine_probe()
+      self:merge_frames(self.P,self.O,self.O_views)
+      -- or probe_change > 0.97 * last_probe_change
+      if not probe_change_0 then probe_change_0 = probe_change end
+      if probe_change < .1 * probe_change_0  then break end
+      -- last_probe_change = probe_change
+      u.printf('            probe change : %g',probe_change)
+    end
+    self:update_frames(self.P,self.O_views)
+  else
+    self:P_Q_plain()
+  end
 end
 
-function engine:P_Q(z_in,z_out)
-  self:merge_frames(z_in,self.P,self.O,self.O_views)
-  self:update_frames(z_out,self.P,self.O_views)
-end
-
-function engine:P_F(z_in,z_out)
+function engine:P_F()
+  local z = self.P_Fz
   local abs = self.zk_tmp1_real_PQstore
   local da = self.a_tmp_real_PQstore
   local fdev = self.zk_tmp2_real_PQstore
   local module_error, err_fmag, renorm  = 0, 0, 0
   local mod_updates = 0
   for k=1,self.K do
+    self:maybe_copy_new_batch(self.P_Fz,self.P_Fz_h,k)
+    local ind = self.k_to_batch_index[k]
     for o = 1, self.No do
-      z_out[k][o]:fftBatched(z_in[k][o])
+      z[ind][o]:fftBatched()
     end
 
     -- sum over probe and object modes
-    abs = abs:normZ(z_out[k]):sum(self.O_dim):sum(self.P_dim)
+    abs = abs:normZ(z[ind]):sum(self.O_dim):sum(self.P_dim)
     abs:sqrt()
     -- plt:plot(abs[1]:float():log(),'abs')
-    fdev:add(abs:expandAs(fdev),-1,self.a_exp[k])
-    da:abs(fdev):pow(2):cmul(self.fm_exp[k])
+    fdev:add(abs:expandAs(fdev),-1,self.a_exp[ind])
+    da:pow(fdev,2):cmul(self.fm_exp[ind])
     err_fmag = da:sum()
     module_error = module_error + err_fmag
     if err_fmag > self.power_threshold then
       renorm = math.sqrt(self.power_threshold/err_fmag)
-      -- plt:plot(z_out[k][1][1]:abs():float():log(),'z_out[k][1] before')
-      self.P_Mod_renorm(z_out[k],self.fm_exp[k],fdev,self.a_exp[k],abs:expandAs(z_out[k]),renorm)
-      -- self.P_Mod(z_out[k],abs,self.a[k])
+      -- plt:plot(z_out[ind][1][1]:abs():float():log(),'z_out[ind][1] before')
+      self.P_Mod_renorm(z[ind],self.fm_exp[k],fdev,self.a_exp[k],abs:expandAs(z[ind]),renorm)
+      -- self.P_Mod(z_out[ind],abs,self.a[k])
       -- plt:plot(z_out[k][1][1]:abs():float():log(),'z_out[k][1] after')
       mod_updates = mod_updates + 1
     end
 
     for o = 1, self.No do
-      z_out[k][o]:ifftBatched()
+      z[ind][o]:ifftBatched()
     end
   end
 
@@ -465,6 +518,23 @@ function engine:P_F(z_in,z_out)
 
   module_error = module_error / self.norm_a
   return module_error, mod_updates
+end
+
+function engine:maybe_refine_positions()
+  if self.update_positions then
+    self:refine_positions()
+  end
+end
+
+function engine:maybe_plot()
+  if self.do_plot then
+    -- :cmul(self.O_mask)
+    plt:plot(self.O_tmp_PFstore:copy(self.O):cmul(self.O_mask)[1][1]:zfloat(),'object - it '..self.i)
+    plt:plot(self.P[1][1]:zfloat(),'new probe')
+  end
+end
+
+function engine:refine_positions()
 end
 
 function engine:refine_probe()

@@ -141,4 +141,10 @@ function m.printf(s,...)
   print(string.format(s,...))
 end
 
+function m.debug(s,...)
+  if DEBUG then
+    print(string.format(s,...))
+  end 
+end
+
 return m
