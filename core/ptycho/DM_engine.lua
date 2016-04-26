@@ -46,7 +46,7 @@ function engine:iterate(steps)
         if not probe_change_0 then probe_change_0 = probe_change end
         if probe_change < .1 * probe_change_0  then break end
         -- last_probe_change = probe_change
-        -- u.printf('            probe change : %g',probe_change)
+        u.printf('            probe change : %g',probe_change)
       end
 
       self:update_z_from_O(self.P_Qz)
@@ -59,8 +59,9 @@ function engine:iterate(steps)
       self:refine_positions()
     end
     if self.do_plot then
-      plt:plot(self.O_tmp_PFstore:copy(self.O):cmul(self.O_mask)[1]:zfloat(),'object - it '..i)
-      plt:plot(self.P[1]:zfloat(),'new probe')
+      -- :cmul(self.O_mask)
+      plt:plot(self.O_tmp_PFstore:copy(self.O):cmul(self.O_mask)[1][1]:zfloat(),'object - it '..i)
+      plt:plot(self.P[1][1]:zfloat(),'new probe')
     end
 
     image_error = self:image_error()

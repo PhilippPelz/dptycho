@@ -17,33 +17,35 @@ function engine:_init(par)
   super._init(self,par)
 end
 
+-- mul_merge: 1 x Np x M x M
+-- z_merge  ; No x Np x M x M
+-- mul_split: 1 x Np x M x M
+-- result   : No x Np x M x M
 function engine:merge_and_split_pair(i,j,mul_merge, z_merge , mul_split, result)
   local O_tmp = self.O_tmp_PFstore
   local O_tmp_views = self.O_tmp_PF_views
+  local mul_merge_shifted_conj = self.P_tmp3_PFstore
+  local mul_split_shifted = self.P_tmp3_PFstore
 
-  result:shift(mul_merge,self.dpos[j]):conj()
-
+  mul_merge_shifted_conj[1]:shift(mul_merge[1],self.dpos[j]):conj()
   O_tmp:zero()
-  O_tmp_views[j]:add(result:cmul(z_merge):sum(1))
+  O_tmp_views[j]:add(result:cmul(z_merge,mul_merge_shifted_conj:expandAs(z_merge)):sum(self.P_dim))
   -- plt:plotReIm(self.O_tmp[1]:zfloat(),'merge_and_split_pair self.O_tmp')
   O_tmp:cmul(self.O_denom)
   -- plt:plotReIm(self.O_tmp[1]:zfloat(),'merge_and_split_pair self.O_tmp 2')
-  local ov = O_tmp_views[i]:repeatTensor(self.Np,1,1)
   -- plt:plotReIm(ov[1]:zfloat(),'merge_and_split_pair ov')
-  result:shift(mul_split,self.dpos[i])
-  result:cmul(ov)
-  -- plt:plotReIm(mul_split[1]:zfloat(),'merge_and_split_pair mul_split')
+  mul_split_shifted[1]:shift(mul_split[1],self.dpos[i])
+  result:cmul(O_tmp_views[i]:expandAs(result),mul_split_shifted:expandAs(result))
   return result
 end
 
-function engine:split_single(i,mul_split,tmp)
-    local mul_split_shifted = self.P_tmp8_PFstore
-    local ov = self.O_views[i]:repeatTensor(self.Np,1,1)
+function engine:split_single(i,mul_split,result)
+    local mul_split_shifted = self.P_tmp3_PFstore:zero()
     -- plt:plotReIm(ov[1]:zfloat(),'ov')
-    mul_split_shifted:shift(mul_split,self.dpos[i])
-    mul_split_shifted:cmul(ov)
-    -- plt:plotReIm(mul_split[1]:zfloat(),'mul_split')
-    return mul_split:copy(mul_split_shifted)
+    mul_split_shifted[1]:shift(mul_split[1],self.dpos[i])
+    -- plt:plotReIm(mul_split_shifted[1][1]:zfloat(),'mul_split_shifted')
+    result:cmul(self.O_views[i]:expandAs(result),mul_split_shifted:expandAs(result))
+    return result
 end
 
 function engine:do_frames_overlap(i,j)
@@ -82,29 +84,31 @@ function engine:refine_positions()
 
   self.P_Fz:zero()
 
-  local zRy = self.P_tmp1_PFstore
-  local zRx = self.P_tmp2_PFstore
-  local Rx = self.P_tmp3_PFstore
-  local Ry = self.P_tmp4_PFstore
+  local zRy = self.zk_tmp1_PFstore
+  local zRx = self.zk_tmp2_PFstore
+  local Rx = self.P_tmp1_PFstore
+  local Ry = self.P_tmp2_PFstore
 
-  local r1 = self.P_tmp5_PFstore
-  local r2 = self.P_tmp6_PFstore
-  local r3 = self.P_tmp7_PFstore
-  local z_under = self.P_tmp9_PFstore
+  local r1 = self.zk_tmp5_PFstore
+  local r2 = self.zk_tmp6_PFstore
+  local r3 = self.zk_tmp7_PFstore
+  local z_under = self.zk_tmp8_PFstore
   local r4 = torch.ZCudaTensor.new(self.Np,self.M,self.M)
   for i = 1, self.K do
     xlua.progress(i,self.K)
-    Rx:dx(self.P,zRx,zRy)
-    Ry:dy(self.P,zRx,zRy)
+    Rx[1]:dx(self.P[1],zRx[1],zRy[1])
+    Ry[1]:dy(self.P[1],zRx[1],zRy[1])
+    -- plt:plotReIm(Rx[1][1]:zfloat(),'Ry[1]')
+    -- plt:plotReIm(Ry[1][1]:zfloat(),'Ry[1]')
     -- zS11:dx2(self.P,zRx,zRy)
     -- zS22:dy2(self.P,zRx,zRy)
     -- zSx:dxdy(self.P,zRx,zRy,r1,r2)
-    zRx:copy(Rx)
-    zRy:copy(Ry)
 
-    zRx = self:split_single(i,zRx,r1)
-    zRy = self:split_single(i,zRy,r1)
-
+    zRx = self:split_single(i,Rx,zRx)
+    -- plt:plotReIm(zRx[1][1]:zfloat(),'zRx[1]')
+    zRy = self:split_single(i,Ry,zRy)
+    -- plt:plotReIm(zRx[1][1]:zfloat(),'zRx[1]')
+    -- plt:plotReIm(zRy[1][1]:zfloat(),'zRy[1]')
     z_under:add(self.z[i],-1,self.P_Qz[i])
 
     bv[i] = z_under:dot(zRx).re
@@ -188,42 +192,22 @@ function engine:refine_positions()
   -- local answer=io.read()
 end
 
-function engine:prepare_P_ksi(P,k)
-  P:add(self.ksi[k][1],self.dxP):add(self.ksi[k][2],self.dyP)
-  P:add(self.ksi[k][1]*self.ksi[k][2],self.dxdyP)
-  P:add(0.5*self.ksi[k][1]^2,self.dx2P)
-  P:add(0.5*self.ksi[k][2]^2,self.dy2P)
-  -- plt:plotReIm(P[1]:zfloat(),'P')
-  return P
-end
-
 -- buffers:
 --  0 x sizeof(P) el R
---  1 x sizeof(P) el C
+--  1 x sizeof(z[k]) el C
 function engine:merge_frames(z, mul_merge, merge_memory, merge_memory_views)
-  -- print('merge_frames shifted')
-  local product_shifted = self.P_tmp2_PQstore
+  local product_shifted = self.zk_tmp1_PQstore
+  local mul_merge_shifted = self.P_tmp1_PQstore
   merge_memory:mul(self.object_inertia)
   local pos = torch.FloatTensor{1,1}
   for k, view in ipairs(merge_memory_views) do
     pos:fill(1):cmul(self.dpos[k])
-    -- plt:plot(product_shifted[1]:zfloat(),'product')
-    product_shifted:shift(mul_merge,pos)
-    product_shifted = product_shifted:conj()
-    product_shifted = product_shifted:cmul(z[k]):sum(1)
-    -- if self.i == 5 then
-    --   plt:plotReIm(product_shifted[1]:zfloat(),'product_shifted')
-    -- end
-    -- plt:plot(product_shifted[1]:zfloat(),'product_shifted')
-    view:add(product_shifted[1])
+    mul_merge_shifted[1]:shift(mul_merge[1],pos)
+    mul_merge_shifted[1]:conj()
+    product_shifted = product_shifted:cmul(z[k],mul_merge_shifted:expandAs(z[k])):sum(self.P_dim)
+    view:add(product_shifted)
   end
-  -- if self.i == 5 then
-  --   plt:plotReIm(self.O[1]:zfloat(),'O')
-  -- end
-  self.O:cmul(self.O_denom)
-  -- if self.i == 5 then
-  --   plt:plotReIm(self.O[1]:zfloat(),'O')
-  -- end
+  merge_memory:cmul(self.O_denom)
 end
 
 -- buffers:
@@ -231,88 +215,86 @@ end
 --  1 x sizeof(P) el C
 function engine:update_frames(z,mul_split,merge_memory_views)
   -- print('update_frames shifted')
-  local mul_split_shifted = self.P_tmp1_PFstore
+  local mul_split_shifted = self.zk_tmp1_PFstore
   local pos = torch.FloatTensor{1,1}
   for k, view in ipairs(merge_memory_views) do
-    local ov = view:repeatTensor(self.Np,1,1)
+    local ov = view:expandAs(z[k])
     pos:fill(1):cmul(self.dpos[k])
     -- print(pos)
-    mul_split_shifted:shift(mul_split,pos)
+    mul_split_shifted[1]:shift(mul_split[1],pos)
+    for i = 2, self.No do
+      mul_split_shifted[i]:copy(mul_split_shifted[1])
+    end
     -- plt:plot(mul_split_shifted[1]:zfloat(),'mul_split_shifted')
-    z[k]:copy(ov):cmul(mul_split_shifted)
+    z[k]:cmul(mul_split_shifted,ov)
   end
 end
 
 -- buffers:
---  3 x sizeof(P) el R
---  3 x sizeof(P) el C
+--  3 x sizeof(z[k]) el C
+--  2 x sizeof(P) el C
+--  1 x sizeof(P) el R
 function engine:refine_probe()
   -- print('refine_probe shifted '..self.i)
-  local new_probe = self.P_tmp1_PQstore
-  local oview_conj = self.P_tmp2_PQstore
-  local oview_conj_shifted = self.P_tmp3_PQstore
+  local new_P = self.P_tmp1_PQstore
+  local oview_conj = self.zk_tmp1_PQstore
+  local oview_conj_shifted = self.zk_tmp2_PQstore
 
   local dP = self.P_tmp3_PQstore
   local dP_abs = self.P_tmp3_real_PQstore
 
-  local denom = self.P_tmp1_real_PQstore
+  local new_P_denom = self.P_tmp1_real_PQstore
   local denom_shifted = self.P_tmp2_real_PQstore
-  local tmp = self.P_tmp3_real_PQstore
+  local denom_tmp = self.zk_tmp1_real_PQstore
 
-  new_probe:mul(self.P,self.probe_inertia)
-  denom:fill(self.probe_inertia)
+  new_P:mul(self.P,self.probe_inertia)
+  new_P_denom:fill(self.probe_inertia)
+
   local pos = torch.FloatTensor{1,1}
-
   for k, view in ipairs(self.O_views) do
     denom_shifted:zero()
     pos:fill(-1):cmul(self.dpos[k])
-    local ovk = view:repeatTensor(self.Np,1,1)
-    oview_conj:conj(ovk)
-    tmp = tmp:normZ(oview_conj):sum(1)
-    oview_conj:cmul(self.z[k])
-    oview_conj_shifted:shift(oview_conj,pos)
-    denom_shifted:shift(tmp,pos)
+    oview_conj:conj(view:expandAs(self.z[k]))
 
-    denom:add(denom_shifted)
-    new_probe:add(oview_conj_shifted)
+    denom_tmp = denom_tmp:normZ(oview_conj):sum(self.O_dim)
+    denom_shifted[1]:shift(denom_tmp[1],pos)
+
+    oview_conj:cmul(self.z[k])
+    for o = 1, self.No do
+      oview_conj_shifted[o]:shift(oview_conj[o],pos)
+    end
+
+    new_P_denom:add(denom_shifted)
+    new_P:add(oview_conj_shifted:sum(self.O_dim))
   end
-  -- plt:plot(denom[1]:float(),'denom')
-  -- plt:plot(new_probe[1]:zfloat(),'new_probe finish 1')
-  new_probe:cdiv(denom)
-  -- plt:plot(new_probe[1]:zfloat(),'new_probe finish 2')
-  -- new_probe = self.support:forward(new_probe)
-  dP:add(new_probe,-1,self.P)
-  dP_abs:absZ(dP)
-  local probe_change = dP_abs:sum()
-  self.P:copy(new_probe)
+  new_P:cdiv(new_P_denom)
+  local probe_change = dP_abs:normZ(dP:add(new_P,-1,self.P)):sum()
+  local P_norm = dP_abs:normZ(self.P):sum()
+  self.P:copy(new_P)
   -- plt:plot(self.P[1]:zfloat(),'self.P')
   self:calculateO_denom()
-  return probe_change
+  return math.sqrt(probe_change/P_norm/self.Np)
 end
 
 -- recalculate (Q*Q)^-1
 -- buffers:
 --  2 x sizeof(P) el R
 function engine:calculateO_denom()
-  -- print('calculateO_denom shifted') *self.K
   self.O_denom:fill(self.object_inertia)
-  local norm_P_shifted = self.P_tmp1_real_PQstore
-  local norm_P =  self.P_tmp2_real_PQstore:normZ(self.P):sum(1)
+  local norm_P_shifted = self.a_tmp_real_PQstore
+  local norm_P =  self.P_tmp2_real_PQstore:normZ(self.P):sum(self.P_dim)
   local tmp = self.P_tmp2_real_PQstore
   -- plt:plot(norm_P[1]:float(),'norm_P - calculateO_denom')
-  local pos = torch.FloatTensor{1,1}
   for k,view in ipairs(self.O_denom_views) do
-    pos:fill(1):cmul(self.dpos[k])
-    norm_P_shifted:shift(norm_P,pos)
-    view:add(norm_P_shifted)
-    -- if self.i == 5 and k > 83 then
-    --   plt:plot(self.O_denom[1]:float():log(),'calculateO_denom  self.O_denom')
-    -- end
+    norm_P_shifted[1]:shift(norm_P[1],self.dpos[k])
+    view:add(norm_P_shifted:expandAs(view))
   end
 
   local abs_max = tmp:absZ(self.P):max()
-  -- local sigma = abs_max * abs_max * 1e-4
-  local sigma = 1e-6
+  local fact_start, fact_end = 1e-3, 1e-6
+
+  local fact = fact_start-(self.i/self.iterations)*(fact_start-fact_end)
+  local sigma = abs_max * abs_max * fact
   -- print('sigma = '..sigma)
   -- plt:plot(self.O_denom[1]:float():log(),'calculateO_denom  self.O_denom')
   self.InvSigma(self.O_denom,sigma)
