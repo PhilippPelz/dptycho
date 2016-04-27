@@ -157,38 +157,54 @@ end
 -- buffers:
 --  0 x sizeof(P) el R
 --  1 x sizeof(z[k]) el C
-function engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
+function engine:merge_frames( mul_merge, merge_memory, merge_memory_views)
+  print('merge_frames')
+  local z = self.z
   local product_shifted = self.zk_tmp1_PQstore
   local mul_merge_shifted = self.P_tmp1_PQstore
   merge_memory:mul(self.object_inertia)
   local pos = torch.FloatTensor{1,1}
   for k, view in ipairs(merge_memory_views) do
     pos:fill(1):cmul(self.dpos[k])
-    self:maybe_copy_new_batch(self.z,self.z_h,k)
+    self:maybe_copy_new_batch_z(k)
     local ind = self.k_to_batch_index[k]
+    -- print(k,ind)
     mul_merge_shifted[1]:shift(mul_merge[1],pos)
     mul_merge_shifted[1]:conj()
-    product_shifted = product_shifted:cmul(self.z[ind],mul_merge_shifted:expandAs(self.z[ind])):sum(self.P_dim)
+    product_shifted = product_shifted:cmul(z[ind],mul_merge_shifted:expandAs(z[ind])):sum(self.P_dim)
     view:add(product_shifted)
   end
+  -- plt:plot(self.O_denom[1][1]:float():log(),'O_denom')
+  -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory')
   merge_memory:cmul(self.O_denom)
+  -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory 2')
 end
 
 -- buffers:
 --  0 x sizeof(P) el R
 --  1 x sizeof(P) el C
--- free buffer: P_Fz
-function engine:update_frames(mul_split,merge_memory_views)
-  local z = self.P_Qz
-  local mul_split_shifted = self.P_tmp1_PFstore
+function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
+  print('update_frames')
+  local mul_split_shifted = self.zk_tmp1_PFstore
   local pos = torch.FloatTensor{1,1}
   for k, view in ipairs(merge_memory_views) do
-    self:maybe_copy_new_batch(self.P_Qz,self.P_Qz_h,k)
+    batch_copy_func(self,k)
     local ind = self.k_to_batch_index[k]
+    -- print(k,ind)
     pos:fill(1):cmul(self.dpos[k])
     mul_split_shifted[1]:shift(mul_split[1],pos)
-    z[ind]:cmul(mul_split_shifted:expandAs(z[ind]),view:expandAs(z[ind]))
+    for i = 2, self.No do
+      mul_split_shifted[i]:copy(mul_split_shifted[1])
+    end
+    local view_exp = view:expandAs(z[ind])
+    z[ind]:cmul(mul_split_shifted,view_exp)
+    -- plt:plot(self.P_Qz[ind][1][1]:zfloat(),'self.P_Qz[ind]')
   end
+  -- plt:plot(z[1][1][1]:zfloat(),'z[1]')
+  -- plt:plot(z[2][1][1]:zfloat(),'z[2]')
+  -- plt:plot(z[3][1][1]:zfloat(),'z[3]')
+  -- plt:plot(z[4][1][1]:zfloat(),'z[4]')
+  -- self:maybe_copy_new_batch_P_Q(1)
 end
 
 -- buffers:
@@ -196,6 +212,7 @@ end
 --  2 x sizeof(P) el C
 --  1 x sizeof(P) el R
 function engine:refine_probe()
+  print('refine_probe')
   local new_P = self.P_tmp1_PQstore
   local oview_conj = self.zk_tmp1_PQstore
   local oview_conj_shifted = self.zk_tmp2_PQstore
@@ -212,7 +229,7 @@ function engine:refine_probe()
 
   local pos = torch.FloatTensor{1,1}
   for k, view in ipairs(self.O_views) do
-    self:maybe_copy_new_batch(self.z,self.z_h,k)
+    self:maybe_copy_new_batch_z(k)
     local ind = self.k_to_batch_index[k]
     denom_shifted:zero()
     pos:fill(-1):cmul(self.dpos[k])
@@ -260,7 +277,7 @@ function engine:calculateO_denom()
   -- print('sigma = '..sigma)
   -- plt:plot(self.O_denom[1]:float():log(),'calculateO_denom  self.O_denom')
   self.InvSigma(self.O_denom,sigma)
-  -- plt:plot(self.O_denom[1]:float():log(),'calculateO_denom  self.O_denom 2')
+  -- plt:plot(self.O_denom[1][1]:float():log(),'calculateO_denom  self.O_denom 2')
   self.O_mask = self.O_denom:lt(1e-3)
 end
 

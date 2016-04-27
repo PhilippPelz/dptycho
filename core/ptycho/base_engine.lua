@@ -115,13 +115,13 @@ function engine:_init(par)
   self.iterations = 1
 
   if par.copy_solution then
-    self.O[1]:copy(self.solution)
+    -- self.O[1]:copy(self.solution)
     self.P[1]:copy(self.probe_solution)
   end
 
   self:update_views()
   self:calculateO_denom()
-  self:update_frames(self.P,self.O_views)
+  self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
 
   self.norm_a = self.a_tmp2_real_PQstore:cmul(self.a,self.fm):pow(2):sum()
   local max_measured_I = self.a_tmp2_real_PQstore:cmul(self.a,self.fm):pow(2):sum(2):sum(3):max()
@@ -179,18 +179,40 @@ function engine:replace_default_params(p)
   return par
 end
 
-function engine:maybe_copy_new_batch(z,z_h,k)
-  if (k-1) % self.batch_size == 0 then
+function engine:maybe_copy_new_batch_z(k)
+  self:maybe_copy_new_batch(self.z,self.z_h,'z',k)
+end
+
+function engine:maybe_copy_new_batch_P_Q(k)
+  self:maybe_copy_new_batch(self.P_Qz,self.P_Qz_h,'P_Qz',k)
+end
+
+function engine:maybe_copy_new_batch_P_F(k)
+  self:maybe_copy_new_batch(self.P_Fz,self.P_Fz_h,'P_Fz',k)
+end
+
+function engine:maybe_copy_new_batch_all(k)
+  self:maybe_copy_new_batch_z(k)
+  self:maybe_copy_new_batch_P_Q(k)
+  self:maybe_copy_new_batch_P_F(k)
+end
+
+function engine:maybe_copy_new_batch(z,z_h,key,k)
+  if (k-1) % self.batch_size == 0 and self.batches > 1 then
     local batch = math.floor(k/self.batch_size) + 1
-    print('batch '..batch)
-    local old_batch_start, old_batch_end, old_batch_size = table.unpack(self.old_batch_params)
+
+    local oldparams = self.old_batch_params[key]
+    self.old_batch_params[key] = self.batch_params[batch]
     local batch_start, batch_end, batch_size = table.unpack(self.batch_params[batch])
-    self.old_batch_params = self.batch_params[batch]
-    local last_z, last_zh = table.unpack(self.last_z_zh)
-    self.last_z_zh = {z,z_h}
-    u.debug('old_batch_start, old_batch_end, old_batch_size = (%d,%d,%d)',old_batch_start, old_batch_end, old_batch_size)
-    u.debug('batch_start, batch_end, batch_size             = (%d,%d,%d)',batch_start, batch_end, batch_size)
-    last_zh[{{old_batch_start,old_batch_end},{},{},{},{}}]:copy(last_z[{{1,old_batch_size},{},{},{},{}}])
+    u.debug('----------------------------------------------------------------------')
+    -- u.debug('batch '..batch)
+    u.debug('%s: s, e, size             = (%03d,%03d,%03d)',key,batch_start, batch_end, batch_size)
+
+    if oldparams then
+      local old_batch_start, old_batch_end, old_batch_size = table.unpack(oldparams)
+      -- u.debug('%s: old_s, old_e, old_size = (%03d,%03d,%03d)',key,old_batch_start, old_batch_end, old_batch_size)
+      z_h[{{old_batch_start,old_batch_end},{},{},{},{}}]:copy(z[{{1,old_batch_size},{},{},{},{}}])
+    end
     z[{{1,batch_size},{},{},{},{}}]:copy(z_h[{{batch_start,batch_end},{},{},{},{}}])
   end
 end
@@ -239,9 +261,10 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   end
 
   self.k_to_batch_index = {}
-  for k = 0, self.K do
-    self.k_to_batch_index[k+1] = (k % batch_size) + 1
+  for k = 1, self.K do
+    self.k_to_batch_index[k] = ((k-1) % batch_size) + 1
   end
+  -- pprint(self.k_to_batch_index)
   self.batch_size = batch_size
   self.batches = batches
   K = batch_size
@@ -255,14 +278,9 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     self.z_h = torch.ZFloatTensor.new(torch.LongStorage{self.K,No,Np,M,M})
     self.P_Qz_h = torch.ZFloatTensor.new(torch.LongStorage{self.K,No,Np,M,M})
     self.P_Fz_h = torch.ZFloatTensor.new(torch.LongStorage{self.K,No,Np,M,M})
-
-    self.old_batch_params = self.batch_params[1]
-    local old_batch_start, old_batch_end, old_batch_size = table.unpack(self.old_batch_params)
-    u.debug('old_batch_start, old_batch_end, old_batch_size = (%d,%d,%d)',old_batch_start, old_batch_end, old_batch_size)
-    -- self.z[{{1,old_batch_size},{},{},{},{}}]:copy(self.z_h[{{old_batch_start,old_batch_end},{},{},{},{}}])
-    -- self.P_Qz[{{1,old_batch_size},{},{},{},{}}]:copy(self.P_Qz_h[{{old_batch_start,old_batch_end},{},{},{},{}}])
-    -- self.P_Fz[{{1,old_batch_size},{},{},{},{}}]:copy(self.P_Fz_h[{{old_batch_start,old_batch_end},{},{},{},{}}])
   end
+
+  self.old_batch_params = {}
 
   local P_Qz_storage = self.P_Qz:storage()
   local P_Fz_storage = self.P_Fz:storage()
@@ -381,7 +399,7 @@ function engine:generate_data(filename)
   self.P[1]:copy(self.probe_solution)
   self.O[1]:copy(self.solution)
   -- self:calculateO_denom2()
-  self:update_frames(self.z,self.P,self.O_views)
+  self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
 
   local a = self.a_tmp_real_PQstore
 
@@ -437,7 +455,7 @@ function engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
   local mul_merge_repeated = self.zk_tmp1_PQstore
   merge_memory:mul(self.object_inertia)
   for k, view in ipairs(merge_memory_views) do
-    self:maybe_copy_new_batch(self.z,self.z_h,k)
+    self:maybe_copy_new_batch_z(k)
     local ind = self.k_to_batch_index[k]
     mul_merge_repeated:conj(mul_merge:expandAs(self.z[ind]))
     view:add(mul_merge_repeated:cmul(self.z[ind]):sum(self.P_dim))
@@ -446,10 +464,9 @@ function engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
 end
 
 -- P_Fz free
-function engine:update_frames(mul_split,merge_memory_views)
-  local z = self.P_Qz
+function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
   for k, view in ipairs(merge_memory_views) do
-    self:maybe_copy_new_batch(self.P_Qz,self.P_Qz_h,k)
+    batch_copy_func(self,k)
     local ind = self.k_to_batch_index[k]
     z[ind]:cmul(view:expandAs(z[ind]),mul_split:expandAs(z[ind]))
   end
@@ -457,7 +474,7 @@ end
 
 function engine:P_Q_plain()
   self:merge_frames(self.P,self.O,self.O_views)
-  self:update_frames(self.P,self.O_views)
+  self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
 end
 
 function engine:P_Q()
@@ -470,50 +487,55 @@ function engine:P_Q()
       if not probe_change_0 then probe_change_0 = probe_change end
       if probe_change < .1 * probe_change_0  then break end
       -- last_probe_change = probe_change
-      u.printf('            probe change : %g',probe_change)
+      -- u.printf('            probe change : %g',probe_change)
     end
-    self:update_frames(self.P,self.O_views)
+    self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
   else
     self:P_Q_plain()
   end
 end
 
 function engine:P_F()
+  print('P_F')
   local z = self.P_Fz
   local abs = self.zk_tmp1_real_PQstore
   local da = self.a_tmp_real_PQstore
   local fdev = self.zk_tmp2_real_PQstore
   local module_error, err_fmag, renorm  = 0, 0, 0
   local mod_updates = 0
-  for k=1,self.K do
-    self:maybe_copy_new_batch(self.P_Fz,self.P_Fz_h,k)
-    local ind = self.k_to_batch_index[k]
+  local batch_start, batch_end, batch_size = table.unpack(self.old_batch_params['P_Fz'])
+  for k=1,batch_size do
+    local k_all = batch_start+k-1
     for o = 1, self.No do
-      z[ind][o]:fftBatched()
+      z[k][o]:fftBatched()
     end
 
     -- sum over probe and object modes
-    abs = abs:normZ(z[ind]):sum(self.O_dim):sum(self.P_dim)
+    abs = abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
     abs:sqrt()
     -- plt:plot(abs[1]:float():log(),'abs')
-    fdev:add(abs:expandAs(fdev),-1,self.a_exp[ind])
-    da:pow(fdev,2):cmul(self.fm_exp[ind])
+    fdev:add(abs:expandAs(fdev),-1,self.a_exp[k_all])
+    da:abs(fdev):pow(2):cmul(self.fm_exp[k_all])
     err_fmag = da:sum()
     module_error = module_error + err_fmag
     if err_fmag > self.power_threshold then
       renorm = math.sqrt(self.power_threshold/err_fmag)
-      -- plt:plot(z_out[ind][1][1]:abs():float():log(),'z_out[ind][1] before')
-      self.P_Mod_renorm(z[ind],self.fm_exp[k],fdev,self.a_exp[k],abs:expandAs(z[ind]),renorm)
+      -- plt:plot(z[ind][1][1]:abs():float():log(),'z_out[ind][1] before')
+      self.P_Mod_renorm(z[k],self.fm_exp[k_all],fdev,self.a_exp[k_all],abs:expandAs(z[k]),renorm)
       -- self.P_Mod(z_out[ind],abs,self.a[k])
-      -- plt:plot(z_out[k][1][1]:abs():float():log(),'z_out[k][1] after')
+      -- plt:plot(z[ind][1][1]:abs():float():log(),'z_out[k][1] after')
       mod_updates = mod_updates + 1
     end
 
     for o = 1, self.No do
-      z[ind][o]:ifftBatched()
+      z[k][o]:ifftBatched()
     end
+    -- plt:plot(z[ind][1][1]:abs():float():log(),'z[k][1] ifft')
   end
-
+  -- plt:plot(self.P_Fz[1][1][1]:zfloat(),'self.z')
+  -- plt:plot(self.P_Fz[2][1][1]:zfloat(),'self.z2')
+  -- plt:plot(self.P_Fz[3][1][1]:zfloat(),'self.z3')
+  -- plt:plot(self.P_Fz[4][1][1]:zfloat(),'self.z4')
   -- u.printf('%d/%d modulus updates', mod_updates, self.K)
 
   module_error = module_error / self.norm_a
@@ -551,9 +573,11 @@ function engine:refine_probe()
   new_P_denom:fill(self.probe_inertia)
 
   for k, view in ipairs(self.O_views) do
-    local view_exp = view:expandAs(self.z[k])
+    self:maybe_copy_new_batch_z(k)
+    local ind = self.k_to_batch_index[k]
+    local view_exp = view:expandAs(self.z[ind])
     oview_conj:conj(view_exp)
-    new_P:add(oview_conj:cmul(self.z[k]):sum(self.O_dim))
+    new_P:add(oview_conj:cmul(self.z[ind]):sum(self.O_dim))
     new_P_denom:add(denom_tmp:normZ(view_exp):sum(self.O_dim))
   end
 
@@ -569,8 +593,17 @@ function engine:refine_probe()
 end
 
 function engine:overlap_error(z_in,z_out)
+  print('overlap_error')
   local result = self.P_Fz
-  return result:add(z_in,-1,z_out):norm():sum() / z_out:norm():sum()
+  local res, res_denom = 0, 0
+
+  for k = 1, self.K, self.batch_size do
+    self:maybe_copy_new_batch_P_Q(k)
+    self:maybe_copy_new_batch_z(k)
+    res = res + result:add(z_in,-1,z_out):norm():sum()
+    res_denom = res_denom + z_out:norm():sum()
+  end
+  return res/res_denom
 end
 
 function engine:image_error()
