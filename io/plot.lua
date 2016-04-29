@@ -58,7 +58,7 @@ def scatter_positions(pos1,pos2):
     fig, ax = plt.subplots()
     ax.scatter(pos1[:,0],pos1[:,1],c='r')
     ax.scatter(pos2[:,0],pos2[:,1],c='b')
-    fig.savefig('positions_%d.png'%i)
+    fig.savefig('positions_%03d.png'%i)
     i = i + 1
     #plt.show()
     plt.close()

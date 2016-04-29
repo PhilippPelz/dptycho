@@ -60,6 +60,7 @@ function engine:_init(par)
   self.P_Q_iterations = par.P_Q_iterations
   self.beta = par.beta
   self.has_solution = par.solution and true
+  self.background_correction_start = par.background_correction_start
 
   self.a_exp = self.a:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
   self.fm_exp = self.fm:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
@@ -250,6 +251,11 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   self.O_denom = torch.CudaTensor(self.O:size())
   self.P = torch.ZCudaTensor.new(1,Np,M,M)
 
+  if self.background_correction_start > 0 then
+
+  end
+
+
   if self.has_solution then
     self.solution = torch.ZCudaTensor.new(No,1,Nx,Ny)
   end
@@ -321,135 +327,135 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
   -- buffers in P_Qz_storage
 
-  -- self.P_tmp1_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{1,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_PQstore:nElement() + 1
-  -- self.P_tmp3_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{1,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_PQstore:nElement() + 1
-  --
-  -- self.zk_tmp1_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{No,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_PQstore:nElement() + 1
-  -- self.zk_tmp2_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{No,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_PQstore:nElement() + 1
-  --
-  -- self.O_tmp_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{No,1,Nx,Ny})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.O_tmp_PQstore:nElement()
-  --
-  -- -- offset for real arrays
-  -- P_Qstorage_offset = P_Qstorage_offset*2 + 1
-  --
-  -- self.P_tmp1_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_real_PQstore:nElement() + 1
-  -- self.P_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp2_real_PQstore:nElement() + 1
-  -- self.P_tmp3_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_real_PQstore:nElement() + 1
-  -- self.a_tmp_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,1,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.a_tmp_real_PQstore:nElement() + 1
-  --
-  -- self.zk_tmp1_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{No,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_real_PQstore:nElement() + 1
-  -- self.zk_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{No,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_real_PQstore:nElement() + 1
-  --
-  -- self.a_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,1,torch.LongStorage{self.K,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.a_tmp2_real_PQstore:nElement() + 1
-  --
-  -- -- buffers in P_Fz_storage
-  --
-  -- self.P_tmp1_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_PFstore:nElement() + 1
-  -- self.P_tmp2_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp2_PFstore:nElement() + 1
-  -- self.P_tmp3_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp3_PFstore:nElement() + 1
-  --
-  -- self.zk_tmp1_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp1_PFstore:nElement() + 1
-  -- self.zk_tmp2_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp2_PFstore:nElement() + 1
-  -- self.zk_tmp5_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp5_PFstore:nElement() + 1
-  -- self.zk_tmp6_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp6_PFstore:nElement() + 1
-  -- self.zk_tmp7_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp7_PFstore:nElement() + 1
-  -- self.zk_tmp8_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp8_PFstore:nElement() + 1
-  --
-  -- self.O_tmp_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,1,Nx,Ny})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_PFstore:nElement()
-  --
-  -- -- offset for real arrays
-  -- P_Fstorage_offset = P_Fstorage_offset*2 + 1
-  -- self.P_tmp1_real_PFstore = torch.CudaTensor.new(P_Fz_storage_real,P_Fstorage_offset,torch.LongStorage{1,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_real_PFstore:nElement() + 1
-  -- self.O_tmp_real_PFstore = torch.CudaTensor.new(P_Fz_storage_real,P_Fstorage_offset,torch.LongStorage{No,1,Nx,Ny})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_real_PFstore:nElement() + 1
-
-  self.P_tmp1_PQstore = torch.ZCudaTensor.new( {1,Np,M,M})
+  self.P_tmp1_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_PQstore:nElement() + 1
-  self.P_tmp3_PQstore = torch.ZCudaTensor.new( {1,Np,M,M})
+  self.P_tmp3_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_PQstore:nElement() + 1
 
-  self.zk_tmp1_PQstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  self.zk_tmp1_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{No,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_PQstore:nElement() + 1
-  self.zk_tmp2_PQstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  self.zk_tmp2_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{No,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_PQstore:nElement() + 1
 
-  self.O_tmp_PQstore = torch.ZCudaTensor.new( {No,1,Nx,Ny})
+  self.O_tmp_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{No,1,Nx,Ny})
   P_Qstorage_offset = P_Qstorage_offset + self.O_tmp_PQstore:nElement()
 
   -- offset for real arrays
   P_Qstorage_offset = P_Qstorage_offset*2 + 1
 
-  self.P_tmp1_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
+  self.P_tmp1_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_real_PQstore:nElement() + 1
-  self.P_tmp2_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
+  self.P_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp2_real_PQstore:nElement() + 1
-  self.P_tmp3_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
+  self.P_tmp3_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_real_PQstore:nElement() + 1
-  self.a_tmp_real_PQstore = torch.CudaTensor( torch.LongStorage{1,1,M,M})
+  self.a_tmp_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,1,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.a_tmp_real_PQstore:nElement() + 1
 
-  self.zk_tmp1_real_PQstore = torch.CudaTensor( torch.LongStorage{No,Np,M,M})
+  self.zk_tmp1_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{No,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_real_PQstore:nElement() + 1
-  self.zk_tmp2_real_PQstore = torch.CudaTensor( torch.LongStorage{No,Np,M,M})
+  self.zk_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{No,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_real_PQstore:nElement() + 1
 
-  self.a_tmp2_real_PQstore = torch.CudaTensor(torch.LongStorage{self.K,M,M})
+  self.a_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,1,torch.LongStorage{self.K,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.a_tmp2_real_PQstore:nElement() + 1
 
   -- buffers in P_Fz_storage
 
-  self.P_tmp1_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
+  self.P_tmp1_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_PFstore:nElement() + 1
-  self.P_tmp2_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
+  self.P_tmp2_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.P_tmp2_PFstore:nElement() + 1
-  self.P_tmp3_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
+  self.P_tmp3_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.P_tmp3_PFstore:nElement() + 1
 
-  self.zk_tmp1_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  self.zk_tmp1_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp1_PFstore:nElement() + 1
-  self.zk_tmp2_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  self.zk_tmp2_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp2_PFstore:nElement() + 1
-  self.zk_tmp5_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  self.zk_tmp5_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp5_PFstore:nElement() + 1
-  self.zk_tmp6_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  self.zk_tmp6_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp6_PFstore:nElement() + 1
-  self.zk_tmp7_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  self.zk_tmp7_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp7_PFstore:nElement() + 1
-  self.zk_tmp8_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  self.zk_tmp8_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp8_PFstore:nElement() + 1
 
-  self.O_tmp_PFstore = torch.ZCudaTensor.new( {No,1,Nx,Ny})
+  self.O_tmp_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,1,Nx,Ny})
   P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_PFstore:nElement()
 
   -- offset for real arrays
   P_Fstorage_offset = P_Fstorage_offset*2 + 1
-  self.P_tmp1_real_PFstore = torch.CudaTensor.new( torch.LongStorage{1,Np,M,M})
+  self.P_tmp1_real_PFstore = torch.CudaTensor.new(P_Fz_storage_real,P_Fstorage_offset,torch.LongStorage{1,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_real_PFstore:nElement() + 1
-  self.O_tmp_real_PFstore = torch.CudaTensor.new( torch.LongStorage{No,1,Nx,Ny})
+  self.O_tmp_real_PFstore = torch.CudaTensor.new(P_Fz_storage_real,P_Fstorage_offset,torch.LongStorage{No,1,Nx,Ny})
   P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_real_PFstore:nElement() + 1
+
+  -- self.P_tmp1_PQstore = torch.ZCudaTensor.new( {1,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_PQstore:nElement() + 1
+  -- self.P_tmp3_PQstore = torch.ZCudaTensor.new( {1,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_PQstore:nElement() + 1
+  --
+  -- self.zk_tmp1_PQstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_PQstore:nElement() + 1
+  -- self.zk_tmp2_PQstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_PQstore:nElement() + 1
+  --
+  -- self.O_tmp_PQstore = torch.ZCudaTensor.new( {No,1,Nx,Ny})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.O_tmp_PQstore:nElement()
+  --
+  -- -- offset for real arrays
+  -- P_Qstorage_offset = P_Qstorage_offset*2 + 1
+  --
+  -- self.P_tmp1_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_real_PQstore:nElement() + 1
+  -- self.P_tmp2_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp2_real_PQstore:nElement() + 1
+  -- self.P_tmp3_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_real_PQstore:nElement() + 1
+  -- self.a_tmp_real_PQstore = torch.CudaTensor( torch.LongStorage{1,1,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.a_tmp_real_PQstore:nElement() + 1
+  --
+  -- self.zk_tmp1_real_PQstore = torch.CudaTensor( torch.LongStorage{No,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_real_PQstore:nElement() + 1
+  -- self.zk_tmp2_real_PQstore = torch.CudaTensor( torch.LongStorage{No,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_real_PQstore:nElement() + 1
+  --
+  -- self.a_tmp2_real_PQstore = torch.CudaTensor(torch.LongStorage{self.K,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.a_tmp2_real_PQstore:nElement() + 1
+  --
+  -- -- buffers in P_Fz_storage
+  --
+  -- self.P_tmp1_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_PFstore:nElement() + 1
+  -- self.P_tmp2_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp2_PFstore:nElement() + 1
+  -- self.P_tmp3_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp3_PFstore:nElement() + 1
+  --
+  -- self.zk_tmp1_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp1_PFstore:nElement() + 1
+  -- self.zk_tmp2_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp2_PFstore:nElement() + 1
+  -- self.zk_tmp5_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp5_PFstore:nElement() + 1
+  -- self.zk_tmp6_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp6_PFstore:nElement() + 1
+  -- self.zk_tmp7_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp7_PFstore:nElement() + 1
+  -- self.zk_tmp8_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp8_PFstore:nElement() + 1
+  --
+  -- self.O_tmp_PFstore = torch.ZCudaTensor.new( {No,1,Nx,Ny})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_PFstore:nElement()
+  --
+  -- -- offset for real arrays
+  -- P_Fstorage_offset = P_Fstorage_offset*2 + 1
+  -- self.P_tmp1_real_PFstore = torch.CudaTensor.new( torch.LongStorage{1,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_real_PFstore:nElement() + 1
+  -- self.O_tmp_real_PFstore = torch.CudaTensor.new( torch.LongStorage{No,1,Nx,Ny})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_real_PFstore:nElement() + 1
 
 end
 
