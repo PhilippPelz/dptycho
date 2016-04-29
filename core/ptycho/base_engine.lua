@@ -252,7 +252,12 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   self.P = torch.ZCudaTensor.new(1,Np,M,M)
 
   if self.background_correction_start > 0 then
-
+    self.eta = torch.CudaTensor(M,M)
+    self.bg = torch.CudaTensor(M,M)
+    self.eta_like_a = self.eta:view(1,self.M,self.M):expand(self.K,self.M,self.M)
+    self.bg_like_a = self.bg:view(1,self.M,self.M):expand(self.K,self.M,self.M)
+    self.eta_exp = self.eta:view(1,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
+    self.bg_exp = self.bg:view(1,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
   end
 
 
@@ -357,8 +362,14 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   self.zk_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{No,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_real_PQstore:nElement() + 1
 
+  if P_Qstorage_offset + self.K*M*M + 1 > self.P_Qz:nElement() * 2 then
+    self.d = torch.CudaTensor(torch.LongStorage{self.K,M,M})
+  else
+    self.d = torch.CudaTensor(P_Qz_storage_real,1,torch.LongStorage{self.K,M,M})
+    P_Qstorage_offset = P_Qstorage_offset + self.d:nElement() + 1
+  end
+
   self.a_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,1,torch.LongStorage{self.K,M,M})
-  P_Qstorage_offset = P_Qstorage_offset + self.a_tmp2_real_PQstore:nElement() + 1
 
   -- buffers in P_Fz_storage
 
@@ -566,22 +577,33 @@ function engine:P_Q()
   end
 end
 
+function engine:maybe_retrieve_background()
+  if self.i >= self.background_correction_start then
+
+  end
+end
+
 function engine:P_F()
   -- print('P_F')
   local z = self.P_Fz
   local abs = self.zk_tmp1_real_PQstore
   local da = self.a_tmp_real_PQstore
   local fdev = self.zk_tmp2_real_PQstore
+  local d = self.d
   local err_fmag, renorm  = 0, 0
   local batch_start, batch_end, batch_size = table.unpack(self.old_batch_params['P_Fz'])
+
   for k=1,batch_size do
     local k_all = batch_start+k-1
     for o = 1, self.No do
       z[k][o]:fftBatched()
     end
+  end
 
-    -- sum over probe and object modes
+  for k=1,batch_size do
+    -- sum over probe and object modes - 1x1xMxM
     abs = abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
+    d[k]:add(abs[1][1],-1,self.bg)
     abs:sqrt()
     -- plt:plot(abs[1]:float():log(),'abs')
     fdev:add(abs:expandAs(fdev),-1,self.a_exp[k_all])
@@ -598,11 +620,12 @@ function engine:P_F()
       -- plt:plot(z[ind][1][1]:abs():float():log(),'z_out[k][1] after')
       self.mod_updates = self.mod_updates + 1
     end
+  end
 
+  for k=1,batch_size do
     for o = 1, self.No do
       z[k][o]:ifftBatched()
     end
-    -- plt:plot(z[ind][1][1]:abs():float():log(),'z[k][1] ifft')
   end
   -- plt:plot(self.P_Fz[1][1][1]:zfloat(),'self.z')
   -- plt:plot(self.P_Fz[2][1][1]:zfloat(),'self.z2')
