@@ -13,7 +13,7 @@ local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 
 local path = '/home/philipp/drop/Public/'
-local file = 'moon_subpix2.h5'
+local file = 'moon_subpix_bg2.h5'
 
 local engine = require 'dptycho.core.ptycho.DM_engine'
 
@@ -21,24 +21,28 @@ local par = {}
 par.i = 50
 par.DM_smooth_amplitude = 1
 par.probe_change_start = 1
-
 local f = hdf5.open(path..file,'r')
 
-local a = f:read('/data_unshift'):all():cuda()
-local fmask = a:clone():fill(1)
-local pos = f:read('/scan_info/positions_int'):all():int():add(1)
-local dpos = pos:clone():float():zero()
-local dpos = f:read('/scan_info/dpos'):all():float()
-local dpos_solution  = dpos:clone()
+
+
+local pos = f:read('/scan_info/positions_int'):all():int()
+
 -- dpos[{1,1}] = 5
 
+local M = 128
+local a = f:read('/data_unshift'):all():cuda()
+-- local a = torch.CudaTensor(pos:size(1),M,M)
+local fmask = a:clone():fill(1)
 -- print(dpos)
 
 -- local dpos_solution = pos:clone():float():zero()
--- local dpos_solution = f:read('/scan_info/dpos'):all():float()
+local dpos_solution = f:read('/scan_info/dpos'):all():float()
+local dpos = pos:clone():float():zero()
+-- local dpos = f:read('/scan_info/positions'):all():float():add(-1,pos:float())
+-- local dpos_solution  = dpos:clone()
 
 -- dpos:add(-1,pos:float())
-dpos:zero()
+-- dpos:zero()
 -- local errpos = stats.truncnorm({pos:size(1),pos:size(2)},-5,5,0,3)
 -- print(errpos:max(),errpos:min())
 -- dpos:add(errpos:float())
@@ -50,15 +54,18 @@ dpos:zero()
 -- local w = f:read('/fmask'):all():cuda()
 -- local o_r = f:read('/or'):all():cuda()
 -- local o_i = f:read('/oi'):all():cuda()
-local o_r = f:read('/o_r'):all():cuda()
-local o_i = f:read('/o_i'):all():cuda()
+local bg_r = f:read('/bgr'):all()
+-- local bg = bg_r:pow(2):add(bg_i:pow(2)):cuda():mul(1e4)
+-- plt:plot(bg_r:pow(2):add(bg_i:pow(2)))
+local o_r = f:read('/or'):all():cuda()
+local o_i = f:read('/oi'):all():cuda()
 local pr = f:read('/pr'):all():cuda()
 local pi = f:read('/pi'):all():cuda()
 local probe = torch.ZCudaTensor.new(pr:size()):copyIm(pi):copyRe(pr)
 local solution = torch.ZCudaTensor.new(o_r:size()):copyIm(o_i):copyRe(o_r)
 -- local dpos = pos:clone():float():zero()
 -- plt:plot(solution:zfloat(),'solution')
--- plt:plot(probe:zfloat(),'probe')
+
 o_r = nil
 o_i = nil
 pr = nil
@@ -81,14 +88,14 @@ par = {
   plot_start = 1,
   beta = 0.9,
   fourier_relax_factor = 5e-2,
-  position_refinement_start = 10,
+  position_refinement_start = 50,
   position_refinement_every = 3,
   probe_update_start = 2,
   object_inertia = 1e-5,
   probe_inertia = 1e-9,
   P_Q_iterations = 10,
   copy_solution = false,
-  background_correction_start = 30
+  background_correction_start = 1
 }
 par.pos = pos
 par.dpos = dpos
@@ -97,7 +104,9 @@ par.solution = solution
 par.a = a
 par.fmask = fmask
 par.probe = probe
+par.bg_solution = bg_r
+-- par.bg_solution = torch.CudaTensor(M,M):zero()
 
 local ngin = engine(par)
--- ngin:generate_data('/home/philipp/drop/Public/moon_subpix2.h5')
+-- ngin:generate_data('/home/philipp/drop/Public/moon_subpix_bg2.h5')
 ngin:iterate(250)

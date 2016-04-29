@@ -122,6 +122,32 @@ TH_API void THNN_CudaInvSigma(THCState* state, THCudaTensor* self_, THCudaTensor
 
   THCudaCheck(cudaGetLastError());
 }
+
+struct ModProj_renorm_bg {
+  float renorm;
+  ModProj_renorm_bg(float _renorm) : renorm(_renorm) {}
+	__device__ __forceinline__ void operator()(float* fm, float* bg, float* a, float* af, ccx* out) {
+      //fm = (1-fmask) + fmask*(fmag + fdev*renorm)/(af + 1e-10)
+      // float fac = (1-*fm) + *fm * (*a+*fdev* (renorm)) / (*af + 1e-6f);
+      float fac = (1-*fm) + *fm * sqrtf((*a * *a - *bg) / (*af * *af + 1e-6f));
+	    *out = *out * fac ;
+	}
+};
+
+void THNN_ZCudaP_Mod_bg(THCState *state, THZCudaTensor *self, THCudaTensor *fm, THCudaTensor * bg, THCudaTensor * a, THCudaTensor * af, float renorm )
+{
+  THAssert(THZCudaTensor_checkGPU(state, 2, self));
+  THAssert(THCudaTensor_checkGPU(state, 3, fm,bg,a,af));
+  THArgCheck(THZCudaTensor_nElement(state, self) == THCudaTensor_nElement(state, fm), 3, "sizes do not match (result,fm)");
+  THArgCheck(THZCudaTensor_nElement(state, self) == THCudaTensor_nElement(state, bg), 4, "sizes do not match (result,fdev)");
+  THArgCheck(THZCudaTensor_nElement(state, self) == THCudaTensor_nElement(state, a), 5, "sizes do not match (result,a)");
+  THArgCheck(THZCudaTensor_nElement(state, self) == THCudaTensor_nElement(state, af), 6, "sizes do not match (result,af)");
+
+  if (!THZCudaTensor_pointwiseApply5FFFFZ(state, fm, bg, a, af, self, ModProj_renorm_bg(renorm))) {
+    THArgCheck(false, 2, CUTORCH_DIM_WARNING);
+  }
+}
+
 // --   fmag = np.sqrt(np.abs(I))
 // -- af=np.sqrt(af2)
 // -- fdev = af - fmag

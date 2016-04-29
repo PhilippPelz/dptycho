@@ -60,6 +60,7 @@ function engine:_init(par)
   self.P_Q_iterations = par.P_Q_iterations
   self.beta = par.beta
   self.has_solution = par.solution and true
+  self.bg_solution = par.bg_solution
   self.background_correction_start = par.background_correction_start
 
   self.a_exp = self.a:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
@@ -83,10 +84,18 @@ function engine:_init(par)
   self:allocateBuffers(self.K,self.No,self.Np,self.M,self.Nx,self.Ny)
 
   if self.has_solution then
-    local sv = par.solution[{{1,self.Nx-2*self.margin},{1,self.Ny-2*self.margin}}]:view(1,1,self.Nx-2*self.margin,self.Ny-2*self.margin)
-    -- pprint(sv)
-    -- pprint(self.solution[{{},{},{self.margin,self.margin+self.Nx-2*self.margin-1},{self.margin,self.margin+self.Ny-2*self.margin}}])
-    self.solution[{{},{},{self.margin,self.margin+self.Nx-2*self.margin-1},{self.margin,self.margin+self.Ny-2*self.margin-1}}]:copy(sv)
+    local startx, starty = 1,1
+    local endx = self.Nx-2*self.margin
+    local endy = self.Ny-2*self.margin
+    local slice = {{},{},{startx,endx},{starty,endy}}
+    pprint(slice)
+    pprint(par.solution)
+    local sv = par.solution[slice]:clone()
+    pprint(sv)
+    self.solution:zero()
+
+    self.solution[{{},{},{startx+self.margin,endx+self.margin},{starty+self.margin,endy+self.margin}}]:copy(sv)
+    -- plt:plot(self.solution[1][1]:zfloat(),'solution')
   end
 
   if par.probe then
@@ -125,7 +134,7 @@ function engine:_init(par)
   self.iterations = 1
 
   if par.copy_solution then
-    -- self.O[1]:copy(self.solution)
+    self.O[1]:copy(self.solution)
     self.P[1]:copy(self.probe_solution)
   end
 
@@ -155,6 +164,10 @@ end
 
 function engine.P_Mod(x,abs,measured_abs)
   x.THNN.P_Mod(x:cdata(),x:cdata(),abs:cdata(),measured_abs:cdata())
+end
+
+function engine.P_Mod_bg(x,fm,bg,a,af)
+  x.THNN.P_Mod_bg(x:cdata(),fm:cdata(),bg:cdata(),a:cdata(),af:cdata(),1)
 end
 
 function engine.P_Mod_renorm(x,fm,fdev,a,af,renorm)
@@ -198,6 +211,7 @@ function engine:maybe_copy_new_batch_P_Q(k)
 end
 
 function engine:maybe_copy_new_batch_P_F(k)
+  u.printf('engine:maybe_copy_new_batch_P_F(%d)',k)
   self:maybe_copy_new_batch(self.P_Fz,self.P_Fz_h,'P_Fz',k)
 end
 
@@ -258,6 +272,8 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     self.bg_like_a = self.bg:view(1,self.M,self.M):expand(self.K,self.M,self.M)
     self.eta_exp = self.eta:view(1,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
     self.bg_exp = self.bg:view(1,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
+    self.bg:zero()
+    self.eta:fill(1)
   end
 
 
@@ -356,6 +372,8 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_real_PQstore:nElement() + 1
   self.a_tmp_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,1,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.a_tmp_real_PQstore:nElement() + 1
+  self.a_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,1,M,M})
+  P_Qstorage_offset = P_Qstorage_offset + self.a_tmp2_real_PQstore:nElement() + 1
 
   self.zk_tmp1_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{No,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_real_PQstore:nElement() + 1
@@ -467,7 +485,6 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_real_PFstore:nElement() + 1
   -- self.O_tmp_real_PFstore = torch.CudaTensor.new( torch.LongStorage{No,1,Nx,Ny})
   -- P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_real_PFstore:nElement() + 1
-
 end
 
 function engine:update_iteration_dependent_parameters(it)
@@ -475,32 +492,43 @@ function engine:update_iteration_dependent_parameters(it)
   self.update_probe = it >= self.probe_update_start
   self.update_positions = it >= self.position_refinement_start and it % self.position_refinement_every == 0
   self.do_plot = it % self.plot_every == 0 and it > self.plot_start
+  self.calculate_new_background = self.i >= self.background_correction_start
 end
 
 function engine:generate_data(filename)
-  self.P[1]:copy(self.probe_solution)
-  self.O[1]:copy(self.solution)
-  -- self:calculateO_denom2()
   self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
 
   local a = self.a_tmp_real_PQstore
 
-  for k=1,self.K do
-    a:zero()
-    for o = 1,self.No do
-      -- plt:plotcompare({self.z[k][1]:re():float(),self.z[k][1]:im():float()},'self.z[k]')
-      -- plt:plot(a_m:float():log(),'diff')
-      a:add(self.z[k][o]:fftBatched():sum(1)[1]:abs())
+  for _, params1 in ipairs(self.batch_params) do
+    local batch_start1, batch_end1, batch_size1 = table.unpack(params1)
+    self:maybe_copy_new_batch_P_F(batch_start1)
+    for k = 1, batch_size1 do
+      local k_full = k + batch_start1 - 1
+      print(k_full)
+      a:zero()
+      for o = 1,self.No do
+        -- plt:plotcompare({self.z[k][1]:re():float(),self.z[k][1]:im():float()},'self.z[k]')
+        -- plt:plot(a_m:float():log(),'diff')
+        local abs = self.z[k][o]:fftBatched():sum(1)
+        abs = abs[1]:abs()
+        abs:pow(2)
+        a:add(abs)
+      end
+      a:add(self.bg_solution)
+      a:sqrt()
+      -- plt:plot(a[1][1]:float():log())
+      self.a[k_full]:copy(a)
     end
-    self.a[k]:copy(a)
   end
   local f = hdf5.open(filename,'w')
   f:write('/pr',self.P[1]:re():float())
   f:write('/pi',self.P[1]:im():float())
-  f:write('/o_r',self.solution:re():float())
-  f:write('/o_i',self.solution:im():float())
-  plt:plot(self.P[1]:re():float(),'P')
-  plt:plot(self.O[1]:re():float(),'O')
+  f:write('/or',self.solution:re():float())
+  f:write('/oi',self.solution:im():float())
+  f:write('/bgr',self.bg_solution:float())
+  plt:plot(self.P[1][1]:re():float(),'P')
+  plt:plot(self.O[1][1]:re():float(),'O')
   f:write('/scan_info/positions_int',self.pos)
   -- :add(self.dpos)
   f:write('/scan_info/positions',self.pos:float())
@@ -577,19 +605,116 @@ function engine:P_Q()
   end
 end
 
-function engine:maybe_retrieve_background()
-  if self.i >= self.background_correction_start then
+function engine:P_F_with_background()
+  -- print('P_F')
+  local z = self.P_Fz
+  local abs = self.zk_tmp1_real_PQstore
+  local da = self.a_tmp_real_PQstore
+  local sum_a = self.a_tmp_real_PQstore[1][1]
+  local fdev = self.zk_tmp2_real_PQstore
+  local d = self.d
+  local eta = self.eta
+  local err_fmag, renorm  = 0, 0
+  local batch_start, batch_end, batch_size = table.unpack(self.old_batch_params['P_Fz'])
+  -- u.printf('batch_start = %d',batch_start)
 
+  eta:zero()
+  sum_a:zero()
+  if self.calculate_new_background then
+    print('calculate_new_background')
+    for _, params1 in ipairs(self.batch_params) do
+      local batch_start1, batch_end1, batch_size1 = table.unpack(params1)
+      -- u.printf('batch_start1 = %d',batch_start1)
+      self:maybe_copy_new_batch_P_F(batch_start1)
+      for k = 1, batch_size1 do
+        local k_full = k + batch_start1 - 1
+        print(k_full)
+        for o = 1, self.No do
+          -- plt:plot(z[k][o][1]:zfloat(),'z[k][o][1][1]')
+          z[k][o]:fftBatched()
+          -- plt:plot(z[k][o][1]:zfloat(),'z[k][o][1][1]')
+        end
+        abs = abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
+        -- plt:plot(abs[1][1]:float(),'abs[1][1]')
+        -- sum_a = sum_k |F z_k|^2
+        sum_a:add(abs[1][1])
+        -- d_k = |F z_k|^2 - background
+        d[k_full]:add(abs[1][1],-1,self.bg)
+        -- eta = sum_k d_k * |F z_k|^2
+        eta:add(abs[1][1]:cmul(d[k_full]))
+      end
+    end
+    plt:plot(sum_a:float():log(),'sum_a 1')
+    d:pow(2)
+    -- eta = sum_k d_k * |F z_k|^2 / sum_k d_k^2
+    eta:cdiv(d:sum(1)):clamp(0.8,1)
+    -- plt:plot(eta:float(),'eta')
+    -- sum_a = (sum_k |F z_k|^2) / eta
+    sum_a:cdiv(eta)
+    plt:plot(sum_a:float():log(),'sum_a 2')
+    d:sqrt()
+    -- sum_a = (sum_k |F z_k|^2) / eta - (sum_k d_k)
+    sum_a:add(-1,d:sum(1))
+    plt:plot(sum_a:float():log(),'sum_a 3')
+    -- sum_a = 1/K [ (sum_k d_k) - (sum_k |F z_k|^2) / eta ]
+    sum_a:mul(-1/self.K)
+    self.bg:add(sum_a)
+    plt:plot(self.bg:float():log(),'bg')
+    -- plt:plot(self.bg_solution:float(),'bg_solution')
+    self.calculate_new_background = false
+
+    self:maybe_copy_new_batch_P_F(batch_start)
   end
+  local first = true
+  for k=1,batch_size do
+    local k_all = batch_start+k-1
+    -- sum over probe and object modes - 1x1xMxM
+    abs = abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
+    abs:sqrt()
+    if first then
+      plt:plot(abs[1][1]:float():log(),'abs')
+      first = false
+    end
+    fdev:add(abs:expandAs(fdev),-1,self.a_exp[k_all])
+    -- plt:plot(fdev[1][1]:float():log(),'fdev')
+    da:abs(fdev):pow(2):cmul(self.fm_exp[k_all])
+    err_fmag = da:sum()
+    -- u.printf('err_fmag = %g',err_fmag)
+    self.module_error = self.module_error + err_fmag
+    if err_fmag > self.power_threshold then
+      renorm = math.sqrt(self.power_threshold/err_fmag)
+      -- plt:plot(z[ind][1][1]:abs():float():log(),'z_out[ind][1] before')
+      self.P_Mod_bg(z[k],self.fm_exp[k_all],self.bg_exp[k_all],self.a_exp[k_all],abs:expandAs(z[k]))
+      -- self.P_Mod_renorm(z[k],self.fm_exp[k_all],fdev,self.a_exp[k_all],abs:expandAs(z[k]),renorm)
+      -- self.P_Mod(z_out[ind],abs,self.a[k])
+      -- plt:plot(z[ind][1][1]:abs():float():log(),'z_out[k][1] after')
+      self.mod_updates = self.mod_updates + 1
+    end
+  end
+
+  for k=1,batch_size do
+    for o = 1, self.No do
+      z[k][o]:ifftBatched()
+    end
+  end
+  self.module_error = self.module_error / self.norm_a
+  return self.module_error, self.mod_updates
 end
 
 function engine:P_F()
+  if self.i >= self.background_correction_start then
+    self:P_F_with_background()
+  else
+    self:P_F_without_background()
+  end
+end
+
+function engine:P_F_without_background()
   -- print('P_F')
   local z = self.P_Fz
   local abs = self.zk_tmp1_real_PQstore
   local da = self.a_tmp_real_PQstore
   local fdev = self.zk_tmp2_real_PQstore
-  local d = self.d
   local err_fmag, renorm  = 0, 0
   local batch_start, batch_end, batch_size = table.unpack(self.old_batch_params['P_Fz'])
 
@@ -597,13 +722,9 @@ function engine:P_F()
     for o = 1, self.No do
       z[k][o]:fftBatched()
     end
-  end
-
-  for k=1,batch_size do
     local k_all = batch_start+k-1
     -- sum over probe and object modes - 1x1xMxM
     abs = abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
-    d[k]:add(abs[1][1],-1,self.bg)
     abs:sqrt()
     -- plt:plot(abs[1]:float():log(),'abs')
     fdev:add(abs:expandAs(fdev),-1,self.a_exp[k_all])
@@ -620,9 +741,6 @@ function engine:P_F()
       -- plt:plot(z[ind][1][1]:abs():float():log(),'z_out[k][1] after')
       self.mod_updates = self.mod_updates + 1
     end
-  end
-
-  for k=1,batch_size do
     for o = 1, self.No do
       z[k][o]:ifftBatched()
     end

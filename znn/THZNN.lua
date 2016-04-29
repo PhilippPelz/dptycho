@@ -33,6 +33,9 @@ TH_API void THNN_ZCudaP_Mod_renorm(THCState *state, THZCudaTensor *self,
                                    THCudaTensor *fm, THCudaTensor *fdev,
                                    THCudaTensor *a, THCudaTensor *af,
                                    float renorm);
+TH_API void THNN_ZCudaP_Mod_bg(THCState *state, THZCudaTensor *self,
+                               THCudaTensor *fm, THCudaTensor *bg,
+                               THCudaTensor *a, THCudaTensor *af, float renorm);
 TH_API void THNN_ZCudaClipMinMax(THCState *state, THZCudaTensor *self_,
                                  THZCudaTensor *src1, float min, float max);
 

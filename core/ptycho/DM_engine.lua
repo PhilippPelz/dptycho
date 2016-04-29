@@ -10,6 +10,15 @@ function engine:_init(par)
 end
 
 function engine:DM_update()
+  if self.i >= self.background_correction_start then
+    print('DM_update_with_background')
+    return self:DM_update_with_background()
+  else
+    return self:DM_update_without_background()
+  end
+end
+
+function engine:DM_update_without_background()
   -- print('DM_update')
   local mod_error, mod_updates
   -- local overlap_error = self:overlap_error(self.z,self.P_Qz)
@@ -20,6 +29,30 @@ function engine:DM_update()
     self.P_Fz:mul(self.P_Qz,1+self.beta):add(-self.beta,self.z)
     -- z_{i+1} = z_i - P_Q z_i , P_Qz can be used as buffer now
     self.z:add(-1,self.P_Qz)
+    -- self.P_Fz = P_F((2P_Q - I))z
+    mod_error, mod_updates = self:P_F()
+    --  z_{i+1} = z_i - P_Q z_i + P_F((2P_Q - I))z_i
+    self.z:add(self.P_Fz)
+  end
+  -- self:maybe_copy_new_batch_z(1)
+  return self.module_error, self.mod_updates
+end
+
+function engine:DM_update_with_background()
+  -- print('DM_update')
+  local mod_error, mod_updates
+  -- local overlap_error = self:overlap_error(self.z,self.P_Qz)
+  self.mod_updates, self.module_error = 0, 0
+  for k = 1, self.K, self.batch_size do
+    self:maybe_copy_new_batch_all(k)
+  -- self.P_Fz = (2P_Q - I)z
+    self.P_Fz:mul(self.P_Qz,1+self.beta):add(-self.beta,self.z)
+    -- z_{i+1} = z_i - P_Q z_i , P_Qz can be used as buffer now
+    self.z:add(-1,self.P_Qz)
+  end
+  for k = 1, self.K, self.batch_size do
+    self:maybe_copy_new_batch_z(k)
+    self:maybe_copy_new_batch_P_F(k)
     -- self.P_Fz = P_F((2P_Q - I))z
     mod_error, mod_updates = self:P_F()
     --  z_{i+1} = z_i - P_Q z_i + P_F((2P_Q - I))z_i

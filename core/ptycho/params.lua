@@ -11,17 +11,18 @@ local _DEFAULT_PARAMS = {
   solution = torch.CudaTensor(),
   probe = nil,
   fmask = torch.CudaTensor(),
+  bg_solution = torch.CudaTensor(),
   plot_every = 5,
   beta = 1,
   fourier_relax_factor = 5e-2,
-  position_refinement_start = -1,
+  position_refinement_start = 1e5,
   probe_update_start = 5,
   object_inertia = 0.1,
   probe_inertia = 1e-9,
   P_Q_iterations = 5,
   copy_solution = false,
   margin = 10,
-  background_correction_start = -1
+  background_correction_start = 1e5
 }
 
 function m.DEFAULT_PARAMS()
