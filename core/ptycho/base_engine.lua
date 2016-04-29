@@ -59,6 +59,7 @@ function engine:_init(par)
   self.position_refinement_every = par.position_refinement_every
   self.P_Q_iterations = par.P_Q_iterations
   self.beta = par.beta
+  self.has_solution = par.solution and true
 
   self.a_exp = self.a:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
   self.fm_exp = self.fm:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
@@ -69,15 +70,23 @@ function engine:_init(par)
   self.O_dim = 1
   self.P_dim = 2
 
-  local object_size = par.pos:max(1):add(torch.IntTensor({par.a:size(2),par.a:size(3)})):squeeze()
+  self.margin = par.margin
+  local object_size = par.pos:max(1):add(torch.IntTensor({par.a:size(2) + 2*self.margin,par.a:size(3)+ 2*self.margin})):squeeze()
+  self.pos:add(self.margin)
   self.Nx = object_size[1] - 1
   self.Ny = object_size[2] - 1
   -- pprint( pos:max(1))
-  self.solution = par.solution[{{1,self.Nx},{1,self.Ny}}]
   -- pprint(object_size)
   -- pprint(self.solution)
 
   self:allocateBuffers(self.K,self.No,self.Np,self.M,self.Nx,self.Ny)
+
+  if self.has_solution then
+    local sv = par.solution[{{1,self.Nx-2*self.margin},{1,self.Ny-2*self.margin}}]:view(1,1,self.Nx-2*self.margin,self.Ny-2*self.margin)
+    -- pprint(sv)
+    -- pprint(self.solution[{{},{},{self.margin,self.margin+self.Nx-2*self.margin-1},{self.margin,self.margin+self.Ny-2*self.margin}}])
+    self.solution[{{},{},{self.margin,self.margin+self.Nx-2*self.margin-1},{self.margin,self.margin+self.Ny-2*self.margin-1}}]:copy(sv)
+  end
 
   if par.probe then
     self.probe_solution = par.probe
@@ -197,6 +206,12 @@ function engine:maybe_copy_new_batch_all(k)
   self:maybe_copy_new_batch_P_F(k)
 end
 
+function engine:same_batch(batch_params1,batch_params2)
+  local batch_start1, batch_end1, batch_size1 = table.unpack(batch_params1)
+  local batch_start2, batch_end2, batch_size2 = table.unpack(batch_params2)
+  return batch_start1 == batch_start2 and batch_end1 == batch_end2 and batch_size1 == batch_size2
+end
+
 function engine:maybe_copy_new_batch(z,z_h,key,k)
   if (k-1) % self.batch_size == 0 and self.batches > 1 then
     local batch = math.floor(k/self.batch_size) + 1
@@ -211,9 +226,13 @@ function engine:maybe_copy_new_batch(z,z_h,key,k)
     if oldparams then
       local old_batch_start, old_batch_end, old_batch_size = table.unpack(oldparams)
       -- u.debug('%s: old_s, old_e, old_size = (%03d,%03d,%03d)',key,old_batch_start, old_batch_end, old_batch_size)
-      z_h[{{old_batch_start,old_batch_end},{},{},{},{}}]:copy(z[{{1,old_batch_size},{},{},{},{}}])
+      if not self:same_batch(oldparams,self.batch_params[batch]) then
+        z_h[{{old_batch_start,old_batch_end},{},{},{},{}}]:copy(z[{{1,old_batch_size},{},{},{},{}}])
+        z[{{1,batch_size},{},{},{},{}}]:copy(z_h[{{batch_start,batch_end},{},{},{},{}}])
+      end
+    else
+      z[{{1,batch_size},{},{},{},{}}]:copy(z_h[{{batch_start,batch_end},{},{},{},{}}])
     end
-    z[{{1,batch_size},{},{},{},{}}]:copy(z_h[{{batch_start,batch_end},{},{},{},{}}])
   end
 end
 
@@ -230,6 +249,10 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   self.O = torch.ZCudaTensor.new(No,1,Nx,Ny)
   self.O_denom = torch.CudaTensor(self.O:size())
   self.P = torch.ZCudaTensor.new(1,Np,M,M)
+
+  if self.has_solution then
+    self.solution = torch.ZCudaTensor.new(No,1,Nx,Ny)
+  end
 
   local free_memory, total_memory = cutorch.getMemoryUsage(cutorch.getDevice())
   local used_memory = total_memory - free_memory
@@ -254,7 +277,7 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
   self.batch_params = {}
   local batch_size = math.ceil(self.K / batches)
-  for i = 0,batches do
+  for i = 0,batches-1 do
     local relative_end  = self.K - (i+1)*batch_size
     local data_finished = relative_end > 0 and 0 or relative_end
     self.batch_params[#self.batch_params+1] = {i*batch_size+1,(i+1)*batch_size-data_finished,batch_size-data_finished}
@@ -281,6 +304,9 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   end
 
   self.old_batch_params = {}
+  self.old_batch_params['z'] = self.batch_params[1]
+  self.old_batch_params['P_Qz'] = self.batch_params[1]
+  self.old_batch_params['P_Fz'] = self.batch_params[1]
 
   local P_Qz_storage = self.P_Qz:storage()
   local P_Fz_storage = self.P_Fz:storage()
@@ -295,95 +321,134 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
   -- buffers in P_Qz_storage
 
-  self.P_tmp1_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{1,Np,M,M})
+  -- self.P_tmp1_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{1,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_PQstore:nElement() + 1
+  -- self.P_tmp3_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{1,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_PQstore:nElement() + 1
+  --
+  -- self.zk_tmp1_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{No,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_PQstore:nElement() + 1
+  -- self.zk_tmp2_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{No,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_PQstore:nElement() + 1
+  --
+  -- self.O_tmp_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{No,1,Nx,Ny})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.O_tmp_PQstore:nElement()
+  --
+  -- -- offset for real arrays
+  -- P_Qstorage_offset = P_Qstorage_offset*2 + 1
+  --
+  -- self.P_tmp1_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_real_PQstore:nElement() + 1
+  -- self.P_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp2_real_PQstore:nElement() + 1
+  -- self.P_tmp3_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_real_PQstore:nElement() + 1
+  -- self.a_tmp_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,1,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.a_tmp_real_PQstore:nElement() + 1
+  --
+  -- self.zk_tmp1_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{No,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_real_PQstore:nElement() + 1
+  -- self.zk_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{No,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_real_PQstore:nElement() + 1
+  --
+  -- self.a_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,1,torch.LongStorage{self.K,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.a_tmp2_real_PQstore:nElement() + 1
+  --
+  -- -- buffers in P_Fz_storage
+  --
+  -- self.P_tmp1_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_PFstore:nElement() + 1
+  -- self.P_tmp2_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp2_PFstore:nElement() + 1
+  -- self.P_tmp3_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp3_PFstore:nElement() + 1
+  --
+  -- self.zk_tmp1_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp1_PFstore:nElement() + 1
+  -- self.zk_tmp2_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp2_PFstore:nElement() + 1
+  -- self.zk_tmp5_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp5_PFstore:nElement() + 1
+  -- self.zk_tmp6_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp6_PFstore:nElement() + 1
+  -- self.zk_tmp7_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp7_PFstore:nElement() + 1
+  -- self.zk_tmp8_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp8_PFstore:nElement() + 1
+  --
+  -- self.O_tmp_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,1,Nx,Ny})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_PFstore:nElement()
+  --
+  -- -- offset for real arrays
+  -- P_Fstorage_offset = P_Fstorage_offset*2 + 1
+  -- self.P_tmp1_real_PFstore = torch.CudaTensor.new(P_Fz_storage_real,P_Fstorage_offset,torch.LongStorage{1,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_real_PFstore:nElement() + 1
+  -- self.O_tmp_real_PFstore = torch.CudaTensor.new(P_Fz_storage_real,P_Fstorage_offset,torch.LongStorage{No,1,Nx,Ny})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_real_PFstore:nElement() + 1
+
+  self.P_tmp1_PQstore = torch.ZCudaTensor.new( {1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_PQstore:nElement() + 1
-  self.P_tmp3_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{1,Np,M,M})
+  self.P_tmp3_PQstore = torch.ZCudaTensor.new( {1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_PQstore:nElement() + 1
 
-  self.zk_tmp1_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{No,Np,M,M})
+  self.zk_tmp1_PQstore = torch.ZCudaTensor.new( {No,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_PQstore:nElement() + 1
-  self.zk_tmp2_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{No,Np,M,M})
+  self.zk_tmp2_PQstore = torch.ZCudaTensor.new( {No,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_PQstore:nElement() + 1
 
-  self.O_tmp_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{No,1,Nx,Ny})
+  self.O_tmp_PQstore = torch.ZCudaTensor.new( {No,1,Nx,Ny})
   P_Qstorage_offset = P_Qstorage_offset + self.O_tmp_PQstore:nElement()
 
   -- offset for real arrays
   P_Qstorage_offset = P_Qstorage_offset*2 + 1
 
-  self.P_tmp1_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
+  self.P_tmp1_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_real_PQstore:nElement() + 1
-  self.P_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
+  self.P_tmp2_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp2_real_PQstore:nElement() + 1
-  self.P_tmp3_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
+  self.P_tmp3_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_real_PQstore:nElement() + 1
-  self.a_tmp_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,1,M,M})
+  self.a_tmp_real_PQstore = torch.CudaTensor( torch.LongStorage{1,1,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.a_tmp_real_PQstore:nElement() + 1
 
-  self.zk_tmp1_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{No,Np,M,M})
+  self.zk_tmp1_real_PQstore = torch.CudaTensor( torch.LongStorage{No,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_real_PQstore:nElement() + 1
-  self.zk_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{No,Np,M,M})
+  self.zk_tmp2_real_PQstore = torch.CudaTensor( torch.LongStorage{No,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_real_PQstore:nElement() + 1
 
-  self.a_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,1,torch.LongStorage{self.K,M,M})
+  self.a_tmp2_real_PQstore = torch.CudaTensor(torch.LongStorage{self.K,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.a_tmp2_real_PQstore:nElement() + 1
 
   -- buffers in P_Fz_storage
 
-  self.P_tmp1_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
+  self.P_tmp1_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_PFstore:nElement() + 1
-  self.P_tmp2_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
+  self.P_tmp2_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.P_tmp2_PFstore:nElement() + 1
-  self.P_tmp3_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
+  self.P_tmp3_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.P_tmp3_PFstore:nElement() + 1
-  self.P_tmp4_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
-  P_Fstorage_offset = P_Fstorage_offset + self.P_tmp4_PFstore:nElement() + 1
-  self.P_tmp5_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
-  P_Fstorage_offset = P_Fstorage_offset + self.P_tmp5_PFstore:nElement() + 1
-  self.P_tmp6_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
-  P_Fstorage_offset = P_Fstorage_offset + self.P_tmp6_PFstore:nElement() + 1
-  self.P_tmp7_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
-  P_Fstorage_offset = P_Fstorage_offset + self.P_tmp7_PFstore:nElement() + 1
-  self.P_tmp8_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
-  P_Fstorage_offset = P_Fstorage_offset + self.P_tmp8_PFstore:nElement() + 1
-  self.P_tmp9_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
-  P_Fstorage_offset = P_Fstorage_offset + self.P_tmp9_PFstore:nElement() + 1
-  self.P_tmp10_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
-  P_Fstorage_offset = P_Fstorage_offset + self.P_tmp10_PFstore:nElement() + 1
-  self.P_tmp11_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
-  P_Fstorage_offset = P_Fstorage_offset + self.P_tmp11_PFstore:nElement() + 1
 
-  self.zk_tmp1_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
+  self.zk_tmp1_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp1_PFstore:nElement() + 1
-  self.zk_tmp2_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
+  self.zk_tmp2_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp2_PFstore:nElement() + 1
-  self.zk_tmp3_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
-  P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp3_PFstore:nElement() + 1
-  self.zk_tmp4_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
-  P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp4_PFstore:nElement() + 1
-  self.zk_tmp5_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
+  self.zk_tmp5_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp5_PFstore:nElement() + 1
-  self.zk_tmp6_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
+  self.zk_tmp6_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp6_PFstore:nElement() + 1
-  self.zk_tmp7_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
+  self.zk_tmp7_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp7_PFstore:nElement() + 1
-  self.zk_tmp8_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
+  self.zk_tmp8_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp8_PFstore:nElement() + 1
 
-  self.O_tmp_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,1,Nx,Ny})
+  self.O_tmp_PFstore = torch.ZCudaTensor.new( {No,1,Nx,Ny})
   P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_PFstore:nElement()
 
   -- offset for real arrays
   P_Fstorage_offset = P_Fstorage_offset*2 + 1
-  self.P_tmp1_real_PFstore = torch.CudaTensor.new(P_Fz_storage_real,P_Fstorage_offset,torch.LongStorage{1,Np,M,M})
+  self.P_tmp1_real_PFstore = torch.CudaTensor.new( torch.LongStorage{1,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_real_PFstore:nElement() + 1
-  self.P_tmp2_real_PFstore = torch.CudaTensor.new(P_Fz_storage_real,P_Fstorage_offset,torch.LongStorage{1,Np,M,M})
-  P_Fstorage_offset = P_Fstorage_offset + self.P_tmp2_real_PFstore:nElement() + 1
-  self.P_tmp3_real_PFstore = torch.CudaTensor.new(P_Fz_storage_real,P_Fstorage_offset,torch.LongStorage{1,Np,M,M})
-  P_Fstorage_offset = P_Fstorage_offset + self.P_tmp3_real_PFstore:nElement() + 1
-  self.a_tmp_real_PFstore = torch.CudaTensor.new(P_Fz_storage_real,P_Fstorage_offset,torch.LongStorage{1,1,M,M})
-  P_Fstorage_offset = P_Fstorage_offset + self.a_tmp_real_PFstore:nElement() + 1
-  self.O_tmp_real_PFstore = torch.CudaTensor.new(P_Fz_storage_real,P_Fstorage_offset,torch.LongStorage{No,1,Nx,Ny})
+  self.O_tmp_real_PFstore = torch.CudaTensor.new( torch.LongStorage{No,1,Nx,Ny})
   P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_real_PFstore:nElement() + 1
 
 end
@@ -496,13 +561,12 @@ function engine:P_Q()
 end
 
 function engine:P_F()
-  print('P_F')
+  -- print('P_F')
   local z = self.P_Fz
   local abs = self.zk_tmp1_real_PQstore
   local da = self.a_tmp_real_PQstore
   local fdev = self.zk_tmp2_real_PQstore
-  local module_error, err_fmag, renorm  = 0, 0, 0
-  local mod_updates = 0
+  local err_fmag, renorm  = 0, 0
   local batch_start, batch_end, batch_size = table.unpack(self.old_batch_params['P_Fz'])
   for k=1,batch_size do
     local k_all = batch_start+k-1
@@ -515,16 +579,18 @@ function engine:P_F()
     abs:sqrt()
     -- plt:plot(abs[1]:float():log(),'abs')
     fdev:add(abs:expandAs(fdev),-1,self.a_exp[k_all])
+    -- plt:plot(fdev[1][1]:float():log(),'fdev')
     da:abs(fdev):pow(2):cmul(self.fm_exp[k_all])
     err_fmag = da:sum()
-    module_error = module_error + err_fmag
+    -- u.printf('err_fmag = %g',err_fmag)
+    self.module_error = self.module_error + err_fmag
     if err_fmag > self.power_threshold then
       renorm = math.sqrt(self.power_threshold/err_fmag)
       -- plt:plot(z[ind][1][1]:abs():float():log(),'z_out[ind][1] before')
       self.P_Mod_renorm(z[k],self.fm_exp[k_all],fdev,self.a_exp[k_all],abs:expandAs(z[k]),renorm)
       -- self.P_Mod(z_out[ind],abs,self.a[k])
       -- plt:plot(z[ind][1][1]:abs():float():log(),'z_out[k][1] after')
-      mod_updates = mod_updates + 1
+      self.mod_updates = self.mod_updates + 1
     end
 
     for o = 1, self.No do
@@ -538,8 +604,8 @@ function engine:P_F()
   -- plt:plot(self.P_Fz[4][1][1]:zfloat(),'self.z4')
   -- u.printf('%d/%d modulus updates', mod_updates, self.K)
 
-  module_error = module_error / self.norm_a
-  return module_error, mod_updates
+  self.module_error = self.module_error / self.norm_a
+  return self.module_error, self.mod_updates
 end
 
 function engine:maybe_refine_positions()
@@ -593,7 +659,7 @@ function engine:refine_probe()
 end
 
 function engine:overlap_error(z_in,z_out)
-  print('overlap_error')
+  -- print('overlap_error')
   local result = self.P_Fz
   local res, res_denom = 0, 0
 

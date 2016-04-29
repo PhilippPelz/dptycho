@@ -10,39 +10,23 @@ function engine:_init(par)
 end
 
 function engine:DM_update()
-  print('DM_update')
+  -- print('DM_update')
   local mod_error, mod_updates
   -- local overlap_error = self:overlap_error(self.z,self.P_Qz)
+  self.mod_updates, self.module_error = 0, 0
   for k = 1, self.K, self.batch_size do
-    print(k)
     self:maybe_copy_new_batch_all(k)
   -- self.P_Fz = (2P_Q - I)z
     self.P_Fz:mul(self.P_Qz,1+self.beta):add(-self.beta,self.z)
     -- z_{i+1} = z_i - P_Q z_i , P_Qz can be used as buffer now
-    -- plt:plot(self.P_Fz[1][1][1]:zfloat(),'self.P_Fz[1]')
-    -- plt:plot(self.P_Fz[2][1][1]:zfloat(),'self.P_Fz[2]')
-    -- plt:plot(self.P_Fz[3][1][1]:zfloat(),'self.P_Fz[3]')
-    -- plt:plot(self.P_Fz[4][1][1]:zfloat(),'self.P_Fz[4]')
     self.z:add(-1,self.P_Qz)
-    -- plt:plot(self.z[1][1][1]:zfloat(),'z[1]')
-    -- plt:plot(self.z[2][1][1]:zfloat(),'z[2]')
-    -- plt:plot(self.z[3][1][1]:zfloat(),'z[3]')
-    -- plt:plot(self.z[4][1][1]:zfloat(),'z[4]')
     -- self.P_Fz = P_F((2P_Q - I))z
     mod_error, mod_updates = self:P_F()
     --  z_{i+1} = z_i - P_Q z_i + P_F((2P_Q - I))z_i
-    -- plt:plot(self.P_Fz[1][1][1]:zfloat(),'self.P_Fz[1]')
-    -- plt:plot(self.P_Fz[2][1][1]:zfloat(),'self.P_Fz[2]')
-    -- plt:plot(self.P_Fz[3][1][1]:zfloat(),'self.P_Fz[3]')
-    -- plt:plot(self.P_Fz[4][1][1]:zfloat(),'self.P_Fz[4]')
     self.z:add(self.P_Fz)
-    -- plt:plot(self.z[1][1][1]:zfloat(),'z[1]')
-    -- plt:plot(self.z[2][1][1]:zfloat(),'z[2]')
-    -- plt:plot(self.z[3][1][1]:zfloat(),'z[3]')
-    -- plt:plot(self.z[4][1][1]:zfloat(),'z[4]')
   end
-  self:maybe_copy_new_batch_z(1)
-  return mod_error, mod_updates
+  -- self:maybe_copy_new_batch_z(1)
+  return self.module_error, self.mod_updates
 end
 
 function engine:iterate(steps)

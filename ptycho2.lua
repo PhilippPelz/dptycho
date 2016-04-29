@@ -13,7 +13,7 @@ local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 
 local path = '/home/philipp/drop/Public/'
-local file = 'moon2.h5'
+local file = 'moon_subpix2.h5'
 
 local engine = require 'dptycho.core.ptycho.DM_engine'
 
@@ -28,7 +28,7 @@ local a = f:read('/data_unshift'):all():cuda()
 local fmask = a:clone():fill(1)
 local pos = f:read('/scan_info/positions_int'):all():int():add(1)
 local dpos = pos:clone():float():zero()
--- local dpos = f:read('/scan_info/dpos'):all():float()
+local dpos = f:read('/scan_info/dpos'):all():float()
 local dpos_solution  = dpos:clone()
 -- dpos[{1,1}] = 5
 
@@ -48,10 +48,10 @@ dpos:zero()
 -- local pos = f:read('/positions_int'):all():int()
 -- local dx_spec = f:read('/scan_info/dx_spec')
 -- local w = f:read('/fmask'):all():cuda()
-local o_r = f:read('/or'):all():cuda()
-local o_i = f:read('/oi'):all():cuda()
--- local o_r = f:read('/o_r'):all():cuda()
--- local o_i = f:read('/o_i'):all():cuda()
+-- local o_r = f:read('/or'):all():cuda()
+-- local o_i = f:read('/oi'):all():cuda()
+local o_r = f:read('/o_r'):all():cuda()
+local o_i = f:read('/o_i'):all():cuda()
 local pr = f:read('/pr'):all():cuda()
 local pi = f:read('/pi'):all():cuda()
 local probe = torch.ZCudaTensor.new(pr:size()):copyIm(pi):copyRe(pr)
@@ -67,7 +67,7 @@ collectgarbage()
 
 -- frames
 
-DEBUG = true
+DEBUG = false
 
 local nmodes_probe = 1
 local nmodes_object = 1
@@ -77,11 +77,11 @@ par = {
   nmodes_probe = 1,
   nmodes_object = 1,
   probe = nil,
-  plot_every = 5,
+  plot_every = 15,
   plot_start = 1,
   beta = 0.9,
   fourier_relax_factor = 5e-2,
-  position_refinement_start = 80,
+  position_refinement_start = 10,
   position_refinement_every = 3,
   probe_update_start = 2,
   object_inertia = 1e-5,

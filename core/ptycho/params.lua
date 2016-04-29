@@ -19,7 +19,8 @@ local _DEFAULT_PARAMS = {
   object_inertia = 0.1,
   probe_inertia = 1e-9,
   P_Q_iterations = 5,
-  copy_solution = false
+  copy_solution = false,
+  margin = 10
 }
 
 function m.DEFAULT_PARAMS()

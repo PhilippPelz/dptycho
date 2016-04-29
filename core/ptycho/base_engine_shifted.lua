@@ -66,12 +66,137 @@ function engine:do_frames_overlap(i,j)
   return i_and_j_overlap
 end
 
+-- buffers:
+--  1 x sizeof(O) el C
+--  6 x sizeof(z[k]) el C
+-- free buffer: P_F
+function engine:refine_positions()
+  local H = torch.FloatTensor(2*self.K,2*self.K):zero()
+  local overlaps = torch.FloatTensor(self.K,self.K)
+  local H1 = H[{{1,self.K},{1,self.K}}]
+  local H2 = H[{{self.K+1,2*self.K},{self.K+1,2*self.K}}]
+  local Hx1 = H[{{1,self.K},{self.K+1,2*self.K}}]
+  local Hx2 = H[{{self.K+1,2*self.K},{1,self.K}}]
+  local b = torch.FloatTensor(2*self.K,1)
+  local bv = b:view(b:nElement())
+
+  self.P_Fz:zero()
+
+  local zRy = self.zk_tmp1_PFstore
+  local zRx = self.zk_tmp2_PFstore
+  local Rx = self.P_tmp1_PFstore
+  local Ry = self.P_tmp2_PFstore
+
+  local r1 = self.zk_tmp5_PFstore
+  local r2 = self.zk_tmp6_PFstore
+  local r3 = self.zk_tmp7_PFstore
+  local z_under = self.zk_tmp8_PFstore
+  local z_i = self.zk_tmp8_PFstore
+
+  local r4 = torch.ZCudaTensor.new(self.Np,self.M,self.M)
+  local parts = (#self.batch_params) ^ 2
+  local l = 0
+  for _, params1 in ipairs(self.batch_params) do
+    local batch_start1, batch_end1, batch_size1 = table.unpack(params1)
+    -- print('params1')
+    -- pprint(params1)
+    for _, params2 in ipairs(self.batch_params) do
+      -- print('params2')
+      -- pprint(params2)
+      local batch_start2, batch_end2, batch_size2 = table.unpack(params2)
+      l = l + 1
+      xlua.progress(l,parts)
+
+      for i = 1, batch_size1 do
+        local i_full = i + batch_start1 - 1
+        self:maybe_copy_new_batch_z(batch_start1)
+        self:maybe_copy_new_batch_P_Q(batch_start1)
+        Rx[1]:dx(self.P[1],zRx[1],zRy[1])
+        Ry[1]:dy(self.P[1],zRx[1],zRy[1])
+
+        zRx = self:split_single(i_full,Rx,zRx)
+        zRy = self:split_single(i_full,Ry,zRy)
+        z_under:add(self.z[i],-1,self.P_Qz[i])
+
+        bv[i_full] = z_under:dot(zRx).re
+        bv[self.K + i_full] = z_under:dot(zRy).re
+        z_i:copy(self.z[i])
+
+        for j=1, batch_size2 do
+          local j_full = j + batch_start2 - 1
+          self:maybe_copy_new_batch_z(batch_start2)
+          local H1_ij = 0
+          local H2_ij = 0
+          local Hx_ij = 0
+          if i_full == j_full then
+            H1_ij = zRx:dot(zRx).re
+            H2_ij = zRy:dot(zRy).re
+            Hx_ij = zRx:dot(zRy).re
+          end
+
+          -- overlaps[{i,j}] = self:do_frames_overlap(i,j) and 1 or 0
+          if self:do_frames_overlap(i,j) then
+            local O11_ij = self:merge_and_split_pair(i_full,j_full,Rx,self.z[j],Rx,r1)
+            local O22_ij = self:merge_and_split_pair(i_full,j_full,Ry,self.z[j],Ry,r2)
+            local Ox_ij = self:merge_and_split_pair(i_full,j_full,Rx,self.z[j],Ry,r3)
+
+            H1_ij = H1_ij - z_i:dot(O11_ij).re
+            H2_ij = H2_ij - z_i:dot(O22_ij).re
+            Hx_ij = Hx_ij - z_i:dot(Ox_ij).re
+          end
+
+          H1[{i_full,j_full}] = H1_ij
+          H2[{i_full,j_full}] = H2_ij
+          Hx1[{i_full,j_full}] = Hx_ij
+          Hx2[{i_full,j_full}] = Hx_ij
+        end -- end j
+      end -- end i
+    end -- end params2
+  end -- end params1
+
+  local ksi, LU = torch.gesv(b,H)
+  -- plt:plot(H:log(),'H')
+  local max,imax = torch.max(ksi,1)
+  for i=1,self.K do
+    local p = torch.FloatTensor{-ksi[i][1],-ksi[i+self.K][1]}
+    -- u.printf('%04d : %g,%g',i,-ksi[i][1],-ksi[i+self.K][1])
+    self.dpos[i]:add(p:clamp(-1,1))
+  end
+
+  -- local di = self.dpos:int()
+  -- print('di')
+  -- print(di)
+  -- print('self.pos')
+  -- print(self.pos)
+  -- print('self.dpos')
+  -- print(self.dpos)
+  -- self.pos:add(di)
+  -- self.dpos:add(-1,di:float())
+  -- print('self.pos')
+  -- print(self.pos)
+  -- print('self.dpos')
+  -- print(self.dpos)
+
+  plt:scatter_positions(self.dpos:clone():add(self.pos:float()),self.dpos_solution:clone():add(self.pos:float()))
+
+  local dp = self.dpos_solution:clone():add(-1,self.dpos):abs()
+  local max_err = dp:max()
+  local pos_err = self.dpos_solution:clone():add(-1,self.dpos):abs():sum()/self.K
+
+  -- self:update_views()
+  self:calculateO_denom()
+  self:P_Q_plain()
+
+  u.printf('ksi[%d] = %g, pos_error = %g, max_pos_error = %g', imax[1][1] , max[1][1] , pos_err, max_err)
+  -- local answer=io.read()
+end
+
 -- z_underscore = [ I - P_Q ] z
 -- buffers:
 --  1 x sizeof(O) el C
 --  7 x sizeof(P) el C
 -- free buffer: P_F
-function engine:refine_positions()
+function engine:refine_positions2()
   -- plt:plotReIm(z_under[1][1]:zfloat(),'z_under[i]')
   local H = torch.FloatTensor(2*self.K,2*self.K):zero()
   local overlaps = torch.FloatTensor(self.K,self.K)
@@ -158,7 +283,7 @@ end
 --  0 x sizeof(P) el R
 --  1 x sizeof(z[k]) el C
 function engine:merge_frames( mul_merge, merge_memory, merge_memory_views)
-  print('merge_frames')
+  -- print('merge_frames')
   local z = self.z
   local product_shifted = self.zk_tmp1_PQstore
   local mul_merge_shifted = self.P_tmp1_PQstore
@@ -184,7 +309,7 @@ end
 --  0 x sizeof(P) el R
 --  1 x sizeof(P) el C
 function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
-  print('update_frames')
+  -- print('update_frames')
   local mul_split_shifted = self.zk_tmp1_PFstore
   local pos = torch.FloatTensor{1,1}
   for k, view in ipairs(merge_memory_views) do
@@ -212,7 +337,7 @@ end
 --  2 x sizeof(P) el C
 --  1 x sizeof(P) el R
 function engine:refine_probe()
-  print('refine_probe')
+  -- print('refine_probe')
   local new_P = self.P_tmp1_PQstore
   local oview_conj = self.zk_tmp1_PQstore
   local oview_conj_shifted = self.zk_tmp2_PQstore
