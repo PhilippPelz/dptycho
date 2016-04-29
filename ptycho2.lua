@@ -87,7 +87,8 @@ par = {
   object_inertia = 1e-5,
   probe_inertia = 1e-9,
   P_Q_iterations = 10,
-  copy_solution = false
+  copy_solution = false,
+  background_correction_start = 10
 }
 par.pos = pos
 par.dpos = dpos

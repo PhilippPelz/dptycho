@@ -594,13 +594,13 @@ function engine:P_F()
   local batch_start, batch_end, batch_size = table.unpack(self.old_batch_params['P_Fz'])
 
   for k=1,batch_size do
-    local k_all = batch_start+k-1
     for o = 1, self.No do
       z[k][o]:fftBatched()
     end
   end
 
   for k=1,batch_size do
+    local k_all = batch_start+k-1
     -- sum over probe and object modes - 1x1xMxM
     abs = abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
     d[k]:add(abs[1][1],-1,self.bg)
