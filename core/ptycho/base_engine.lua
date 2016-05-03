@@ -263,8 +263,15 @@ end
 function engine:maybe_plot()
   if self.do_plot then
     -- :cmul(self.O_mask)
-    plt:plot(self.O_tmp_PFstore:copy(self.O):cmul(self.O_mask)[1][1]:zfloat(),'object - it '..self.i)
-    plt:plot(self.P[1][1]:zfloat(),'new probe')
+    self.O_tmp_PFstore:copy(self.O):cmul(self.O_mask)
+    self.P_hZ:copy(self.P)
+    self.O_hZ:copy(self.O_tmp_PFstore)
+    for n = 1, self.No do
+      plt:plot(self.O_hZ[n][1],self.save_path .. self.i..'_O_'..n)
+    end
+    for n = 1, self.Np do
+      plt:plot(self.P_hZ[1][n],self.save_path .. self.i..'_P_'..n)
+    end
     -- plt:plot(self.bg:float(),'bg')
     -- self:prepare_plot_data()
     -- plt:update_reconstruction_plot(self.plot_data)
