@@ -5,6 +5,7 @@ local m = classic.module(...)
 local _DEFAULT_PARAMS = {
   pos = torch.FloatTensor(),
   dpos = torch.FloatTensor(),
+  dpos_solution = nil,
   a = nil,
   nmodes_probe = 1,
   nmodes_object = 1,

@@ -64,11 +64,10 @@ function engine:_init(par)
   self.background_correction_start = par.background_correction_start
   self.save_interval = par.save_interval
   self.save_path = par.save_path
+  self.dpos_solution = par.dpos_solution
 
   self.a_exp = self.a:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
   self.fm_exp = self.fm:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
-
-  self.dpos_solution = par.dpos_solution
 
   -- dimensions used for probe and object modes in z[k]
   self.O_dim = 1

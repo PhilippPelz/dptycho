@@ -178,16 +178,19 @@ function engine:refine_positions()
   -- print(self.dpos)
 
   -- plt:scatter_positions(self.dpos:clone():add(self.pos:float()),self.dpos_solution:clone():add(self.pos:float()))
-
-  local dp = self.dpos_solution:clone():add(-1,self.dpos):abs()
-  local max_err = dp:max()
-  local pos_err = self.dpos_solution:clone():add(-1,self.dpos):abs():sum()/self.K
-
+  if self.dpos_solution then
+    local dp = self.dpos_solution:clone():add(-1,self.dpos):abs()
+    local max_err = dp:max()
+    local pos_err = self.dpos_solution:clone():add(-1,self.dpos):abs():sum()/self.K
+    u.printf('ksi[%d] = %g, pos_error = %g, max_pos_error = %g', imax[1][1] , max[1][1] , pos_err, max_err)
+  else
+    u.printf('ksi[%d] = %g', imax[1][1] , max[1][1])
+  end
   -- self:update_views()
   self:calculateO_denom()
   self:P_Q_plain()
 
-  u.printf('ksi[%d] = %g, pos_error = %g, max_pos_error = %g', imax[1][1] , max[1][1] , pos_err, max_err)
+
   -- local answer=io.read()
 end
 
