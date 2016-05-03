@@ -87,7 +87,8 @@ function engine:_init(par)
     local startx, starty = 1,1
     local endx = self.Nx-2*self.margin
     local endy = self.Ny-2*self.margin
-    local slice = {{},{},{startx,endx},{starty,endy}}
+    -- {},{},
+    local slice = {{startx,endx},{starty,endy}}
     pprint(slice)
     pprint(par.solution)
     local sv = par.solution[slice]:clone()
@@ -211,7 +212,7 @@ function engine:maybe_copy_new_batch_P_Q(k)
 end
 
 function engine:maybe_copy_new_batch_P_F(k)
-  u.printf('engine:maybe_copy_new_batch_P_F(%d)',k)
+  -- u.printf('engine:maybe_copy_new_batch_P_F(%d)',k)
   self:maybe_copy_new_batch(self.P_Fz,self.P_Fz_h,'P_Fz',k)
 end
 
@@ -249,6 +250,38 @@ function engine:maybe_copy_new_batch(z,z_h,key,k)
       z[{{1,batch_size},{},{},{},{}}]:copy(z_h[{{batch_start,batch_end},{},{},{},{}}])
     end
   end
+end
+
+function engine:initialize_plotting()
+  self.bg_h = torch.FloatTensor(self.bg:size())
+  self.O_hZ = torch.ZFloatTensor(self.O:size())
+  self.P_hZ = torch.ZFloatTensor(self.P:size())
+  local O_hZ_store = self.O_hZ:storage()
+  local P_hZ_store = self.P_hZ:storage()
+  require 'torch'
+  local z2_pointer = tonumber(self.O_hZ:data())
+  local z3_pointer = tonumber(self.O_hZ:data())
+
+  local O_hZ_store_real = torch.FloatStorage(O_hZ_store:size()*2,z2_pointer)
+  local P_hZ_store_real = torch.FloatStorage(P_hZ_store:size()*2,z3_pointer)
+  local os = self.O:size():totable()
+  os[#os+1] = 2
+  local ps = self.P:size():totable()
+  ps[#ps+1] = 2
+  self.O_h = torch.FloatTensor(O_hZ_store_real,1,torch.LongStorage(os))
+  self.P_h = torch.FloatTensor(P_hZ_store_real,1,torch.LongStorage(ps))
+  self.mod_errors = torch.FloatTensor(self.iterations)
+  self.overlap_errors = torch.FloatTensor(self.iterations)
+  self.plot_pos = self.pos:clone()
+  self.plot_data = {
+    self.O_h,
+    self.P_h,
+    self.bg_h,
+    self.plot_pos,
+    self.mod_errors,
+    self.overlap_errors
+  }
+  plt:init_reconstruction_plot(self.plot_data)
 end
 
 -- total memory requirements:
@@ -502,22 +535,34 @@ function engine:generate_data(filename)
 
   for _, params1 in ipairs(self.batch_params) do
     local batch_start1, batch_end1, batch_size1 = table.unpack(params1)
-    self:maybe_copy_new_batch_P_F(batch_start1)
+    self:maybe_copy_new_batch_z(batch_start1)
+    local first = true
     for k = 1, batch_size1 do
       local k_full = k + batch_start1 - 1
       print(k_full)
       a:zero()
       for o = 1,self.No do
         -- plt:plotcompare({self.z[k][1]:re():float(),self.z[k][1]:im():float()},'self.z[k]')
-        -- plt:plot(a_m:float():log(),'diff')
+        if first then
+          plt:plot(self.z[k][o][1]:abs():log():float(),'self.z[k][o][1]')
+        end
         local abs = self.z[k][o]:fftBatched():sum(1)
+        if first then
+          plt:plot(self.z[k][o][1]:abs():log():float(),'self.z[k][o][1] fft')
+        end
         abs = abs[1]:abs()
         abs:pow(2)
         a:add(abs)
       end
+      if first then
+        plt:plot(self.bg_solution:float(),'bg_solution')
+      end
       a:add(self.bg_solution)
       a:sqrt()
-      -- plt:plot(a[1][1]:float():log())
+      if first then
+        plt:plot(a[1][1]:float():log(),'a[1][1]')
+        first = false
+      end
       self.a[k_full]:copy(a)
     end
   end
@@ -621,45 +666,53 @@ function engine:P_F_with_background()
   eta:zero()
   sum_a:zero()
   if self.calculate_new_background then
-    print('calculate_new_background')
+    -- print('calculate_new_background')
     for _, params1 in ipairs(self.batch_params) do
       local batch_start1, batch_end1, batch_size1 = table.unpack(params1)
       -- u.printf('batch_start1 = %d',batch_start1)
       self:maybe_copy_new_batch_P_F(batch_start1)
+      local first = true
       for k = 1, batch_size1 do
         local k_full = k + batch_start1 - 1
-        print(k_full)
+        -- print(k_full)
         for o = 1, self.No do
-          -- plt:plot(z[k][o][1]:zfloat(),'z[k][o][1][1]')
+          if first then
+            -- plt:plot(z[k][o][1]:abs():log():float(),'z[k][o][1][1]')
+          end
           z[k][o]:fftBatched()
-          -- plt:plot(z[k][o][1]:zfloat(),'z[k][o][1][1]')
+          if first then
+            -- plt:plot(z[k][o][1]:abs():log():float(),'z[k][o][1][1]')
+          end
         end
         abs = abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
-        -- plt:plot(abs[1][1]:float(),'abs[1][1]')
+        if first then
+          -- plt:plot(abs[1][1]:float():log(),'abs[1][1]')
+          first = false
+        end
         -- sum_a = sum_k |F z_k|^2
         sum_a:add(abs[1][1])
-        -- d_k = |F z_k|^2 - background
+        -- d_k = sum_k (|F z_k|^2 - background)
         d[k_full]:add(abs[1][1],-1,self.bg)
         -- eta = sum_k d_k * |F z_k|^2
         eta:add(abs[1][1]:cmul(d[k_full]))
       end
     end
-    plt:plot(sum_a:float():log(),'sum_a 1')
+    -- plt:plot(sum_a:float():log(),'sum_a 1')
     d:pow(2)
     -- eta = sum_k d_k * |F z_k|^2 / sum_k d_k^2
     eta:cdiv(d:sum(1)):clamp(0.8,1)
     -- plt:plot(eta:float(),'eta')
     -- sum_a = (sum_k |F z_k|^2) / eta
     sum_a:cdiv(eta)
-    plt:plot(sum_a:float():log(),'sum_a 2')
+    -- plt:plot(sum_a:float():log(),'sum_a 2')
     d:sqrt()
     -- sum_a = (sum_k |F z_k|^2) / eta - (sum_k d_k)
     sum_a:add(-1,d:sum(1))
-    plt:plot(sum_a:float():log(),'sum_a 3')
     -- sum_a = 1/K [ (sum_k d_k) - (sum_k |F z_k|^2) / eta ]
     sum_a:mul(-1/self.K)
+    -- plt:plot(sum_a:float(),'sum_a 3')
     self.bg:add(sum_a)
-    plt:plot(self.bg:float():log(),'bg')
+    self.bg:clamp(-1e2,1e10)
     -- plt:plot(self.bg_solution:float(),'bg_solution')
     self.calculate_new_background = false
 
@@ -671,10 +724,6 @@ function engine:P_F_with_background()
     -- sum over probe and object modes - 1x1xMxM
     abs = abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
     abs:sqrt()
-    if first then
-      plt:plot(abs[1][1]:float():log(),'abs')
-      first = false
-    end
     fdev:add(abs:expandAs(fdev),-1,self.a_exp[k_all])
     -- plt:plot(fdev[1][1]:float():log(),'fdev')
     da:abs(fdev):pow(2):cmul(self.fm_exp[k_all])
@@ -684,10 +733,20 @@ function engine:P_F_with_background()
     if err_fmag > self.power_threshold then
       renorm = math.sqrt(self.power_threshold/err_fmag)
       -- plt:plot(z[ind][1][1]:abs():float():log(),'z_out[ind][1] before')
+      if first then
+        -- plt:plot(self.bg_exp[k_all][1][1]:float(),'self.bg_exp[k_all]')
+        -- plt:plot(self.a_exp[k_all][1][1]:abs():float():log(),'self.a_exp[k_all]')
+        -- plt:plot(abs[1][1]:float():log(),'abs')
+      end
       self.P_Mod_bg(z[k],self.fm_exp[k_all],self.bg_exp[k_all],self.a_exp[k_all],abs:expandAs(z[k]))
       -- self.P_Mod_renorm(z[k],self.fm_exp[k_all],fdev,self.a_exp[k_all],abs:expandAs(z[k]),renorm)
+      if first then
+        -- plt:plot(z[k][1][1]:abs():float():log(),'z_out[k][1] after')
+        first = false
+      end
+      -- self.P_Mod_renorm(z[k],self.fm_exp[k_all],fdev,self.a_exp[k_all],abs:expandAs(z[k]),renorm)
       -- self.P_Mod(z_out[ind],abs,self.a[k])
-      -- plt:plot(z[ind][1][1]:abs():float():log(),'z_out[k][1] after')
+
       self.mod_updates = self.mod_updates + 1
     end
   end
@@ -764,8 +823,14 @@ end
 function engine:maybe_plot()
   if self.do_plot then
     -- :cmul(self.O_mask)
-    plt:plot(self.O_tmp_PFstore:copy(self.O):cmul(self.O_mask)[1][1]:zfloat(),'object - it '..self.i)
-    plt:plot(self.P[1][1]:zfloat(),'new probe')
+    -- plt:plot(self.O_tmp_PFstore:copy(self.O):cmul(self.O_mask)[1][1]:zfloat(),'object - it '..self.i)
+    -- plt:plot(self.P[1][1]:zfloat(),'new probe')
+    -- plt:plot(self.bg:float(),'bg')
+    self.O_hZ:copy(self.O)
+    self.P_hZ:copy(self.P)
+    self.plot_pos:add(self.pos,self.dpos)
+    self.bg_h:copy(self.bg)
+    plt:update_reconstruction_plot(self.plot_data)
   end
 end
 

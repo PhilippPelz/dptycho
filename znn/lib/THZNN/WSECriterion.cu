@@ -129,7 +129,7 @@ struct ModProj_renorm_bg {
 	__device__ __forceinline__ void operator()(float* fm, float* bg, float* a, float* af, ccx* out) {
       //fm = (1-fmask) + fmask*(fmag + fdev*renorm)/(af + 1e-10)
       // float fac = (1-*fm) + *fm * (*a+*fdev* (renorm)) / (*af + 1e-6f);
-      float fac = (1-*fm) + *fm * sqrtf((*a * *a - *bg) / (*af * *af + 1e-6f));
+      float fac = (1-*fm) + *fm * sqrt((*a * *a - *bg) / (*af * *af + 1e-6f));
 	    *out = *out * fac ;
 	}
 };
@@ -330,7 +330,7 @@ TH_API void THNN_ZCudaBatchedBilinearInterpolation(THCState *state,
   ccx* dest_data = (ccx*)THZCudaTensor_data(state, self_);
   ccx* src_data = (ccx*)THZCudaTensor_data(state, src1);
 
-  batched_bilinear_interpolation_kernelZ<<<numBlocks,threadsPerBlock>>>(dest_data,src_data,ix,iy,xi,yi,u,v);
+  batched_bilinear_interpolation_kernelZ<<<numBlocks,threadsPerBlock,0,THCState_getCurrentStream(state)>>>(dest_data,src_data,ix,iy,xi,yi,u,v);
 }
 
 __global__ void batched_bilinear_interpolation_kernel(float * dest, float * src, const int X, const int Y, int shx, int shy, float shiftx, float shifty)
@@ -397,7 +397,7 @@ TH_API void THNN_CudaBatchedBilinearInterpolation(THCState *state,
   float* dest_data = THCudaTensor_data(state, self_);
   float* src_data = THCudaTensor_data(state, src1);
 
-  batched_bilinear_interpolation_kernel<<<numBlocks,threadsPerBlock>>>(dest_data,src_data,ix,iy,xi,yi,u,v);
+  batched_bilinear_interpolation_kernel<<<numBlocks,threadsPerBlock,0,THCState_getCurrentStream(state)>>>(dest_data,src_data,ix,iy,xi,yi,u,v);
 }
 
 
