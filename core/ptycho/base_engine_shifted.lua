@@ -177,7 +177,7 @@ function engine:refine_positions()
   -- print('self.dpos')
   -- print(self.dpos)
 
-  plt:scatter_positions(self.dpos:clone():add(self.pos:float()),self.dpos_solution:clone():add(self.pos:float()))
+  -- plt:scatter_positions(self.dpos:clone():add(self.pos:float()),self.dpos_solution:clone():add(self.pos:float()))
 
   local dp = self.dpos_solution:clone():add(-1,self.dpos):abs()
   local max_err = dp:max()

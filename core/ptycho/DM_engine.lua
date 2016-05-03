@@ -64,8 +64,8 @@ end
 
 function engine:iterate(steps)
   self.iterations = steps
-  self:initialize_plotting()
-  local mod_error, overlap_error, image_error, probe_error, mod_updates = -1,-1,-1, -1, 0
+  -- self:initialize_plotting()
+  local mod_error, overlap_error, image_error, probe_error, mod_updates = -1,-1,nil, nil, 0
   local probe_change_0, last_probe_change, probe_change = nil, 1e10, 0
   for i=1,steps do
     self:update_iteration_dependent_parameters(i)
@@ -73,17 +73,19 @@ function engine:iterate(steps)
     self:maybe_refine_positions()
     overlap_error = self:overlap_error(self.z,self.P_Qz)
     mod_error, mod_updates = self:DM_update()
-    self:maybe_plot()
 
     image_error = self:image_error()
     probe_error = self:probe_error()
 
     u.printf('iteration %-3d: e_mod = %-02.02g    e_overlap = %-02.02g    e_image = %-02.02g  e_probe = %-02.02g  %d/%d modulus updates',i,mod_error  or -1,overlap_error or -1 ,image_error or -1, probe_error or -1, mod_updates, self.K)
-    -- print('--------------------------------------------------------------------------------')
+
+    self:maybe_plot()
+    self:maybe_save_data()
   end
-  plt:shutdown_reconstruction_plot()
-  plt:plot(self.O[1]:zfloat(),'object - it '..steps)
-  plt:plot(self.P[1]:zfloat(),'new probe')
+  self:save_data(self.save_path .. 'ptycho_' .. (steps+1))
+  -- plt:shutdown_reconstruction_plot()
+  -- plt:plot(self.O[1]:zfloat(),'object - it '..steps)
+  -- plt:plot(self.P[1]:zfloat(),'new probe')
 end
 
 return engine

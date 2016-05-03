@@ -62,6 +62,8 @@ function engine:_init(par)
   self.has_solution = par.solution and true
   self.bg_solution = par.bg_solution
   self.background_correction_start = par.background_correction_start
+  self.save_interval = par.save_interval
+  self.save_path = par.save_path
 
   self.a_exp = self.a:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
   self.fm_exp = self.fm:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
@@ -252,36 +254,63 @@ function engine:maybe_copy_new_batch(z,z_h,key,k)
   end
 end
 
+function engine:prepare_plot_data()
+  self.O_hZ:copy(self.O)
+  self.P_hZ:copy(self.P)
+  self.plot_pos:add(self.pos:float(),self.dpos)
+  self.bg_h:copy(self.bg)
+end
+
+function engine:maybe_plot()
+  if self.do_plot then
+    -- :cmul(self.O_mask)
+    plt:plot(self.O_tmp_PFstore:copy(self.O):cmul(self.O_mask)[1][1]:zfloat(),'object - it '..self.i)
+    plt:plot(self.P[1][1]:zfloat(),'new probe')
+    -- plt:plot(self.bg:float(),'bg')
+    -- self:prepare_plot_data()
+    -- plt:update_reconstruction_plot(self.plot_data)
+  end
+end
+
 function engine:initialize_plotting()
   self.bg_h = torch.FloatTensor(self.bg:size())
   self.O_hZ = torch.ZFloatTensor(self.O:size())
   self.P_hZ = torch.ZFloatTensor(self.P:size())
-  local O_hZ_store = self.O_hZ:storage()
-  local P_hZ_store = self.P_hZ:storage()
-  require 'torch'
-  local z2_pointer = tonumber(self.O_hZ:data())
-  local z3_pointer = tonumber(self.O_hZ:data())
-
-  local O_hZ_store_real = torch.FloatStorage(O_hZ_store:size()*2,z2_pointer)
-  local P_hZ_store_real = torch.FloatStorage(P_hZ_store:size()*2,z3_pointer)
-  local os = self.O:size():totable()
-  os[#os+1] = 2
-  local ps = self.P:size():totable()
-  ps[#ps+1] = 2
-  self.O_h = torch.FloatTensor(O_hZ_store_real,1,torch.LongStorage(os))
-  self.P_h = torch.FloatTensor(P_hZ_store_real,1,torch.LongStorage(ps))
+  -- local O_hZ_store = self.O_hZ:storage()
+  -- local P_hZ_store = self.P_hZ:storage()
+  --
+  -- local z2_pointer = tonumber(self.O_hZ:data())
+  -- local z3_pointer = tonumber(self.P_hZ:data())
+  --
+  -- local O_hZ_store_real = torch.FloatStorage(#O_hZ_store*2,z2_pointer)
+  -- local P_hZ_store_real = torch.FloatStorage(#P_hZ_store*2,z3_pointer)
+  -- local os = self.O:size():totable()
+  -- os[#os+1] = 2
+  -- local ps = self.P:size():totable()
+  -- ps[#ps+1] = 2
+  -- self.O_h = torch.FloatTensor(O_hZ_store_real,1,torch.LongStorage(os))
+  -- self.P_h = torch.FloatTensor(P_hZ_store_real,1,torch.LongStorage(ps))
   self.mod_errors = torch.FloatTensor(self.iterations)
   self.overlap_errors = torch.FloatTensor(self.iterations)
-  self.plot_pos = self.pos:clone()
+  self.plot_pos = self.dpos:clone()
+
+  self:prepare_plot_data()
+  -- self.O_h:zero()
+  -- print(self.P_h:max(),self.P_h:min())
+  -- print(self.O_h:max(),self.O_h:min())
+
   self.plot_data = {
-    self.O_h,
-    self.P_h,
+    self.O_hZ:abs(),
+    self.O_hZ:arg(),
+    self.P_hZ:re(),
+    self.P_hZ:im(),
     self.bg_h,
     self.plot_pos,
     self.mod_errors,
     self.overlap_errors
   }
   plt:init_reconstruction_plot(self.plot_data)
+  print('here')
 end
 
 -- total memory requirements:
@@ -309,7 +338,6 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     self.eta:fill(1)
   end
 
-
   if self.has_solution then
     self.solution = torch.ZCudaTensor.new(No,1,Nx,Ny)
   end
@@ -333,7 +361,7 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     end
   end
 
-  batches = 2
+  if batches == 1 then batches = 2 end
 
   self.batch_params = {}
   local batch_size = math.ceil(self.K / batches)
@@ -526,6 +554,34 @@ function engine:update_iteration_dependent_parameters(it)
   self.update_positions = it >= self.position_refinement_start and it % self.position_refinement_every == 0
   self.do_plot = it % self.plot_every == 0 and it > self.plot_start
   self.calculate_new_background = self.i >= self.background_correction_start
+  self.do_save_data = it % self.save_interval == 0
+end
+
+function engine:maybe_save_data()
+  if self.do_save_data then
+    self:save_data(self.save_path .. 'ptycho_' .. self.i)
+  end
+end
+
+function engine:save_data(filename)
+  u.printf('Saving at iteration %03d to file %s',self.i,filename .. '.h5')
+  local f = hdf5.open(filename .. '.h5','w')
+  f:write('/pr',self.P:zfloat():re())
+  f:write('/pi',self.P:zfloat():im())
+  if self.solution then
+    f:write('/solr',self.solution:zfloat():re())
+    f:write('/soli',self.solution:zfloat():im())
+  end
+  f:write('/or',self.O:zfloat():re())
+  f:write('/oi',self.O:zfloat():im())
+  if self.bg_solution then
+    f:write('/bg',self.bg_solution:float())
+  end
+  f:write('/scan_info/positions_int',self.pos)
+  f:write('/scan_info/positions',self.pos:clone():float():add(self.dpos))
+  f:write('/scan_info/dpos',self.dpos)
+  f:write('/data_unshift',self.a:float())
+  f:close()
 end
 
 function engine:generate_data(filename)
@@ -557,7 +613,9 @@ function engine:generate_data(filename)
       if first then
         plt:plot(self.bg_solution:float(),'bg_solution')
       end
-      a:add(self.bg_solution)
+      if self.bg_solution then
+        a:add(self.bg_solution)
+      end
       a:sqrt()
       if first then
         plt:plot(a[1][1]:float():log(),'a[1][1]')
@@ -566,20 +624,9 @@ function engine:generate_data(filename)
       self.a[k_full]:copy(a)
     end
   end
-  local f = hdf5.open(filename,'w')
-  f:write('/pr',self.P[1]:re():float())
-  f:write('/pi',self.P[1]:im():float())
-  f:write('/or',self.solution:re():float())
-  f:write('/oi',self.solution:im():float())
-  f:write('/bgr',self.bg_solution:float())
   plt:plot(self.P[1][1]:re():float(),'P')
   plt:plot(self.O[1][1]:re():float(),'O')
-  f:write('/scan_info/positions_int',self.pos)
-  -- :add(self.dpos)
-  f:write('/scan_info/positions',self.pos:float())
-  f:write('/scan_info/dpos',self.dpos)
-  f:write('/data_unshift',self.a:float())
-  f:close()
+  self:save_data(filename)
 end
 
 -- recalculate (Q*Q)^-1
@@ -820,19 +867,6 @@ function engine:maybe_refine_positions()
   end
 end
 
-function engine:maybe_plot()
-  if self.do_plot then
-    -- :cmul(self.O_mask)
-    -- plt:plot(self.O_tmp_PFstore:copy(self.O):cmul(self.O_mask)[1][1]:zfloat(),'object - it '..self.i)
-    -- plt:plot(self.P[1][1]:zfloat(),'new probe')
-    -- plt:plot(self.bg:float(),'bg')
-    self.O_hZ:copy(self.O)
-    self.P_hZ:copy(self.P)
-    self.plot_pos:add(self.pos,self.dpos)
-    self.bg_h:copy(self.bg)
-    plt:update_reconstruction_plot(self.plot_data)
-  end
-end
 
 function engine:refine_positions()
 end
@@ -909,7 +943,7 @@ end
 function engine:probe_error()
   local norm = self.P_tmp1_real_PFstore
   local P_corr = self.P_tmp2_PFstore
-  if self.solution then
+  if self.probe_solution then
     -- pprint(self.O[1])
     -- pprint(self.solution)
     local c = self.P[1]:dot(self.probe_solution)

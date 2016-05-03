@@ -1,7 +1,15 @@
 import matplotlib.pyplot as plt
 import numpy as np
-# from mpl_toolkits.axes_grid1 import make_axes_locatable
-# import pyE17.utils as u
+import matplotlib
+import numpy as np
+import time
+import sys
+import threading
+import matplotlib.gridspec as gridspec
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import math
+from PIL import Image
+from mayavi import mlab
 plt.style.use('ggplot')
 
 def plot(img, title='Image', savePath=None, cmap='hot', show=True):
@@ -38,11 +46,6 @@ def zplot(img, suptitle='Image', savePath=None, cmap=['hot','hsv'], title=['Abs'
 
     plt.close()
 
-def float2_to_complex(x):
-    y = np.frombuffer(np.getbuffer(x),dtype=np.complex64,count=np.prod(x.shape)/2)
-    y.shape = x.shape
-    return y
-
 def cx_test(cx_array):
     a = float2_to_complex(cx_array)
     plot(a.real)
@@ -54,8 +57,7 @@ def scatter_positions(pos1,pos2):
     ax.scatter(pos2[0],pos2[1],c='b')
     plt.show()
 
-import numpy as np
-from mayavi import mlab
+
 def plot3d(arr,title,vmin = 0,vmax = 0.7):
     mlab.figure(1, fgcolor=(1, 1, 1), bgcolor=(0, 0, 0))
     src = mlab.pipeline.scalar_field(arr)
@@ -63,30 +65,6 @@ def plot3d(arr,title,vmin = 0,vmax = 0.7):
     mlab.colorbar(title=title, orientation='vertical', nb_labels=7)
     mlab.show()
 
-# -*- coding: utf-8 -*-
-import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
-import time
-import sys
-# from mpl_toolkits.axes_grid1 import make_axes_locatable
-# import pyE17.utils as u
-plt.style.use('ggplot')
-
-import matplotlib.gridspec as gridspec
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-import math
-from PIL import Image
-
-def float2_to_complex(x):
-    #print x.min(), x.max()
-    y = np.frombuffer(np.getbuffer(x),dtype=np.complex64,count=np.prod(x.shape)/2)
-    #print tuple(np.array(x.shape)[:-1])
-    #print y.min(), y.max()
-    y = np.reshape(y,tuple(np.array(x.shape)[:-1]))
-    #print y.shape
-    return y
-import threading
 if matplotlib.get_backend().lower().startswith('qt4'):
     mpl_backend = 'qt'
     from PyQt4 import QtGui
@@ -174,30 +152,7 @@ else:
                 print message
             time.sleep(timeout)
 
-# -*- coding: utf-8 -*-
-import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
-import time
-import sys
-# from mpl_toolkits.axes_grid1 import make_axes_locatable
-# import pyE17.utils as u
-plt.style.use('ggplot')
 
-import matplotlib.gridspec as gridspec
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-import math
-from PIL import Image
-
-def float2_to_complex(x):
-    #print x.min(), x.max()
-    y = np.frombuffer(np.getbuffer(x),dtype=np.complex64,count=np.prod(x.shape)/2)
-    #print tuple(np.array(x.shape)[:-1])
-    #print y.min(), y.max()
-    y = np.reshape(y,tuple(np.array(x.shape)[:-1]))
-    #print y.shape
-    return y
-import threading
 if matplotlib.get_backend().lower().startswith('qt4'):
     mpl_backend = 'qt'
     from PyQt4 import QtGui
@@ -284,6 +239,22 @@ else:
             if message is not None:
                 print message
             time.sleep(timeout)
+
+def test_cx_plot(ob):
+    ob = float2_to_complex(ob)
+    fig, ax = plt.subplots()
+    ax.imshow(ob[0,0,:,:].real)
+    plt.show()
+
+def float2_to_complex(x):
+    #print x.min(), x.max()
+    y = np.frombuffer(np.getbuffer(x),dtype=np.complex64,count=np.prod(x.shape)/2)
+    #print tuple(np.array(x.shape)[:-1])
+    #print y.min(), y.max()
+    # print 'float2_to_complex'
+    y = np.reshape(y,tuple(np.array(x.shape)[:-1]))
+    # print y.shape
+    return y
 
 class ReconPlot():
 
@@ -292,26 +263,17 @@ class ReconPlot():
         #plt.rc('font', family='serif')
         self.interp = interp
         self.interactive = interactive
-        ob, pr, bg, pos, err_mod, err_Q = data
+        obre,obim, prre,prim, bg, pos, err_mod, err_Q = data
 
-        print ob.shape, pr.shape
-        print ob.max(), ob.min()
-        print pr.max(), pr.min()
-
-        ob = float2_to_complex(ob)
-        #print ob.shape
-        ob = ob[:,0,:,:]
-        pr = float2_to_complex(pr)[0]
-
-        print ob.shape, pr.shape
-        print ob.max(), ob.min()
-        print pr.max(), pr.min()
-
+        obre = obre[:,0,:,:]
+        obim = obim[:,0,:,:]
+        prre = prre[0,...]
+        prim = prim[0,...]
 
         x = np.linspace(1, err_mod.size, err_mod.size)
 
-        No = ob.shape[0]
-        Np = pr.shape[0]
+        No = obre.shape[0]
+        Np = prre.shape[0]
 
         self.fig = plt.figure()
 
@@ -333,7 +295,7 @@ class ReconPlot():
         # probes next to object
         ob_rows = 0
         n_pr = 0
-        for i,o in enumerate(ob):
+        for i,x in enumerate(obre):
             ob_rows = i
             print [i,0]
             print [i,1]
@@ -366,7 +328,7 @@ class ReconPlot():
                 self.pr_caxes.append(div_probe2)
             self.ob_axes.append([obamp,obph])
             self.ob_caxes.append([cax1,cax2])
-
+        # print 'wp1'
         # probes next to errors
         ob_rows += 1
         print [ob_rows,2]
@@ -382,10 +344,10 @@ class ReconPlot():
         pr2.tick_params(labelbottom='off',labelleft='off',labeltop='off',left='off',bottom='off',top='off',right='off')
         self.pr_axes.append(pr1)
         self.pr_axes.append(pr2)
-
+        # print 'wp2'
         #probes below everything
         col = 0
-        for j,pr in enumerate(pr):
+        for j,pr in enumerate(prre):
             if j >= len(self.pr_axes):
                 if col == 0: ob_rows += 1
                 print [ob_rows,col]
@@ -396,7 +358,7 @@ class ReconPlot():
                 col = (col + 1) % 4
                 self.pr_axes.append(pr1)
 
-
+        # print 'wp3'
         if savePath is not None:
             fig.savefig(savePath + '.png', dpi=600)
 
@@ -406,30 +368,33 @@ class ReconPlot():
         self.im_errors2 = None
         self.im_pos = None
         self.has_data = False
+        print 'wp4'
 
     def update(self,data, cmap=['hot','hsv']):
-        ob, pr, bg, pos, err_mod, err_Q = data
-        ob = float2_to_complex(ob)
-        ob = ob[:,0,:,:]
-        #print pr.min(), pr.max()
-        pr = float2_to_complex(pr)
-        pr = pr[0]
+        obamp,obph, prre,prim, bg, pos, err_mod, err_Q = data
+
+        obamp = obamp[:,0,:,:]
+        obph = obph[:,0,:,:]
+        prre = prre[0,...]
+        prim = prim[0,...]
+        pr = prre + 1j*prim
+
         #print pr.min(), pr.max()
         if self.ob_imaxes is None:
             self.ob_imaxes = []
             self.ob_cbars = []
-            for i,o in enumerate(ob):
-                imax1 = self.ob_axes[i][0].imshow(np.abs(o), interpolation=self.interp, cmap=plt.cm.get_cmap(cmap[0]))
-                imax2 = self.ob_axes[i][1].imshow(np.angle(o), interpolation=self.interp, cmap=plt.cm.get_cmap(cmap[1]))
+            for i,(oa,op) in enumerate(zip(obamp,obph)):
+                imax1 = self.ob_axes[i][0].imshow(oa, interpolation=self.interp, cmap=plt.cm.get_cmap(cmap[0]))
+                imax2 = self.ob_axes[i][1].imshow(op, interpolation=self.interp, cmap=plt.cm.get_cmap(cmap[1]))
                 cbar1 = plt.colorbar(imax1, cax=self.ob_caxes[i][0])
                 cbar2 = plt.colorbar(imax2, cax=self.ob_caxes[i][1])
                 self.ob_cbars.append([cbar1,cbar2])
                 self.ob_imaxes.append([imax1,imax2])
         else:
-            for i,o in enumerate(ob):
+            for i,(oa,op) in enumerate(zip(obamp,obph)):
                 obamp, obph = self.ob_imaxes[i]
-                obamp.set_data(np.abs(o))
-                obph.set_data(np.angle(o))
+                obamp.set_data(oa)
+                obph.set_data(op)
 
         if self.pr_imaxes is None:
             self.pr_imaxes = []

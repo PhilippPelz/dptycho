@@ -164,7 +164,7 @@ endmacro()
 cuda_execute_process(
   "Removing ${generated_file}"
   COMMAND "${CMAKE_COMMAND}" -E remove "${generated_file}"
-)
+  )
 
 # For CUDA 2.3 and below, -G -M doesn't work, so remove the -G flag
 # for dependency generation and hope for the best.
@@ -224,7 +224,7 @@ set(CUDACC_DEFINE -D__CUDACC__)
 # Copy the file if it is different
 #cuda_execute_process(
 #  "Copy if different ${cmake_dependency_file}.tmp to ${cmake_dependency_file}"
-#  COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${cmake_dependency_file}.tmp" "${cmake_dependency_file}"
+#  COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${cmake_dependency_file}.tmp" #"${cmake_dependency_file}"
 #  )
 
 #if(CUDA_result)
@@ -234,7 +234,7 @@ set(CUDACC_DEFINE -D__CUDACC__)
 # Delete the temporary file
 #cuda_execute_process(
 #  "Removing ${cmake_dependency_file}.tmp and ${NVCC_generated_dependency_file}"
-#  COMMAND "${CMAKE_COMMAND}" -E remove "${cmake_dependency_file}.tmp" "${NVCC_generated_dependency_file}"
+#  COMMAND "${CMAKE_COMMAND}" -E remove "${cmake_dependency_file}.tmp" #"${NVCC_generated_dependency_file}"
 #  )
 
 #if(CUDA_result)

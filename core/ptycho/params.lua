@@ -5,13 +5,13 @@ local m = classic.module(...)
 local _DEFAULT_PARAMS = {
   pos = torch.FloatTensor(),
   dpos = torch.FloatTensor(),
-  a = torch.CudaTensor(),
+  a = nil,
   nmodes_probe = 1,
   nmodes_object = 1,
-  solution = torch.CudaTensor(),
+  solution = nil,
   probe = nil,
-  fmask = torch.CudaTensor(),
-  bg_solution = torch.CudaTensor(),
+  fmask = nil,
+  bg_solution = nil,
   plot_every = 5,
   beta = 1,
   fourier_relax_factor = 5e-2,
@@ -22,7 +22,9 @@ local _DEFAULT_PARAMS = {
   P_Q_iterations = 5,
   copy_solution = false,
   margin = 10,
-  background_correction_start = 1e5
+  background_correction_start = 1e5,
+  save_interval = 5,
+  save_path = '/tmp/'
 }
 
 function m.DEFAULT_PARAMS()
