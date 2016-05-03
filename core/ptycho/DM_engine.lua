@@ -64,7 +64,7 @@ end
 
 function engine:iterate(steps)
   self.iterations = steps
-  -- self:initialize_plotting()
+  self:initialize_plotting()
   local mod_error, overlap_error, image_error, probe_error, mod_updates = -1,-1,nil, nil, 0
   local probe_change_0, last_probe_change, probe_change = nil, 1e10, 0
   for i=1,steps do

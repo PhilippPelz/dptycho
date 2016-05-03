@@ -20,6 +20,7 @@ def plot(img, title='Image', savePath=None, cmap='hot', show=True):
     if show:
         plt.show()
     if savePath is not None:
+        # print 'saving'
         fig.savefig(savePath + '.png', dpi=600)
     plt.close()
 
@@ -41,6 +42,7 @@ def zplot(img, suptitle='Image', savePath=None, cmap=['hot','hsv'], title=['Abs'
     if show:
         plt.show()
     if savePath is not None:
+        # print 'saving'
         fig.savefig(savePath + '.png', dpi=600)
     plt.close()
 

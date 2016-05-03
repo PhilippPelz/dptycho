@@ -267,10 +267,12 @@ function engine:maybe_plot()
     self.P_hZ:copy(self.P)
     self.O_hZ:copy(self.O_tmp_PFstore)
     for n = 1, self.No do
-      plt:plot(self.O_hZ[n][1],self.save_path .. self.i..'_O_'..n)
+      local title = '_O_'..n
+      plt:plot(self.O_hZ[n][1],title,self.save_path .. self.i..title)
     end
     for n = 1, self.Np do
-      plt:plot(self.P_hZ[1][n],self.save_path .. self.i..'_P_'..n)
+      local title = '_P_'..n
+      plt:plot(self.P_hZ[1][n],title,self.save_path .. self.i..title)
     end
     -- plt:plot(self.bg:float(),'bg')
     -- self:prepare_plot_data()
@@ -315,8 +317,8 @@ function engine:initialize_plotting()
     self.mod_errors,
     self.overlap_errors
   }
-  plt:init_reconstruction_plot(self.plot_data)
-  print('here')
+  -- plt:init_reconstruction_plot(self.plot_data)
+  -- print('here')
 end
 
 -- total memory requirements:
