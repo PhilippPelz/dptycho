@@ -81,6 +81,8 @@ function engine:iterate(steps)
 
     self:maybe_plot()
     self:maybe_save_data()
+
+    collectgarbage()
   end
   self:save_data(self.save_path .. 'ptycho_' .. (steps+1))
   -- plt:shutdown_reconstruction_plot()

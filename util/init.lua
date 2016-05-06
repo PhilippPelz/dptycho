@@ -110,6 +110,19 @@ function m.printMem()
   print(string.format('free: %d MB, total: %d MB, used: %d MB',freeMemory,totalMemory,totalMemory -freeMemory))
 end
 
+function m.printram(str)
+  -- print('================ MEMORY REPORT ================')
+  -- print(str)
+  -- -- free -m
+  -- local handle = io.popen('free -m | cat')
+  -- if handle then
+  --   local result = handle:read("*a")
+  --   print(result)
+  --   handle:close()
+  -- end
+  -- print('===============================================')
+end
+
 function m.initial_probe(size1,support_ratio)
   local ratio = support_ratio or 0.5
   local size = m.copytable(size1)
@@ -144,7 +157,7 @@ end
 function m.debug(s,...)
   if DEBUG then
     print(string.format(s,...))
-  end 
+  end
 end
 
 return m

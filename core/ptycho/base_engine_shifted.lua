@@ -286,13 +286,16 @@ end
 --  0 x sizeof(P) el R
 --  1 x sizeof(z[k]) el C
 function engine:merge_frames( mul_merge, merge_memory, merge_memory_views)
-  -- print('merge_frames')
+  print('merge_frames')
   local z = self.z
   local product_shifted = self.zk_tmp1_PQstore
   local mul_merge_shifted = self.P_tmp1_PQstore
   merge_memory:mul(self.object_inertia)
   local pos = torch.FloatTensor{1,1}
+  u.printram('before merge_frames')
+
   for k, view in ipairs(merge_memory_views) do
+    if self.batches > 2 then xlua.progress(k,self.K) end
     pos:fill(1):cmul(self.dpos[k])
     self:maybe_copy_new_batch_z(k)
     local ind = self.k_to_batch_index[k]
@@ -306,16 +309,18 @@ function engine:merge_frames( mul_merge, merge_memory, merge_memory_views)
   -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory')
   merge_memory:cmul(self.O_denom)
   -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory 2')
+  u.printram('after merge_frames')
 end
 
 -- buffers:
 --  0 x sizeof(P) el R
 --  1 x sizeof(P) el C
 function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
-  -- print('update_frames')
+  print('update_frames')
   local mul_split_shifted = self.zk_tmp1_PFstore
   local pos = torch.FloatTensor{1,1}
   for k, view in ipairs(merge_memory_views) do
+    if self.batches > 2 then xlua.progress(k,self.K) end
     batch_copy_func(self,k)
     local ind = self.k_to_batch_index[k]
     -- print(k,ind)
@@ -333,6 +338,7 @@ function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
   -- plt:plot(z[3][1][1]:zfloat(),'z[3]')
   -- plt:plot(z[4][1][1]:zfloat(),'z[4]')
   -- self:maybe_copy_new_batch_P_Q(1)
+  u.printram('after update_frames')
 end
 
 -- buffers:
@@ -378,8 +384,10 @@ function engine:refine_probe()
   local probe_change = dP_abs:normZ(dP:add(new_P,-1,self.P)):sum()
   local P_norm = dP_abs:normZ(self.P):sum()
   self.P:copy(new_P)
+  self.P = self.support:forward(self.P)
   -- plt:plot(self.P[1]:zfloat(),'self.P')
   self:calculateO_denom()
+  u.printram('after refine_probe')
   return math.sqrt(probe_change/P_norm/self.Np)
 end
 
@@ -393,8 +401,11 @@ function engine:calculateO_denom()
   local tmp = self.P_tmp2_real_PQstore
   -- plt:plot(norm_P[1]:float(),'norm_P - calculateO_denom')
   for k,view in ipairs(self.O_denom_views) do
+    -- pprint(norm_P_shifted[1])
+    -- pprint(norm_P[1])
     norm_P_shifted[1]:shift(norm_P[1],self.dpos[k])
-    view:add(norm_P_shifted:expandAs(view))
+    local np_exp = norm_P_shifted:expandAs(view)
+    view:add(np_exp)
   end
 
   local abs_max = tmp:absZ(self.P):max()
@@ -407,6 +418,7 @@ function engine:calculateO_denom()
   self.InvSigma(self.O_denom,sigma)
   -- plt:plot(self.O_denom[1][1]:float():log(),'calculateO_denom  self.O_denom 2')
   self.O_mask = self.O_denom:lt(1e-3)
+  u.printram('after calculateO_denom')
 end
 
 return engine
