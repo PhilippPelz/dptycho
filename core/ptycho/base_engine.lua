@@ -65,6 +65,7 @@ function engine:_init(par)
   self.save_interval = par.save_interval
   self.save_path = par.save_path
   self.dpos_solution = par.dpos_solution
+  self.probe_regularization_amplitude = par.probe_regularization_amplitude
 
   self.a_exp = self.a:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
   self.fm_exp = self.fm:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
@@ -81,6 +82,10 @@ function engine:_init(par)
   -- pprint( pos:max(1))
   -- pprint(object_size)
   -- pprint(self.solution)
+  if par.probe then
+    self.P = par.probe
+  end
+
   u.printram('before allocateBuffers')
 
   self:allocateBuffers(self.K,self.No,self.Np,self.M,self.Nx,self.Ny)
@@ -103,21 +108,18 @@ function engine:_init(par)
     -- plt:plot(self.solution[1][1]:zfloat(),'solution')
   end
 
-  if par.probe then
-    self.probe_solution = par.probe
-  end
-
   local probe_size = self.P:size():totable()
   local support = znn.SupportMask(probe_size,probe_size[#probe_size]/4)
 
-  local re = stats.truncnorm({self.No,self.Nx,self.Ny},0,1,0.1,0.1):cuda()
-  local Pre = stats.truncnorm({self.M,self.M},0,1,0.1,0.1):cuda()
+  local re = stats.truncnorm({self.No,self.Nx,self.Ny},0,1,1e-1,1e-2):cuda()
+  local Pre = stats.truncnorm({self.M,self.M},0,1,1e-1,1e-2):cuda()
   self.O = self.O:zero():copyRe(re):add(1+0i)
   self.O_denom:zero()
   self.P:zero()
   self.P[1]:add(300+0i)
   for i=2,self.Np do
-    self.P[1][i]:copyRe(Pre)
+    self.P[1][i]:copyRe(Pre):copyIm(Pre)
+    -- self.P[1][i]:add(150+0i)
   end
   self.P = support:forward(self.P)
 
@@ -127,7 +129,9 @@ function engine:_init(par)
   self.O_denom_views = {}
   self.err_hist = {}
 
-  self.max_power = self.a_tmp2_real_PQstore:cmul(self.a,self.fm):pow(2):max()
+  self.max_power = self.a_tmp2_real_PQstore:cmul(self.a,self.fm):pow(2):sum(2):sum(3):max()
+  self.total_power = self.a_tmp2_real_PQstore:cmul(self.a,self.fm):pow(2):sum()
+  self.total_measurements = self.fm:sum()
   self.power_threshold = 0.25 * self.fourier_relax_factor^2 * self.max_power / self.MM
   self.update_positions = false
   self.update_probe = false
@@ -147,21 +151,35 @@ function engine:_init(par)
   self:calculateO_denom()
   self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
   self.norm_a = self.a_tmp2_real_PQstore:cmul(self.a,self.fm):pow(2):sum()
-  local max_measured_I = self.a_tmp2_real_PQstore:cmul(self.a,self.fm):pow(2):sum(2):sum(3):max()
-  -- pprint(max_measured_I)
   local P_fluence = self.P_tmp1_real_PQstore:normZ(self.P):sum()
 
   self.support = znn.SupportMask(probe_size,probe_size[#probe_size]*5/12)
+  -- self.bandwidth_limit = znn.SupportMask(probe_size,200)
   --
-  -- self.P:mul(math.sqrt(max_measured_I/P_fluence))
+  -- self.P:mul(math.sqrt(self.max_power/P_fluence))
   -- print(P_fluence,max_measured_I,self.P_tmp1_real_PQstore:normZ(self.P):sum())
-  -- plt:plot(self.P[1][1]:zfloat(),'probe - it '..0)
+  plt:plot(self.P[1][1]:zfloat(),'1probe - it '..0)
+  plt:plot(self.P[1][2]:zfloat(),'2probe - it '..0)
+  plt:plot(self.P[1][3]:zfloat(),'3probe - it '..0)
+
+--   obj_Npix = obj.size
+-- expected_obj_var = obj_Npix / tot_power  # Poisson
+-- reg_rescale  = tot_measpts / (8. * obj_Npix * expected_obj_var)
+-- verbose(2, 'Rescaling regularization amplitude using the Poisson distribution assumption.')
+-- verbose(2, 'Factor: %8.5g' % reg_rescale)
+-- reg_del2_amplitude *= reg_rescale
+  local expected_obj_var = self.O:nElement() / self.total_power
+  self.rescale_regul_amplitude = self.total_measurements / (8*self.O:nElement()*expected_obj_var)
 
   print(   '----------------------------------------------------')
   u.printf('K = %d',self.K)
   u.printf('N = (%d,%d)',self.Nx,self.Ny)
   u.printf('M = %d',self.M)
-  u.printf('power_threshold is %g',self.power_threshold)
+  u.printf('power threshold is        %g',self.power_threshold)
+  u.printf('total measurements:       %g',self.total_measurements)
+  u.printf('total power:              %g',self.total_power)
+  u.printf('maximum power:            %g',self.max_power)
+  u.printf('rescale_regul_amplitude:  %g',self.rescale_regul_amplitude)
   print(   '----------------------------------------------------')
   -- u.printMem()
   u.printram('after init')
@@ -270,16 +288,16 @@ end
 function engine:maybe_plot()
   if self.do_plot then
     -- :cmul(self.O_mask)
-    self.O_tmp_PFstore:copy(self.O):cmul(self.O_mask)
+    self.O_tmp_PFstore:copy(self.O)--:cmul(self.O_mask)
     self.P_hZ:copy(self.P)
     self.O_hZ:copy(self.O_tmp_PFstore)
     for n = 1, self.No do
-      local title = '_O_'..n
-      plt:plot(self.O_hZ[n][1],title,self.save_path .. self.i..title)
+      local title = self.i..'_O_'..n
+      plt:plot(self.O_hZ[n][1],title,self.save_path ..title)
     end
     for n = 1, self.Np do
-      local title = '_P_'..n
-      plt:plot(self.P_hZ[1][n],title,self.save_path .. self.i..title)
+      local title = self.i..'_P_'..n
+      plt:plot(self.P_hZ[1][n],title,self.save_path ..title)
     end
     -- plt:plot(self.bg:float(),'bg')
     -- self:prepare_plot_data()
@@ -341,7 +359,9 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
   self.O = torch.ZCudaTensor.new(No,1,Nx,Ny)
   self.O_denom = torch.CudaTensor(self.O:size())
-  self.P = torch.ZCudaTensor.new(1,Np,M,M)
+  if not self.P then
+    self.P = torch.ZCudaTensor.new(1,Np,M,M)
+  end
 
   if self.background_correction_start > 0 then
     self.eta = torch.CudaTensor(M,M)
@@ -363,7 +383,7 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   local batches = 1
   for n_batches = 1,50 do
     frames_memory = math.ceil(K/n_batches)*No*Np*M*M * Zsize_bytes
-    if used_memory + frames_memory * 3 < total_memory * 0.98 then
+    if used_memory + frames_memory * 3 < total_memory * 0.8 then
       batches = n_batches
       print(   '----------------------------------------------------')
       u.printf('Using %d batches for the reconstruction. ',batches )
@@ -698,6 +718,30 @@ function engine:P_Q_plain()
   self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
 end
 
+function engine:Del_regularize(target,amplitude,tmp,result)
+  result:zero()
+  local d = tmp
+
+  d:dx_bw(target)
+  result:add(d)
+  plt:plot(d[1][1]:zfloat(),'dx_bw',self.save_path ..'dx_bw')
+
+  d:dy_bw(target)
+  result:add(d)
+  plt:plot(d[1][1]:zfloat(),'dy_bw',self.save_path ..'dx_bw')
+
+  d:dx_fw(target)
+  result:add(-1,d)
+  plt:plot(d[1][1]:zfloat(),'dx_fw',self.save_path ..'dx_bw')
+
+  d:dy_fw(target)
+  result:add(-1,d)
+  plt:plot(d[1][1]:zfloat(),'dy_fw',self.save_path ..'dx_bw')
+
+  result:mul(2*amplitude*self.rescale_regul_amplitude)
+  return result
+end
+
 function engine:P_Q()
   if self.update_probe then
     for _ = 1,self.P_Q_iterations do
@@ -710,6 +754,15 @@ function engine:P_Q()
       -- last_probe_change = probe_change
       -- u.printf('            probe change : %g',probe_change)
     end
+
+    -- local regul = self:Del_regularize(self.P,self.probe_regularization_amplitude(self.i),self.P_tmp3_PQstore,self.P_tmp1_PQstore)
+    -- local title = self.i..' regul'
+    -- local title1 = self.i..'_new_P regul'
+    -- plt:plot(regul[1][1]:zfloat(),title,self.save_path ..title)
+    -- plt:plot(self.P[1][1]:zfloat(),self.i..'new_P ',self.save_path .. self.i..' new_P ')
+    -- self.P:add(regul)
+    -- plt:plot(self.P[1][1]:zfloat(),title1,self.save_path ..title1)
+
     self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
   else
     self:P_Q_plain()
@@ -835,7 +888,7 @@ function engine:P_F()
 end
 
 function engine:P_F_without_background()
-  -- print('P_F_without_background ' .. self.i)
+  print('P_F_without_background ' .. self.i)
   local z = self.P_Fz
   local abs = self.zk_tmp1_real_PQstore
   local da = self.a_tmp_real_PQstore

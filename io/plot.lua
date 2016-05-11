@@ -97,7 +97,7 @@ plot = argcheck{
             {name="savepath", default=py.None, type='string'},
             {name="cmap", default={'hot','hsv'}, type='table'},
             {name="title", default={'Abs','Phase'}, type='table'},
-            {name="show", default=true, type='bool'},
+            {name="show", default=false, type='bool'},
             call =
                 function (self,img, suptitle, savepath, cmap, title, show)
                   py.eval('zplot(img,suptitle,savepath,cmap,title,show)',{img = {img:abs(),img:arg()}, suptitle=suptitle, savepath=savepath, cmap=cmap,title=title, show=show})

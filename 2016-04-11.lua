@@ -53,6 +53,10 @@ dpos:add(-1,pos:float())
 -- local dpos = pos:clone():float():zero()
 -- plt:plot(solution:zfloat(),'solution')
 -- plt:plot(probe:zfloat(),'probe')
+
+-- plt:plot(a[1]:float():log())
+-- plt:plot(fmask[1]:float():log())
+
 o_r = nil
 o_i = nil
 pr = nil
@@ -73,10 +77,10 @@ par = {
   fourier_relax_factor = 5e-2,
   position_refinement_start = 10,
   position_refinement_every = 3,
-  probe_update_start = 2,
+  probe_update_start = 3,
   object_inertia = 1e-5,
-  probe_inertia = 1e-9,
-  P_Q_iterations = 10,
+  probe_inertia = 1e-6,
+  P_Q_iterations = 6,
   copy_solution = false,
   background_correction_start = 30,
   save_interval = 10,

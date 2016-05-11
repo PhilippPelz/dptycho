@@ -21,7 +21,7 @@ def plot(img, title='Image', savePath=None, cmap='hot', show=True):
         plt.show()
     if savePath is not None:
         # print 'saving'
-        fig.savefig(savePath + '.png', dpi=600)
+        fig.savefig(savePath + '.png', dpi=300)
     plt.close()
 
 def zplot(img, suptitle='Image', savePath=None, cmap=['hot','hsv'], title=['Abs','Phase'], show=True):
@@ -43,7 +43,7 @@ def zplot(img, suptitle='Image', savePath=None, cmap=['hot','hsv'], title=['Abs'
         plt.show()
     if savePath is not None:
         # print 'saving'
-        fig.savefig(savePath + '.png', dpi=600)
+        fig.savefig(savePath + '.png', dpi=300)
     plt.close()
 
 def cx_test(cx_array):

@@ -136,6 +136,46 @@ local dxZ = argcheck{
    end
 }
 
+local dx_fwZ = argcheck{
+   nonamed=true,
+   {name="dst", type='torch.ZCudaTensor'},
+   {name="src", type='torch.ZCudaTensor'},
+   call = function(dst, src)
+      dst:shift(src,torch.FloatTensor({-1,0})):add(-1,src)
+      return dst
+   end
+}
+
+local dx_bwZ = argcheck{
+   nonamed=true,
+   {name="dst", type='torch.ZCudaTensor'},
+   {name="src", type='torch.ZCudaTensor'},
+   call = function(dst, src)
+      dst:shift(src,torch.FloatTensor({1,0})):mul(-1):add(src)
+      return dst
+   end
+}
+
+local dy_fwZ = argcheck{
+   nonamed=true,
+   {name="dst", type='torch.ZCudaTensor'},
+   {name="src", type='torch.ZCudaTensor'},
+   call = function(dst, src)
+      dst:shift(src,torch.FloatTensor({0,-1})):add(-1,src)
+      return dst
+   end
+}
+
+local dy_bwZ = argcheck{
+   nonamed=true,
+   {name="dst", type='torch.ZCudaTensor'},
+   {name="src", type='torch.ZCudaTensor'},
+   call = function(dst, src)
+      dst:shift(src,torch.FloatTensor({0,1})):mul(-1):add(src)
+      return dst
+   end
+}
+
 local dx2Z = argcheck{
    nonamed=true,
    {name="dst", type='torch.ZCudaTensor'},
@@ -216,6 +256,46 @@ local dx = argcheck{
    end
 }
 
+local dx_fw = argcheck{
+   nonamed=true,
+   {name="dst", type='torch.CudaTensor'},
+   {name="src", type='torch.CudaTensor'},
+   call = function(dst, src)
+      dst:shift(src,torch.FloatTensor({-1,0})):add(-1,src)
+      return dst
+   end
+}
+
+local dx_bw = argcheck{
+   nonamed=true,
+   {name="dst", type='torch.CudaTensor'},
+   {name="src", type='torch.CudaTensor'},
+   call = function(dst, src)
+      dst:shift(src,torch.FloatTensor({1,0})):mul(-1):add(src)
+      return dst
+   end
+}
+
+local dy_fw = argcheck{
+   nonamed=true,
+   {name="dst", type='torch.CudaTensor'},
+   {name="src", type='torch.CudaTensor'},
+   call = function(dst, src)
+      dst:shift(src,torch.FloatTensor({0,-1})):add(-1,src)
+      return dst
+   end
+}
+
+local dy_bw = argcheck{
+   nonamed=true,
+   {name="dst", type='torch.CudaTensor'},
+   {name="src", type='torch.CudaTensor'},
+   call = function(dst, src)
+      dst:shift(src,torch.FloatTensor({0,1})):mul(-1):add(src)
+      return dst
+   end
+}
+
 local dx2 = argcheck{
    nonamed=true,
    {name="dst", type='torch.CudaTensor'},
@@ -286,6 +366,10 @@ local dy2 = argcheck{
 rawset( meta, 'shift', shift)
 rawset( meta, 'dx', dx)
 rawset( meta, 'dy', dy)
+rawset( meta, 'dx_fw', dx_fw)
+rawset( meta, 'dy_fw', dy_fw)
+rawset( meta, 'dx_bw', dx_bw)
+rawset( meta, 'dy_bw', dy_bw)
 rawset( meta, 'dx2', dx2)
 rawset( meta, 'dy2', dy2)
 rawset( meta, 'dxdy', dxdy)
@@ -293,6 +377,10 @@ rawset( meta, 'dxdy', dxdy)
 rawset( Zmeta, 'shift', shiftZ)
 rawset( Zmeta, 'dx', dxZ)
 rawset( Zmeta, 'dy', dyZ)
+rawset( Zmeta, 'dx_fw', dx_fwZ)
+rawset( Zmeta, 'dy_fw', dy_fwZ)
+rawset( Zmeta, 'dx_bw', dx_bwZ)
+rawset( Zmeta, 'dy_bw', dy_bwZ)
 rawset( Zmeta, 'dx2', dx2Z)
 rawset( Zmeta, 'dy2', dy2Z)
 rawset( Zmeta, 'dxdy', dxdyZ)

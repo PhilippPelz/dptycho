@@ -18,6 +18,7 @@ local _DEFAULT_PARAMS = {
   fourier_relax_factor = 5e-2,
   position_refinement_start = 1e5,
   probe_update_start = 5,
+  probe_regularization_amplitude = function() return 1e2 end,
   object_inertia = 0.1,
   probe_inertia = 1e-9,
   P_Q_iterations = 5,

@@ -104,8 +104,7 @@ function engine:refine_positions()
       -- print('params2')
       -- pprint(params2)
       local batch_start2, batch_end2, batch_size2 = table.unpack(params2)
-      l = l + 1
-      xlua.progress(l,parts)
+
 
       for i = 1, batch_size1 do
         local i_full = i + batch_start1 - 1
@@ -123,6 +122,8 @@ function engine:refine_positions()
         z_i:copy(self.z[i])
 
         for j=1, batch_size2 do
+          l = l + 1
+          xlua.progress(l,self.K*self.K)
           local j_full = j + batch_start2 - 1
           self:maybe_copy_new_batch_z(batch_start2)
           local H1_ij = 0
@@ -341,6 +342,74 @@ function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
   u.printram('after update_frames')
 end
 
+-- del_xf = U.delxf(x,axis=ax0)
+-- del_yf = U.delxf(x,axis=ax1)
+-- del_xb = U.delxb(x,axis=ax0)
+-- del_yb = U.delxb(x,axis=ax1)
+--
+-- self.delxy = [del_xf, del_yf, del_xb, del_yb]
+-- self.g = 2 * self.amplitude*(del_xb + del_yb - del_xf - del_yf)
+function engine:Del_regularize(target,amplitude,tmp,result)
+  result:zero()
+  local d = tmp
+
+  d:dx_bw(target)
+  result:add(d)
+
+  d:dy_bw(target)
+  result:add(d)
+
+  d:dx_fw(target)
+  result:add(-1,d)
+
+  d:dy_fw(target)
+  result:add(-1,d)
+
+  result:mul(2*amplitude*self.rescale_regul_amplitude)
+  return result
+end
+
+function engine:TV_regularize(target,amplitude,tmp,tmp_real,tmp_real2,result)
+  local d_abs = tmp_real
+  local d = tmp
+  local mask = tmp_real2
+  local eps = 1e-10
+
+  result:zero()
+
+  d:dx_bw(target)
+  d_abs:absZ(d)
+  mask:lt(d_abs,eps)
+  d_abs:maskedFill(mask,eps)
+  d:cdiv(d_abs)
+  result:add(d)
+
+  d:dy_bw(target)
+  d_abs:absZ(d)
+  mask:lt(d_abs,eps)
+  d_abs:maskedFill(mask,eps)
+  d:cdiv(d_abs)
+  result:add(d)
+
+  d:dx_fw(target)
+  d_abs:absZ(d)
+  mask:lt(d_abs,eps)
+  d_abs:maskedFill(mask,eps)
+  d:cdiv(d_abs)
+  result:add(-1,d)
+
+  d:dy_fw(target)
+  d_abs:absZ(d)
+  mask:lt(d_abs,eps)
+  d_abs:maskedFill(mask,eps)
+  d:cdiv(d_abs)
+  result:add(-1,d)
+
+  result:mul(amplitude)
+
+  return result
+end
+
 -- buffers:
 --  3 x sizeof(z[k]) el C
 --  2 x sizeof(P) el C
@@ -383,8 +452,26 @@ function engine:refine_probe()
   new_P:cdiv(new_P_denom)
   local probe_change = dP_abs:normZ(dP:add(new_P,-1,self.P)):sum()
   local P_norm = dP_abs:normZ(self.P):sum()
+
+  -- local regul = self:TV_regularize(new_P,self.probe_regularization_amplitude(self.i),dP,dP_abs,new_P_denom,self.P)
+  -- local regul = self:Del_regularize(new_P,self.probe_regularization_amplitude(self.i),dP,self.P)
+  --
+  -- local title = self.i..'regul'
+  -- local title1 = self.i..'_new_P regul'
+  -- plt:plot(regul[1][1]:zfloat(),title,self.save_path ..title)
+  -- plt:plot(new_P[1][1]:zfloat(),'new_P '..self.i,self.save_path ..'new_P '..self.i)
+  --
+  -- new_P:add(regul)
+  --
+  -- plt:plot(new_P[1][1]:zfloat(),title1,self.save_path ..title1)
+
   self.P:copy(new_P)
   self.P = self.support:forward(self.P)
+
+  -- self.P[1]:fftBatched()
+  -- self.P = self.bandwidth_limit:forward(self.P)
+  -- self.P[1]:ifftBatched()
+
   -- plt:plot(self.P[1]:zfloat(),'self.P')
   self:calculateO_denom()
   u.printram('after refine_probe')
