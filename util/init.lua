@@ -7,7 +7,7 @@ require 'zcutorch'
 local m = classic.module(...)
 
 m:submodule("stats")
--- m:class("Allocator")
+m:class("linear_schedule")
 
 function m.load_sim_and_allocate(file)
   local ret = {}

@@ -8,8 +8,8 @@ local zt = require "ztorch.fcomplex"
 local pprint = require "pprint"
 local stats = require 'dptycho.util.stats'
 local params = require "dptycho.core.ptycho.params"
-
-
+local tablex = require "pl.tablex"
+require 'hdf5'
 -- _init
 -- allocateBuffers
 -- update_views
@@ -29,19 +29,16 @@ local params = require "dptycho.core.ptycho.params"
 -- probe_error
 -- mustHave("iterate")
 
-require 'hdf5'
+
 local engine = classic.class(...)
 --pos,a,nmodes_probe,nmodes_object,solution,probe,dpos,fmask
 function engine:_init(par)
-
   local par = self:replace_default_params(par)
+  tablex.update(self,par)
   -- print(par.pos)
   local min = par.pos:min(1)
   -- pprint(min)
   self.pos = par.pos:add(-1,min:expandAs(par.pos)):add(1)
-  -- pprint(self.pos:min(1))
-  self.dpos = par.dpos
-  self.a = par.a
 
   self.fm = par.fmask:expandAs(self.a)
 
@@ -49,23 +46,12 @@ function engine:_init(par)
   self.M = par.a:size(2)
   self.MM = self.M*self.M
 
-  self.Np = par.nmodes_probe
-  self.No = par.nmodes_object
-  self.fourier_relax_factor = par.fourier_relax_factor
-  self.plot_every = par.plot_every
-  self.plot_start = par.plot_start
-  self.probe_update_start = par.probe_update_start
-  self.position_refinement_start = par.position_refinement_start
-  self.position_refinement_every = par.position_refinement_every
-  self.P_Q_iterations = par.P_Q_iterations
-  self.beta = par.beta
+  local x = torch.repeatTensor(torch.linspace(-self.M/2,self.M/2,self.M),self.M,1)
+  -- pprint(x)
+  local y = x:clone():t()
+  self.r2 = (x:pow(2) + y:pow(2))
+
   self.has_solution = par.solution and true
-  self.bg_solution = par.bg_solution
-  self.background_correction_start = par.background_correction_start
-  self.save_interval = par.save_interval
-  self.save_path = par.save_path
-  self.dpos_solution = par.dpos_solution
-  self.probe_regularization_amplitude = par.probe_regularization_amplitude
 
   self.a_exp = self.a:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
   self.fm_exp = self.fm:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
@@ -520,71 +506,6 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_real_PFstore:nElement() + 1
   self.O_tmp_real_PFstore = torch.CudaTensor.new(P_Fz_storage_real,P_Fstorage_offset,torch.LongStorage{No,1,Nx,Ny})
   P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_real_PFstore:nElement() + 1
-
-  -- self.P_tmp1_PQstore = torch.ZCudaTensor.new( {1,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_PQstore:nElement() + 1
-  -- self.P_tmp3_PQstore = torch.ZCudaTensor.new( {1,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_PQstore:nElement() + 1
-  --
-  -- self.zk_tmp1_PQstore = torch.ZCudaTensor.new( {No,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_PQstore:nElement() + 1
-  -- self.zk_tmp2_PQstore = torch.ZCudaTensor.new( {No,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_PQstore:nElement() + 1
-  --
-  -- self.O_tmp_PQstore = torch.ZCudaTensor.new( {No,1,Nx,Ny})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.O_tmp_PQstore:nElement()
-  --
-  -- -- offset for real arrays
-  -- P_Qstorage_offset = P_Qstorage_offset*2 + 1
-  --
-  -- self.P_tmp1_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_real_PQstore:nElement() + 1
-  -- self.P_tmp2_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp2_real_PQstore:nElement() + 1
-  -- self.P_tmp3_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_real_PQstore:nElement() + 1
-  -- self.a_tmp_real_PQstore = torch.CudaTensor( torch.LongStorage{1,1,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.a_tmp_real_PQstore:nElement() + 1
-  --
-  -- self.zk_tmp1_real_PQstore = torch.CudaTensor( torch.LongStorage{No,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_real_PQstore:nElement() + 1
-  -- self.zk_tmp2_real_PQstore = torch.CudaTensor( torch.LongStorage{No,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_real_PQstore:nElement() + 1
-  --
-  -- self.a_tmp2_real_PQstore = torch.CudaTensor(torch.LongStorage{self.K,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.a_tmp2_real_PQstore:nElement() + 1
-  --
-  -- -- buffers in P_Fz_storage
-  --
-  -- self.P_tmp1_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_PFstore:nElement() + 1
-  -- self.P_tmp2_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp2_PFstore:nElement() + 1
-  -- self.P_tmp3_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp3_PFstore:nElement() + 1
-  --
-  -- self.zk_tmp1_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp1_PFstore:nElement() + 1
-  -- self.zk_tmp2_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp2_PFstore:nElement() + 1
-  -- self.zk_tmp5_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp5_PFstore:nElement() + 1
-  -- self.zk_tmp6_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp6_PFstore:nElement() + 1
-  -- self.zk_tmp7_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp7_PFstore:nElement() + 1
-  -- self.zk_tmp8_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp8_PFstore:nElement() + 1
-  --
-  -- self.O_tmp_PFstore = torch.ZCudaTensor.new( {No,1,Nx,Ny})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_PFstore:nElement()
-  --
-  -- -- offset for real arrays
-  -- P_Fstorage_offset = P_Fstorage_offset*2 + 1
-  -- self.P_tmp1_real_PFstore = torch.CudaTensor.new( torch.LongStorage{1,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_real_PFstore:nElement() + 1
-  -- self.O_tmp_real_PFstore = torch.CudaTensor.new( torch.LongStorage{No,1,Nx,Ny})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_real_PFstore:nElement() + 1
 end
 
 function engine:update_iteration_dependent_parameters(it)
@@ -594,6 +515,12 @@ function engine:update_iteration_dependent_parameters(it)
   self.do_plot = it % self.plot_every == 0 and it > self.plot_start
   self.calculate_new_background = self.i >= self.background_correction_start
   self.do_save_data = it % self.save_interval == 0
+  if self.probe_lowpass_fwhm(it) then
+    self.probe_lowpass = self.r2:clone():div(-2*(self.probe_lowpass_fwhm(it)/2.35482)^2):exp():cuda():view(1,1,self.M,self.M):expand(1,self.Np,self.M,self.M)
+  end
+  if self.object_highpass_fwhm(it) then
+    self.object_highpass = self.r2:clone():fill(1):add(-1,self.r2:clone():div(-2*(self.object_highpass_fwhm(it)/2.35482)^2):exp()):cuda():view(1,1,self.M,self.M):expand(self.No,1,self.M,self.M)
+  end
 end
 
 function engine:maybe_save_data()
@@ -742,6 +669,25 @@ function engine:Del_regularize(target,amplitude,tmp,result)
   return result
 end
 
+function engine:regularize_probe()
+  local regul = self:Del_regularize(self.P,self.probe_regularization_amplitude(self.i),self.P_tmp3_PQstore,self.P_tmp1_PQstore)
+ local title = self.i..' regul'
+ local title1 = self.i..'_new_P regul'
+ plt:plot(regul[1][1]:zfloat(),title,self.save_path ..title)
+ plt:plot(self.P[1][1]:zfloat(),self.i..'new_P ',self.save_path .. self.i..' new_P ')
+ self.P:add(regul)
+ plt:plot(self.P[1][1]:zfloat(),title1,self.save_path ..title1)
+ self:calculateO_denom()
+ self:merge_frames(self.P,self.O,self.O_views)
+end
+
+function engine:filter_probe()
+  self.P[1]:fftBatched()
+  self.P:cmul(self.probe_lowpass)
+  self.P[1]:fftBatched()
+  plt:plot(self.P[1][1]:zfloat(),self.i..'new_P ',self.save_path .. self.i..' new_P ')
+end
+
 function engine:P_Q()
   if self.update_probe then
     for _ = 1,self.P_Q_iterations do
@@ -755,13 +701,8 @@ function engine:P_Q()
       -- u.printf('            probe change : %g',probe_change)
     end
 
-    -- local regul = self:Del_regularize(self.P,self.probe_regularization_amplitude(self.i),self.P_tmp3_PQstore,self.P_tmp1_PQstore)
-    -- local title = self.i..' regul'
-    -- local title1 = self.i..'_new_P regul'
-    -- plt:plot(regul[1][1]:zfloat(),title,self.save_path ..title)
-    -- plt:plot(self.P[1][1]:zfloat(),self.i..'new_P ',self.save_path .. self.i..' new_P ')
-    -- self.P:add(regul)
-    -- plt:plot(self.P[1][1]:zfloat(),title1,self.save_path ..title1)
+    if self.probe_regularization_amplitude(self.i) then self:regularize_probe() end
+    if self.probe_lowpass_fwhm(self.i) then self:filter_probe() end
 
     self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
   else

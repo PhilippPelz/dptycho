@@ -17,6 +17,15 @@ local path = '/home/philipp/experiments/2016-05-09/scan4/'
 local file = 'scan2_data_final.h5'
 local probe_file = 'probe.h5'
 
+local M = 1536
+local FWHM = 100
+local x = torch.repeatTensor(torch.linspace(-M/2,M/2,M),M,1)
+-- pprint(x)
+local y = x:clone():t()
+local r2 = (x:pow(2) + y:pow(2))
+local gauss = r2:div(-2*(FWHM/2.35482)^2):exp()
+plt:plot(gauss)
+
 local f = hdf5.open(path..file,'r')
 
 local a = f:read('/a'):all():cuda()
@@ -72,28 +81,9 @@ pr = nil
 pi = nil
 collectgarbage()
 
--- local M = 1536
--- local x = torch.repeatTensor(torch.linspace(-M/2,M/2,M),M,1)
--- -- pprint(x)
--- local y = x:clone():t()
--- local r = (x:pow(2) + y:pow(2)):sqrt()
--- plt:plot(r)
+-- u.linear_schedule(3,50,1e-9,0)
 
 -- frames
-local reg_schedule = classic.class("linear_schedule")
-function reg_schedule:_init(start,iterations,startval,stopval)
-  self.start = start
-  self.iterations = iterations
-  self.startval = startval
-  self.stopval = stopval
-end
-
-function reg_schedule:__call(it)
-  if it < self.start or it > self.start + self.iterations then return 0
-  else
-    return self.startval - (self.startval - self.stopval) * (it-self.start)/self.iterations
-  end
-end
 
 DEBUG = false
 
@@ -108,7 +98,9 @@ par = {
   position_refinement_start = 3,
   position_refinement_every = 3,
   probe_update_start = 3,
-  probe_regularization_amplitude = reg_schedule(3,50,1e-9,0),
+  probe_regularization_amplitude = function(it) return nil end,
+  probe_lowpass_fwhm = function(it) return 200 end,
+  object_highpass_fwhm = function(it) return 100 end,
   object_inertia = 1e-5,
   probe_inertia = 3e-7,
   P_Q_iterations = 6,
