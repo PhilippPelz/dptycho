@@ -161,7 +161,7 @@ function engine:refine_positions()
   for i=1,self.K do
     local p = torch.FloatTensor{-ksi[i][1],-ksi[i+self.K][1]}
     -- u.printf('%04d : %g,%g',i,-ksi[i][1],-ksi[i+self.K][1])
-    self.dpos[i]:add(p:clamp(-1,1))
+    self.dpos[i]:add(p:clamp(-self.position_refinement_max_disp,self.position_refinement_max_disp))
   end
 
   -- local di = self.dpos:int()
@@ -309,6 +309,9 @@ function engine:merge_frames( mul_merge, merge_memory, merge_memory_views)
   -- plt:plot(self.O_denom[1][1]:float():log(),'O_denom')
   -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory')
   merge_memory:cmul(self.O_denom)
+
+  O_norm = self.O_tmp_PQstore:norm(merge_memory):sum()
+  u.printf('object norm: %g',O_norm)
   -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory 2')
   u.printram('after merge_frames')
 end
@@ -410,6 +413,36 @@ function engine:TV_regularize(target,amplitude,tmp,tmp_real,tmp_real2,result)
   return result
 end
 
+function engine:regularize_probe()
+  print('regularizing probe')
+  local regul = self:Del_regularize(self.P,self.probe_regularization_amplitude(self.i),self.P_tmp3_PQstore,self.P_tmp1_PQstore)
+ local title = self.i..' regul'
+ local title1 = self.i..'_new_P regul'
+ -- plt:plot(regul[1][1]:zfloat(),title,self.save_path ..title,false)
+ -- plt:plot(self.P[1][1]:zfloat(),self.i..'new_P ',self.save_path .. self.i..' new_P ',false)
+ self.P:add(regul)
+ -- plt:plot(self.P[1][1]:zfloat(),title1,self.save_path ..title1,false)
+ -- self:calculateO_denom()
+ -- self:merge_frames(self.P,self.O,self.O_views)
+end
+
+function engine:filter_probe()
+  local P_fluence = self.P_tmp1_real_PQstore:normZ(self.P):sum()
+  print('filtering probe')
+  -- plt:plot(self.P[1][1]:zfloat(),self.i..' P',self.save_path .. self.i..' P',false)
+  self.P[1]:fftBatched()
+  -- plt:plot(self.P[1][1]:zfloat():abs():log(),self.i..' P fft unfiltered ',self.save_path .. self.i..' P filtered ',false)
+  self.P:cmul(self.probe_lowpass)
+  -- plt:plot(self.P[1][1]:zfloat():abs():log(),self.i..' P fft filtered ',self.save_path .. self.i..' P filtered ',false)
+  self.P[1]:ifftBatched()
+  local P_fluence_new = self.P_tmp1_real_PQstore:normZ(self.P):sum()
+  u.printf('P_fluence/P_fluence_new = %g',P_fluence/P_fluence_new)
+  self.P:mul(P_fluence/P_fluence_new)
+  -- plt:plot(self.P[1][1]:zfloat(),self.i..' P filtered ',self.save_path .. self.i..' P filtered ',false)
+  -- self:calculateO_denom()
+  -- self:merge_frames(self.P,self.O,self.O_views)
+end
+
 -- buffers:
 --  3 x sizeof(z[k]) el C
 --  2 x sizeof(P) el C
@@ -452,7 +485,8 @@ function engine:refine_probe()
   new_P:cdiv(new_P_denom)
   local probe_change = dP_abs:normZ(dP:add(new_P,-1,self.P)):sum()
   local P_norm = dP_abs:normZ(self.P):sum()
-
+  u.printf('total current: %g, max_pow/total_current = %g',P_norm,self.max_power/P_norm)
+  -- new_P:mul(self.max_power/P_norm)
   -- local regul = self:TV_regularize(new_P,self.probe_regularization_amplitude(self.i),dP,dP_abs,new_P_denom,self.P)
   -- local regul = self:Del_regularize(new_P,self.probe_regularization_amplitude(self.i),dP,self.P)
   --
@@ -466,13 +500,16 @@ function engine:refine_probe()
   -- plt:plot(new_P[1][1]:zfloat(),title1,self.save_path ..title1)
 
   self.P:copy(new_P)
-  self.P = self.support:forward(self.P)
+  if self.probe_support then self.P = self.support:forward(self.P) end
 
   -- self.P[1]:fftBatched()
   -- self.P = self.bandwidth_limit:forward(self.P)
   -- self.P[1]:ifftBatched()
 
   -- plt:plot(self.P[1]:zfloat(),'self.P')
+  if self.probe_regularization_amplitude(self.i) then self:regularize_probe() end
+  if self.probe_lowpass_fwhm(self.i) then self:filter_probe() end
+
   self:calculateO_denom()
   u.printram('after refine_probe')
   return math.sqrt(probe_change/P_norm/self.Np)
@@ -496,7 +533,7 @@ function engine:calculateO_denom()
   end
 
   local abs_max = tmp:absZ(self.P):max()
-  local fact_start, fact_end = 1e-3, 1e-6
+  local fact_start, fact_end = 1e-6, 1e-9
 
   local fact = fact_start-(self.i/self.iterations)*(fact_start-fact_end)
   local sigma = abs_max * abs_max * fact

@@ -129,7 +129,8 @@ struct ModProj_renorm_bg {
 	__device__ __forceinline__ void operator()(float* fm, float* bg, float* a, float* af, ccx* out) {
       //fm = (1-fmask) + fmask*(fmag + fdev*renorm)/(af + 1e-10)
       // float fac = (1-*fm) + *fm * (*a+*fdev* (renorm)) / (*af + 1e-6f);
-      float fac = (1-*fm) + *fm * sqrt((*a * *a - *bg) / (*af * *af + 1e-6f));
+      float a0 = fmaxf(0,*a * *a - *bg);
+      float fac = (1-*fm) + *fm * sqrtf(a0 / (*af * *af + 1e-6f));
 	    *out = *out * fac ;
 	}
 };
