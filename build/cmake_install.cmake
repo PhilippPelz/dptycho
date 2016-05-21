@@ -34,17 +34,22 @@ endif()
 
 if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho" TYPE FILE FILES
+    "/home/philipp/projects/dptycho/2016-05-17.lua"
     "/home/philipp/projects/dptycho/memory_calc.lua"
     "/home/philipp/projects/dptycho/ptycho_old.lua"
     "/home/philipp/projects/dptycho/init.lua"
     "/home/philipp/projects/dptycho/ptycho2.lua"
     "/home/philipp/projects/dptycho/test_shift.lua"
     "/home/philipp/projects/dptycho/ptycho_nosubpix.lua"
+    "/home/philipp/projects/dptycho/2016-05-09.lua"
     "/home/philipp/projects/dptycho/ptycho.lua"
     "/home/philipp/projects/dptycho/main.lua"
+    "/home/philipp/projects/dptycho/2016-04-11.lua"
     "/home/philipp/projects/dptycho/ptycho_bg_generate.lua"
     "/home/philipp/projects/dptycho/ptyrecon.lua"
+    "/home/philipp/projects/dptycho/2016-03-14-scan1.lua"
     "/home/philipp/projects/dptycho/ptysimul.lua"
+    "/home/philipp/projects/dptycho/2016-03-14.lua"
     "/home/philipp/projects/dptycho/ptycho_bg.lua"
     "/home/philipp/projects/dptycho/main2.lua"
     "/home/philipp/projects/dptycho/test/test.lua"
@@ -81,6 +86,7 @@ endif()
 
 if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/util" TYPE FILE FILES
+    "/home/philipp/projects/dptycho/util/linear_schedule.lua"
     "/home/philipp/projects/dptycho/util/init.lua"
     "/home/philipp/projects/dptycho/util/stats.lua"
     "/home/philipp/projects/dptycho/util/allocator.lua"

@@ -41,7 +41,7 @@ c.update_reconstruction_plot = argcheck{
             {name="self", type='table'},
             {name="data", type='table'},
             call =
-                function (self,data)
+                function (self, data)
                   print('update')
                   py.exec('p.update(data)',{data = data})
                 end
@@ -64,10 +64,10 @@ local plot = argcheck{
             {name="img", type='torch.DoubleTensor'},
             {name="title", default='Image', type='string'},
             {name="savepath", default=py.None,type='string'},
+            {name="show", default=true, type='boolean'},
             {name="cmap", default='hot',type='string'},
-            {name="show", default=true, type='bool'},
             call =
-                function (self,img, title, savepath, cmap, show)
+                function (self, img, title, savepath, show, cmap)
                   py.eval('plot(img,title,savepath,cmap,show)',{img = img, title=title, savepath=savepath, cmap=cmap, show=show})
                 end
             }
@@ -79,10 +79,10 @@ plot = argcheck{
             {name="img", type='torch.FloatTensor'},
             {name="title", default='Image', type='string'},
             {name="savepath", default=py.None,type='string'},
+            {name="show", default=true, type='boolean'},
             {name="cmap", default='hot',type='string'},
-            {name="show", default=true, type='bool'},
             call =
-                function (self,img, title, savepath, cmap, show)
+                function (self, img, title, savepath, show, cmap)
 --                  print(torch.type(img))
                   py.eval('plot(img,title,savepath,cmap,show)',{img = img, title=title, savepath=savepath, cmap=cmap, show=show})
                 end
@@ -95,11 +95,11 @@ plot = argcheck{
             {name="img", type='torch.ZFloatTensor'},
             {name="suptitle", default='Image', type='string'},
             {name="savepath", default=py.None, type='string'},
+            {name="show", default=true, type='boolean'},
             {name="cmap", default={'hot','hsv'}, type='table'},
             {name="title", default={'Abs','Phase'}, type='table'},
-            {name="show", default=false, type='bool'},
             call =
-                function (self,img, suptitle, savepath, cmap, title, show)
+                function (self,img, suptitle, savepath, show, cmap, title)
                   py.eval('zplot(img,suptitle,savepath,cmap,title,show)',{img = {img:abs(),img:arg()}, suptitle=suptitle, savepath=savepath, cmap=cmap,title=title, show=show})
                 end
             }
@@ -111,11 +111,11 @@ c.plotReIm = argcheck{
             {name="img", type='torch.ZFloatTensor'},
             {name="suptitle", default='Image', type='string'},
             {name="savepath", default=py.None, type='string'},
+            {name="show", default=true, type='boolean'},
             {name="cmap", default={'hot','hot'}, type='table'},
             {name="title", default={'Re','Im'}, type='table'},
-            {name="show", default=true, type='bool'},
             call =
-                function (self,img, suptitle, savepath, cmap, title, show)
+                function (self,img, suptitle, savepath, show, cmap, title)
                   py.eval('zplot(img,suptitle,savepath,cmap,title,show)',{img = {img:re(),img:im()}, suptitle=suptitle, savepath=savepath, cmap=cmap,title=title, show=show})
                 end
             }
@@ -128,11 +128,11 @@ c.plotcompare = argcheck{
             {name="imgs", type='table'},
             {name="suptitle", default='Image', type='string'},
             {name="savepath", default=py.None, type='string'},
+            {name="show", default=true, type='boolean'},
             {name="cmap", default={'hot','hot'}, type='table'},
             {name="title", default={'Img1','Img2'}, type='table'},
-            {name="show", default=true, type='bool'},
             call =
-                function (self,imgs, suptitle, savepath, cmap, title, show)
+                function (self,imgs, suptitle, savepath, show, cmap, title)
                   py.eval('zplot(img,suptitle,savepath,cmap,title,show)',{img = imgs, suptitle=suptitle, savepath=savepath, cmap=cmap,title=title, show=show})
                 end
             }

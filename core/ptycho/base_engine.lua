@@ -9,6 +9,7 @@ local pprint = require "pprint"
 local stats = require 'dptycho.util.stats'
 local params = require "dptycho.core.ptycho.params"
 local tablex = require "pl.tablex"
+local paths = require "paths"
 require 'hdf5'
 -- _init
 -- allocateBuffers
@@ -35,7 +36,13 @@ local engine = classic.class(...)
 function engine:_init(par)
   local par = self:replace_default_params(par)
   tablex.update(self,par)
-  -- print(par.pos)
+
+  self.par = par.par_save
+
+  if not paths.dirp(self.save_path) then
+    paths.mkdir(self.save_path)
+  end
+
   local min = par.pos:min(1)
   -- pprint(min)
   self.pos = par.pos:add(-1,min:expandAs(par.pos)):add(1)
@@ -52,7 +59,6 @@ function engine:_init(par)
   self.r2 = (x:pow(2) + y:pow(2))
 
   self.has_solution = par.solution and true
-
   self.a_exp = self.a:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
   self.fm_exp = self.fm:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
 
@@ -139,14 +145,18 @@ function engine:_init(par)
   self.norm_a = self.a_tmp2_real_PQstore:cmul(self.a,self.fm):pow(2):sum()
   local P_fluence = self.P_tmp1_real_PQstore:normZ(self.P):sum()
 
-  self.support = znn.SupportMask(probe_size,probe_size[#probe_size]*5/12)
+  if self.probe_support then
+    self.support = znn.SupportMask(probe_size,probe_size[#probe_size]*self.probe_support)
+  else
+    self.support = nil
+  end
   -- self.bandwidth_limit = znn.SupportMask(probe_size,200)
   --
   -- self.P:mul(math.sqrt(self.max_power/P_fluence))
   -- print(P_fluence,max_measured_I,self.P_tmp1_real_PQstore:normZ(self.P):sum())
-  plt:plot(self.P[1][1]:zfloat(),'1probe - it '..0)
-  plt:plot(self.P[1][2]:zfloat(),'2probe - it '..0)
-  plt:plot(self.P[1][3]:zfloat(),'3probe - it '..0)
+  -- plt:plot(self.P[1][1]:zfloat(),'1probe - it '..0)
+  -- plt:plot(self.P[1][2]:zfloat(),'2probe - it '..0)
+  -- plt:plot(self.P[1][3]:zfloat(),'3probe - it '..0)
 
 --   obj_Npix = obj.size
 -- expected_obj_var = obj_Npix / tot_power  # Poisson
@@ -161,11 +171,12 @@ function engine:_init(par)
   u.printf('K = %d',self.K)
   u.printf('N = (%d,%d)',self.Nx,self.Ny)
   u.printf('M = %d',self.M)
-  u.printf('power threshold is        %g',self.power_threshold)
-  u.printf('total measurements:       %g',self.total_measurements)
-  u.printf('total power:              %g',self.total_power)
-  u.printf('maximum power:            %g',self.max_power)
-  u.printf('rescale_regul_amplitude:  %g',self.rescale_regul_amplitude)
+  u.printf('power threshold is                      %g',self.power_threshold)
+  u.printf('total measurements:                     %g',self.total_measurements)
+  u.printf('total measurements/image_pixels:        %g',self.total_measurements/self.O:nElement())
+  u.printf('total power:                            %g',self.total_power)
+  u.printf('maximum power:                          %g',self.max_power)
+  u.printf('rescale_regul_amplitude:                %g',self.rescale_regul_amplitude)
   print(   '----------------------------------------------------')
   -- u.printMem()
   u.printram('after init')
@@ -279,11 +290,12 @@ function engine:maybe_plot()
     self.O_hZ:copy(self.O_tmp_PFstore)
     for n = 1, self.No do
       local title = self.i..'_O_'..n
-      plt:plot(self.O_hZ[n][1],title,self.save_path ..title)
+      plt:plot(self.O_hZ[n][1],title,self.save_path ..title,self.show_plots)
     end
     for n = 1, self.Np do
       local title = self.i..'_P_'..n
-      plt:plot(self.P_hZ[1][n],title,self.save_path ..title)
+      plt:plot(self.P_hZ[1][n],title,self.save_path ..title,self.show_plots)
+      -- ,self.show_plots
     end
     -- plt:plot(self.bg:float(),'bg')
     -- self:prepare_plot_data()
@@ -369,7 +381,7 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   local batches = 1
   for n_batches = 1,50 do
     frames_memory = math.ceil(K/n_batches)*No*Np*M*M * Zsize_bytes
-    if used_memory + frames_memory * 3 < total_memory * 0.8 then
+    if used_memory + frames_memory * 3 < total_memory * 0.85 then
       batches = n_batches
       print(   '----------------------------------------------------')
       u.printf('Using %d batches for the reconstruction. ',batches )
@@ -469,7 +481,7 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   if P_Qstorage_offset + self.K*M*M + 1 > self.P_Qz:nElement() * 2 then
     self.d = torch.CudaTensor(torch.LongStorage{self.K,M,M})
   else
-    self.d = torch.CudaTensor(P_Qz_storage_real,1,torch.LongStorage{self.K,M,M})
+    self.d = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{self.K,M,M})
     P_Qstorage_offset = P_Qstorage_offset + self.d:nElement() + 1
   end
 
@@ -516,10 +528,26 @@ function engine:update_iteration_dependent_parameters(it)
   self.calculate_new_background = self.i >= self.background_correction_start
   self.do_save_data = it % self.save_interval == 0
   if self.probe_lowpass_fwhm(it) then
-    self.probe_lowpass = self.r2:clone():div(-2*(self.probe_lowpass_fwhm(it)/2.35482)^2):exp():cuda():view(1,1,self.M,self.M):expand(1,self.Np,self.M,self.M)
+    local conv = self.r2:clone():div(-2*(50/2.35482)^2):exp():cuda():fftshift()
+    self.probe_lowpass = torch.ZCudaTensor.new(self.r2:size()):zero()
+    self.probe_lowpass:copyRe(self.r2:clone():sqrt():lt(self.probe_lowpass_fwhm(it)):cuda()):fft()
+    self.probe_lowpass:cmul(conv)
+    self.probe_lowpass:ifft():fftshift()
+    self.probe_lowpass:mul(1/self.probe_lowpass:max())
+    -- :div(-2*(self.probe_lowpass_fwhm(it)/2.35482)^2):exp():cuda():fftshift()
+    -- self.probe_lowpass = self.r2:clone():div(-2*(self.probe_lowpass_fwhm(it)/2.35482)^2):exp():cuda():fftshift()
+    self.probe_lowpass = self.probe_lowpass:view(1,1,self.M,self.M):expand(1,self.Np,self.M,self.M)
+    local title = self.i..' probe_lowpass'
+    local savepath = self.save_path .. title
+    plt:plot(self.probe_lowpass[1][1]:re():float(),title,savepath,self.show_plots)
   end
   if self.object_highpass_fwhm(it) then
-    self.object_highpass = self.r2:clone():fill(1):add(-1,self.r2:clone():div(-2*(self.object_highpass_fwhm(it)/2.35482)^2):exp()):cuda():view(1,1,self.M,self.M):expand(self.No,1,self.M,self.M)
+    self.object_highpass = self.r2:clone():fill(1):add(-1,self.r2:clone():div(-2*(self.object_highpass_fwhm(it)/2.35482)^2):exp()):cuda():fftshift()
+    self.object_highpass = self.object_highpass:view(1,1,self.M,self.M):expand(self.No,1,self.M,self.M)
+  end
+  if self.fm_support_radius(it) then
+    self.fm_support = self.r2:lt(self.fm_support_radius(it)):cuda():fftshift()
+    self.fm_support = self.fm_support:view(1,1,self.M,self.M):expand(self.No,self.Np,self.M,self.M)
   end
 end
 
@@ -546,6 +574,7 @@ function engine:save_data(filename)
   f:write('/scan_info/positions_int',self.pos)
   f:write('/scan_info/positions',self.pos:clone():float():add(self.dpos))
   f:write('/scan_info/dpos',self.dpos)
+  -- f:write('/parameters',self.par)
   f:write('/data_unshift',self.a:float())
   f:close()
 end
@@ -645,65 +674,19 @@ function engine:P_Q_plain()
   self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
 end
 
-function engine:Del_regularize(target,amplitude,tmp,result)
-  result:zero()
-  local d = tmp
-
-  d:dx_bw(target)
-  result:add(d)
-  plt:plot(d[1][1]:zfloat(),'dx_bw',self.save_path ..'dx_bw')
-
-  d:dy_bw(target)
-  result:add(d)
-  plt:plot(d[1][1]:zfloat(),'dy_bw',self.save_path ..'dx_bw')
-
-  d:dx_fw(target)
-  result:add(-1,d)
-  plt:plot(d[1][1]:zfloat(),'dx_fw',self.save_path ..'dx_bw')
-
-  d:dy_fw(target)
-  result:add(-1,d)
-  plt:plot(d[1][1]:zfloat(),'dy_fw',self.save_path ..'dx_bw')
-
-  result:mul(2*amplitude*self.rescale_regul_amplitude)
-  return result
-end
-
-function engine:regularize_probe()
-  local regul = self:Del_regularize(self.P,self.probe_regularization_amplitude(self.i),self.P_tmp3_PQstore,self.P_tmp1_PQstore)
- local title = self.i..' regul'
- local title1 = self.i..'_new_P regul'
- plt:plot(regul[1][1]:zfloat(),title,self.save_path ..title)
- plt:plot(self.P[1][1]:zfloat(),self.i..'new_P ',self.save_path .. self.i..' new_P ')
- self.P:add(regul)
- plt:plot(self.P[1][1]:zfloat(),title1,self.save_path ..title1)
- self:calculateO_denom()
- self:merge_frames(self.P,self.O,self.O_views)
-end
-
-function engine:filter_probe()
-  self.P[1]:fftBatched()
-  self.P:cmul(self.probe_lowpass)
-  self.P[1]:ifftBatched()
-  plt:plot(self.P[1][1]:zfloat(),self.i..'new_P ',self.save_path .. self.i..' new_P ')
-end
 
 function engine:P_Q()
   if self.update_probe then
     for _ = 1,self.P_Q_iterations do
       self.j = _
-      probe_change = self:refine_probe()
       self:merge_frames(self.P,self.O,self.O_views)
+      probe_change = self:refine_probe()
       -- or probe_change > 0.97 * last_probe_change
       if not probe_change_0 then probe_change_0 = probe_change end
       if probe_change < .1 * probe_change_0  then break end
       -- last_probe_change = probe_change
       -- u.printf('            probe change : %g',probe_change)
     end
-
-    if self.probe_regularization_amplitude(self.i) then self:regularize_probe() end
-    if self.probe_lowpass_fwhm(self.i) then self:filter_probe() end
-
     self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
   else
     self:P_Q_plain()
@@ -716,7 +699,8 @@ function engine:P_F_with_background()
   local abs = self.zk_tmp1_real_PQstore
   local da = self.a_tmp_real_PQstore
   local sum_a = self.a_tmp_real_PQstore[1][1]
-  local fdev = self.zk_tmp2_real_PQstore
+  local fdev = self.a_tmp3_real_PQstore
+  local a_pow2 = self.a_tmp3_real_PQstore[1][1]
   local d = self.d
   local eta = self.eta
   local err_fmag, renorm  = 0, 0
@@ -752,28 +736,42 @@ function engine:P_F_with_background()
         -- sum_a = sum_k |F z_k|^2
         sum_a:add(abs[1][1])
         -- d_k = sum_k (|F z_k|^2 - background)
-        d[k_full]:add(abs[1][1],-1,self.bg)
+        d[k_full]:add(a_pow2:pow(self.a[k_full],2),-1,self.bg)
         -- eta = sum_k d_k * |F z_k|^2
         eta:add(abs[1][1]:cmul(d[k_full]))
       end
     end
+    -- local title = self.i..'_d'
+    -- plt:plot(d[2]:float():log(),title,self.save_path..title,true)
     -- plt:plot(sum_a:float():log(),'sum_a 1')
     d:pow(2)
+    -- local title = self.i..'_d^2'
+    -- plt:plot(d[2]:float():log(),title,self.save_path..title,true)
     -- eta = sum_k d_k * |F z_k|^2 / sum_k d_k^2
-    eta:cdiv(d:sum(1)):clamp(0.8,1)
+    local dsum = d:sum(1)
+    eta:cdiv(dsum):clamp(0.8,1)
     -- plt:plot(eta:float(),'eta')
     -- sum_a = (sum_k |F z_k|^2) / eta
     sum_a:cdiv(eta)
+    local title = self.i..'_sum_a'
+    plt:plot(sum_a:float():log(),title,self.save_path..title,true)
     -- plt:plot(sum_a:float():log(),'sum_a 2')
     d:sqrt()
     -- sum_a = (sum_k |F z_k|^2) / eta - (sum_k d_k)
-    sum_a:add(-1,d:sum(1))
+    local dsum = d:sum(1)
+    sum_a:add(-1,dsum)
+    local title = self.i..'_sum_a_minus_dsum'
+    plt:plot(sum_a:float():log(),title,self.save_path..title,true)
     -- sum_a = 1/K [ (sum_k d_k) - (sum_k |F z_k|^2) / eta ]
     sum_a:mul(-1/self.K)
     -- plt:plot(sum_a:float(),'sum_a 3')
     self.bg:add(sum_a)
-    self.bg:clamp(-1e2,1e10)
-    -- plt:plot(self.bg_solution:float(),'bg_solution')
+    local title = self.i..'_bg_unclamped'
+    plt:plot(self.bg:float():log(),title,self.save_path..title,true)
+    self.bg:clamp(0,1e10)
+    local title = self.i..'_bg_clamped'
+    plt:plot(self.bg:float():log(),title,self.save_path..title,true)
+
     self.calculate_new_background = false
 
     self:maybe_copy_new_batch_P_F(batch_start)
@@ -784,9 +782,9 @@ function engine:P_F_with_background()
     -- sum over probe and object modes - 1x1xMxM
     abs = abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
     abs:sqrt()
-    fdev:add(abs:expandAs(fdev),-1,self.a_exp[k_all])
+    fdev[1][1]:add(abs[1][1],-1,self.a[k_all])
     -- plt:plot(fdev[1][1]:float():log(),'fdev')
-    da:abs(fdev):pow(2):cmul(self.fm_exp[k_all])
+    da:abs(fdev):pow(2):cmul(self.fm[k_all])
     err_fmag = da:sum()
     -- u.printf('err_fmag = %g',err_fmag)
     self.module_error = self.module_error + err_fmag
@@ -839,6 +837,8 @@ function engine:P_F_without_background()
   -- pprint(da)
   -- pprint(fdev)
   -- print('loop')
+  local plots = 0
+  local f = hdf5.open(self.save_path..self.i..'_abs.h5','w')
   for k=1,batch_size do
     for o = 1, self.No do
       -- print('P_F_without_background before fft')
@@ -848,7 +848,26 @@ function engine:P_F_without_background()
     -- sum over probe and object modes - 1x1xMxM
     abs = abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
     abs:sqrt()
-    -- plt:plot(abs[1][1]:float():log(),'abs')
+
+    if plots < 5 and k % 10 == 0 then
+
+      -- {name="self", type='table'},
+      -- {name="imgs", type='table'},
+      -- {name="suptitle", default='Image', type='string'},
+      -- {name="savepath", default=py.None, type='string'},
+      -- {name="show", default=true, type='boolean'},
+      -- {name="cmap", default={'hot','hot'}, type='table'},
+      -- {name="title", default={'Img1','Img2'}, type='table'},
+      local title = self.i..'_abs_'..plots
+      local ab = abs[1][1]:clone():fftshift():float():log()
+      local ak = self.a[k]:clone():fftshift():float():log()
+      plt:plotcompare({ab,ak},title,self.save_path ..title,self.show_plots)
+      f:write('/ab_'..plots,ab)
+      f:write('/ak_'..plots,ak)
+
+      plots = plots + 1
+    end
+
     fdev[1][1]:add(abs[1][1],-1,self.a[k_all])
     -- plt:plot(fdev[1][1]:float():log(),'fdev')
     da:abs(fdev):pow(2)
@@ -859,8 +878,14 @@ function engine:P_F_without_background()
     if err_fmag > self.power_threshold then
       renorm = math.sqrt(self.power_threshold/err_fmag)
       -- plt:plot(z[ind][1][1]:abs():float():log(),'z_out[ind][1] before')
-      self.P_Mod_renorm(z[k],self.fm_exp[k_all],fdev:expandAs(z[k]),self.a_exp[k_all],abs:expandAs(z[k]),renorm)
-      -- self.P_Mod(z[k],abs,self.a[k])
+      if self.fm_support_radius(self.i) then
+        self.fm_support:cmul(self.fm_exp[k_all])
+      else
+        self.fm_support = self.fm_exp[k_all]
+      end
+      -- [k_all]
+      -- self.P_Mod_renorm(z[k],self.fm_support,fdev:expandAs(z[k]),self.a_exp[k_all],abs:expandAs(z[k]),renorm)
+      self.P_Mod(z[k],abs:expandAs(z[k]),self.a_exp[k_all])
       -- plt:plot(z[ind][1][1]:abs():float():log(),'z_out[k][1] after')
       self.mod_updates = self.mod_updates + 1
     end
@@ -869,6 +894,7 @@ function engine:P_F_without_background()
       z[k][o]:ifftBatched()
     end
   end
+  f:close()
   -- u.printMem()
   -- plt:plot(self.P_Fz[1][1][1]:zfloat(),'self.z')
   -- plt:plot(self.P_Fz[2][1][1]:zfloat(),'self.z2')

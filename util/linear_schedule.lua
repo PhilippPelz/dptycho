@@ -9,7 +9,7 @@ function reg_schedule:_init(start,iterations,startval,stopval)
 end
 
 function reg_schedule:__call(it)
-  if it < self.start or it > self.start + self.iterations then return 0
+  if it < self.start or it > self.start + self.iterations then return false
   else
     return self.startval - (self.startval - self.stopval) * (it-self.start)/self.iterations
   end

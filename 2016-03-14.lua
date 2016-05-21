@@ -64,8 +64,8 @@ collectgarbage()
 DEBUG = false
 
 par = {
-  nmodes_probe = 2,
-  nmodes_object = 1,
+  Np = 2,
+  No = 1,
   probe = nil,
   plot_every = 1,
   plot_start = 1,
