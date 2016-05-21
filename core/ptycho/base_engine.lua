@@ -684,7 +684,7 @@ end
 function engine:filter_probe()
   self.P[1]:fftBatched()
   self.P:cmul(self.probe_lowpass)
-  self.P[1]:fftBatched()
+  self.P[1]:ifftBatched()
   plt:plot(self.P[1][1]:zfloat(),self.i..'new_P ',self.save_path .. self.i..' new_P ')
 end
 

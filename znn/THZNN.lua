@@ -14,6 +14,12 @@ function THZNN.getState()
 end
 
 local THZNN_h = [[
+TH_API void THNN_ZCudaTruncatedPoissonLikelihood_updateOutput(
+    THCState *state, THZCudaTensor *input, THCudaTensor *target,
+    THCudaTensor *mask, THCudaTensor *output);
+TH_API void THNN_ZCudaTruncatedPoissonLikelihood_GradientFactor(
+    THCState *state, THZCudaTensor *input, THCudaTensor *target,
+    THCudaTensor *output, THCudaTensor *mask);
 TH_API void THNN_CudaWSECriterion_updateOutput(THCState *state,
                                                THCudaTensor *input,
                                                THCudaTensor *target,

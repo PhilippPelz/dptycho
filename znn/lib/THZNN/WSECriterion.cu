@@ -5,22 +5,87 @@
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
 #include <thrust/inner_product.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/complex.h>
 #if CUDA_VERSION >= 7000
 #include <thrust/system/cuda/execution_policy.h>
 #endif
 #include <stdlib.h>
-struct mse_functor
-{
-  mse_functor() {}
 
-  __host__ __device__ float operator()(const float &x, const float &y) const
-  {
-    float z = x-y;
-    return z*z;
+template <typename T>
+struct PoissonLikelihood : public thrust::unary_function<T, float> {
+  __host__ __device__ float operator()(T x) {
+    // thrust::get<0>(x) F[psi]
+    // thrust::get<1>(x) a
+    // thrust::get<2>(x) mask
+    float I = thrust::abs(thrust::get<0>(x));
+    I = I*I;
+    float a = thrust::get<1>(x);
+    float m = thrust::get<2>(x);
+    return m*(I - a * logf(I));
   }
 };
 
+void THNN_ZCudaTruncatedPoissonLikelihood_updateOutput(THCState *state, THZCudaTensor *input, THCudaTensor *target, THCudaTensor *mask, THCudaTensor *output)
+{
+  THAssert(THCudaTensor_checkGPU(state, 2, input, target));
+  THArgCheck(THCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, target), 2,
+    "input and target need to have the same number of elements"
+  );
+
+  long size = THCudaTensor_nElement(state, input);
+
+  input = THZCudaTensor_newContiguous(state, input);
+  target = THCudaTensor_newContiguous(state, target);
+  mask = THCudaTensor_newContiguous(state, mask);
+
+  thrust::device_ptr<thrust::complex<float>> input_data(THCudaTensor_data(state, input));
+  thrust::device_ptr<float> target_data(THCudaTensor_data(state, target));
+  thrust::device_ptr<float> target_data(THCudaTensor_data(state, target));
+
+  float sum = thrust::transform_reduce(
+    #if CUDA_VERSION >= 7000
+        thrust::cuda::par.on(THCState_getCurrentStream(state)),
+    #endif
+           thrust::make_zip_iterator(
+               thrust::make_tuple(input.begin(), target.begin(), mask.begin())),
+           thrust::make_zip_iterator(
+               thrust::make_tuple(input.end(), target.end(), mask.end())),
+           PoissonLikelihood<thrust::tuple<thrust::complex<float>, float, float>>(),
+           float(0), thrust::plus<float>());
+
+  THCudaTensor_free(state, input);
+  THCudaTensor_free(state, target);
+  THCudaTensor_free(state, mask);
+
+  THCudaTensor_set1d(state, output, 0, sum);
+}
+
+struct TruncatedPoissonLikelihood_GradientFactor_functor
+{
+  TruncatedPoissonLikelihood_GradientFactor_functor()  {}
+
+  __device__ __forceinline__ void operator()(float *fac, float *a, float* m, ccx *psi) const
+  {
+    *fac = *m * (1- *a / thrust::norm(*psi));
+  }
+};
+
+void THNN_ZCudaTruncatedPoissonLikelihood_GradientFactor(THCState *state, THZCudaTensor *input, THCudaTensor *target, THCudaTensor *output, THCudaTensor *mask)
+{
+  THAssert(THZCudaTensor_checkGPU(state, 1, input));
+  THAssert(THCudaTensor_checkGPU(state, 3, target, output, mask));
+  THArgCheck(THZCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, target), 2, "sizes do not match (input,target)");
+  THArgCheck(THZCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, output), 3, "sizes do not match (input,output)");
+  THArgCheck(THZCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, mask), 3, "sizes do not match (input,mask)");
+
+  if (!THZCudaTensor_pointwiseApply4FFFZ(state, output, target, mask, input, TruncatedPoissonLikelihood_GradientFactor_functor())) {
+    THArgCheck(false, 2, CUTORCH_DIM_WARNING);
+  }
+
+  THCudaTensor_free(state, input);
+  THCudaTensor_free(state, target);
+}
 
 void THNN_CudaWSECriterion_updateOutput(THCState *state, THCudaTensor *input, THCudaTensor *target, THCudaTensor *output, float weight)
 {
