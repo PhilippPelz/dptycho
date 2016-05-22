@@ -65,13 +65,13 @@ struct TruncatedPoissonLikelihood_GradientFactor_functor
 {
   TruncatedPoissonLikelihood_GradientFactor_functor()  {}
 
-  __device__ __forceinline__ void operator()(float *fac, float *a, float* m, ccx *psi) const
+  __device__ __forceinline__ void operator()(float *I, float *a, float* m) const
   {
-    *fac = *m * (1- *a / thrust::norm(*psi));
+    *I = 2 * *m * (1- *a / *I);
   }
 };
 
-void THNN_ZCudaTruncatedPoissonLikelihood_GradientFactor(THCState *state, THZCudaTensor *input, THCudaTensor *target, THCudaTensor *output, THCudaTensor *mask)
+void THNN_CudaTruncatedPoissonLikelihood_GradientFactor(THCState *state, THCudaTensor *input, THCudaTensor *target, THCudaTensor *output, THCudaTensor *mask)
 {
   THAssert(THZCudaTensor_checkGPU(state, 1, input));
   THAssert(THCudaTensor_checkGPU(state, 3, target, output, mask));
@@ -79,12 +79,9 @@ void THNN_ZCudaTruncatedPoissonLikelihood_GradientFactor(THCState *state, THZCud
   THArgCheck(THZCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, output), 3, "sizes do not match (input,output)");
   THArgCheck(THZCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, mask), 3, "sizes do not match (input,mask)");
 
-  if (!THZCudaTensor_pointwiseApply4FFFZ(state, output, target, mask, input, TruncatedPoissonLikelihood_GradientFactor_functor())) {
+  if (!THCudaTensor_pointwiseApply3(state, input, target, mask, TruncatedPoissonLikelihood_GradientFactor_functor())) {
     THArgCheck(false, 2, CUTORCH_DIM_WARNING);
   }
-
-  THCudaTensor_free(state, input);
-  THCudaTensor_free(state, target);
 }
 
 void THNN_CudaWSECriterion_updateOutput(THCState *state, THCudaTensor *input, THCudaTensor *target, THCudaTensor *output, float weight)
