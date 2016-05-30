@@ -4,6 +4,12 @@
 #include <THC/THCApply.cuh>
 #include <THC/THZCApply.cuh>
 
+TH_API void THNN_ZCudaTruncatedPoissonLikelihood_updateOutput(
+    THCState *state, THZCudaTensor *input, THCudaTensor *target,
+    THCudaTensor *mask, THCudaTensor *output);
+TH_API void THNN_CudaTruncatedPoissonLikelihood_GradientFactor(
+    THCState *state, THCudaTensor *input, THCudaTensor *target,
+    THCudaTensor *output, THCudaTensor *mask);
 TH_API void THNN_CudaWSECriterion_updateOutput(THCState *state,
                                                THCudaTensor *input,
                                                THCudaTensor *target,

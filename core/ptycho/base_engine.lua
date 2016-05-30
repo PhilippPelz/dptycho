@@ -135,10 +135,8 @@ function engine:_init(par)
     plt:plot(self.P[1][1]:zfloat())
   end
 
-  self.O_views = {}
-  self.O_tmp_PF_views = {}
-  self.O_tmp_PQ_views = {}
-  self.O_denom_views = {}
+  self.initialize_views()
+
   self.err_hist = {}
 
   self.max_power = self.a_tmp2_real_PQstore:cmul(self.a,self.fm):pow(2):sum(2):sum(3):max()
@@ -202,6 +200,13 @@ function engine:_init(par)
   print(   '----------------------------------------------------')
   -- u.printMem()
   u.printram('after init')
+end
+
+function engine:initialize_views()
+  self.O_views = {}
+  self.O_tmp_PF_views = {}
+  self.O_tmp_PQ_views = {}
+  self.O_denom_views = {}
 end
 
 function engine.P_Mod(x,abs,measured_abs)
@@ -712,29 +717,6 @@ function engine:P_Q_plain()
   self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
 end
 
-function engine:Del_regularize(target,amplitude,tmp,result)
-  result:zero()
-  local d = tmp
-
-  d:dx_bw(target)
-  result:add(d)
-  plt:plot(d[1][1]:zfloat(),'dx_bw',self.save_path ..'dx_bw')
-
-  d:dy_bw(target)
-  result:add(d)
-  plt:plot(d[1][1]:zfloat(),'dy_bw',self.save_path ..'dx_bw')
-
-  d:dx_fw(target)
-  result:add(-1,d)
-  plt:plot(d[1][1]:zfloat(),'dx_fw',self.save_path ..'dx_bw')
-
-  d:dy_fw(target)
-  result:add(-1,d)
-  plt:plot(d[1][1]:zfloat(),'dy_fw',self.save_path ..'dx_bw')
-
-  result:mul(2*amplitude*self.rescale_regul_amplitude)
-  return result
-end
 
 function engine:P_Q()
   if self.update_probe then
