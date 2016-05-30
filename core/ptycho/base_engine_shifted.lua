@@ -283,14 +283,18 @@ function engine:refine_positions2()
   -- local answer=io.read()
 end
 
+function engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
+  self:merge_frames_internal(self.z, mul_merge, merge_memory, merge_memory_views, self.zk_tmp1_PQstore, self.P_tmp1_PQstore, true)
+end
+
 -- buffers:
 --  0 x sizeof(P) el R
 --  1 x sizeof(z[k]) el C
-function engine:merge_frames( mul_merge, merge_memory, merge_memory_views)
+function engine:merge_frames_internal(frames, mul_merge, merge_memory, merge_memory_views, product_shifted_buffer, mul_merge_shifted_buffer, do_normalize_merge_memory)
   print('merge_frames')
-  local z = self.z
-  local product_shifted = self.zk_tmp1_PQstore
-  local mul_merge_shifted = self.P_tmp1_PQstore
+  local z = frames
+  local product_shifted = product_shifted_buffer
+  local mul_merge_shifted = mul_merge_shifted_buffer
   merge_memory:mul(self.object_inertia)
   local pos = torch.FloatTensor{1,1}
   u.printram('before merge_frames')
@@ -308,11 +312,10 @@ function engine:merge_frames( mul_merge, merge_memory, merge_memory_views)
   end
   -- plt:plot(self.O_denom[1][1]:float():log(),'O_denom')
   -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory')
-  merge_memory:cmul(self.O_denom)
+  if do_normalize_merge_memory then
+    merge_memory:cmul(self.O_denom)
+  end
 
-  O_norm = self.O_tmp_PQstore:norm(merge_memory):sum()
-  u.printf('object norm: %g',O_norm)
-  -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory 2')
   u.printram('after merge_frames')
 end
 

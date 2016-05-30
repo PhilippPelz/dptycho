@@ -115,10 +115,8 @@ function engine:_init(par)
   end
   self.P = support:forward(self.P)
 
-  self.O_views = {}
-  self.O_tmp_PF_views = {}
-  self.O_tmp_PQ_views = {}
-  self.O_denom_views = {}
+  self.initialize_views()
+
   self.err_hist = {}
 
   self.max_power = self.a_tmp2_real_PQstore:cmul(self.a,self.fm):pow(2):sum(2):sum(3):max()
@@ -180,6 +178,13 @@ function engine:_init(par)
   print(   '----------------------------------------------------')
   -- u.printMem()
   u.printram('after init')
+end
+
+function engine:initialize_views()
+  self.O_views = {}
+  self.O_tmp_PF_views = {}
+  self.O_tmp_PQ_views = {}
+  self.O_denom_views = {}
 end
 
 function engine.P_Mod(x,abs,measured_abs)

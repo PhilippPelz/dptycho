@@ -32,17 +32,17 @@ function TruncatedPoissonLikelihood:calculateXsi(in_psi,I_target)
   local I_model = self.gradInput:norm():sum(2):sum(3)
 
   self.lhs:copy(I_model):div(in_psi:normall(2))
-  self.rhs:fill(self.rhs:add(I_target,-1,I_model)):cmul(self.lhs):mul(self.a_h/I_target:nElement())
+  self.rhs:add(I_target,-1,I_model):cmul(self.lhs):mul(self.a_h/I_target:nElement())
 
   self.lhs:add(I_target,-1,I_model):abs()
 
   I_model.THNN.TruncatedPoissonLikelihood_GradientFactor(I_target,self.mask)
 
-  self.gradInput:cmul(I_model:expandAs(self.gradInput) )
+  self.gradInput:cmul(I_model:expandAs(self.gradInput))
 
   for k = 1, self.K do
     for o = 1, self.No do
-      self.gradInput[k][o]:ifftBatched(in_psi[k][o])
+      self.gradInput[k][o]:ifftBatched()
     end
   end
 
@@ -60,7 +60,7 @@ function TruncatedPoissonLikelihood:updateGradInput(in_psi, I_target)
   self.gradInput = self:calculateXsi(in_psi,I_target)
 
   local valid_gradients = torch.le(self.lhs,self.rhs)
-  self.gradInput:cmul(valid_gradients)
+  self.gradInput:cmul(valid_gradients:expandAs(self.gradInput))
 
   return self.gradInput
 end
