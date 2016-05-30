@@ -65,7 +65,7 @@ local plot = argcheck{
             {name="title", default='Image', type='string'},
             {name="savepath", default=py.None,type='string'},
             {name="show", default=true, type='boolean'},
-            {name="cmap", default='hot',type='string'},
+            {name="cmap", default='viridis',type='string'},
             call =
                 function (self, img, title, savepath, show, cmap)
                   py.eval('plot(img,title,savepath,cmap,show)',{img = img, title=title, savepath=savepath, cmap=cmap, show=show})
@@ -80,7 +80,7 @@ plot = argcheck{
             {name="title", default='Image', type='string'},
             {name="savepath", default=py.None,type='string'},
             {name="show", default=true, type='boolean'},
-            {name="cmap", default='hot',type='string'},
+            {name="cmap", default='viridis',type='string'},
             call =
                 function (self, img, title, savepath, show, cmap)
 --                  print(torch.type(img))
@@ -96,7 +96,7 @@ plot = argcheck{
             {name="suptitle", default='Image', type='string'},
             {name="savepath", default=py.None, type='string'},
             {name="show", default=true, type='boolean'},
-            {name="cmap", default={'hot','hsv'}, type='table'},
+            {name="cmap", default={'Greys','hsv'}, type='table'},
             {name="title", default={'Abs','Phase'}, type='table'},
             call =
                 function (self,img, suptitle, savepath, show, cmap, title)
@@ -112,7 +112,7 @@ c.plotReIm = argcheck{
             {name="suptitle", default='Image', type='string'},
             {name="savepath", default=py.None, type='string'},
             {name="show", default=true, type='boolean'},
-            {name="cmap", default={'hot','hot'}, type='table'},
+            {name="cmap", default={'viridis','viridis'}, type='table'},
             {name="title", default={'Re','Im'}, type='table'},
             call =
                 function (self,img, suptitle, savepath, show, cmap, title)
@@ -129,7 +129,7 @@ c.plotcompare = argcheck{
             {name="suptitle", default='Image', type='string'},
             {name="savepath", default=py.None, type='string'},
             {name="show", default=true, type='boolean'},
-            {name="cmap", default={'hot','hot'}, type='table'},
+            {name="cmap", default={'viridis','viridis'}, type='table'},
             {name="title", default={'Img1','Img2'}, type='table'},
             call =
                 function (self,imgs, suptitle, savepath, show, cmap, title)

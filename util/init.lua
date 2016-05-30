@@ -8,6 +8,7 @@ local m = classic.module(...)
 
 m:submodule("stats")
 m:class("linear_schedule")
+m:class("tabular_schedule")
 
 function m.load_sim_and_allocate(file)
   local ret = {}

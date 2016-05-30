@@ -14,10 +14,11 @@ local stats = require "dptycho.util.stats"
 local engine = require 'dptycho.core.ptycho.DM_engine'
 
 local path = '/home/philipp/experiments/2016-05-17/scan1/'
-local file = 'scan1_data_final_custom.h5'
+local file = 'scan1_data_final_flipped_large_area.h5'
 local probe_file = 'probe.h5'
 
--- local M = 1536
+local M = 1536
+local NP = 3
 -- local FWHM = 100
 -- local x = torch.repeatTensor(torch.linspace(-M/2,M/2,M),M,1)
 -- -- pprint(x)
@@ -35,15 +36,19 @@ local pos = f:read('/scan_info/positions'):all()
 local dpos = pos:clone():float()
 pos = pos:int()
 dpos:add(-1,pos:float())
+f:close()
 -- dpos[{1,1}] = 5
 
 o_r = nil
 o_i = nil
--- local pr = f:read('/pr'):all():cuda()
--- local pi = f:read('/pi'):all():cuda()
--- local probe = torch.ZCudaTensor().new({1,3,M,M})
--- probe[1][1]:copyIm(pi):copyRe(pr)
--- plt:plot(probe[1][1]:zfloat())
+local f = hdf5.open(path..'probe.h5','r')
+local pr = f:read('/pr'):all():cuda()
+local pi = f:read('/pi'):all():cuda()
+local probe = torch.ZCudaTensor().new({1,NP,M,M})
+probe[1][1]:copyIm(pi):copyRe(pr)
+probe[1][1]:copyIm(pi):copyRe(pr):mul(1e4)
+f:close()
+plt:plot(probe[1][1]:zfloat())
 pr = nil
 pi = nil
 collectgarbage()
@@ -55,7 +60,7 @@ collectgarbage()
 DEBUG = false
 
 par = {
-  Np = 3,
+  Np = NP,
   No = 1,
   probe = nil,
   plot_every = 1,
@@ -67,17 +72,17 @@ par = {
   position_refinement_every = 2,
   position_refinement_max_disp = 3,
   probe_update_start = 2,
-  probe_support = 3/8.0,
+  probe_support = nil,
   fm_support_radius = function(it) return nil end,
   probe_regularization_amplitude = function(it) return nil end,
   object_highpass_fwhm = function(it) return nil end,
-  object_inertia = 1e-9,
-  probe_inertia = 3e-9,
+  object_inertia = 1e-7,
+  probe_inertia = 1e-9,
   P_Q_iterations = 10,
   copy_solution = false,
   background_correction_start = 100,
   save_interval = 5,
-  save_path = path..'/hyperscan_custom1/'
+  save_path = path..'/hyperscan_flipped_largearea_4/'
 }
 
 par.probe_lowpass_fwhm = u.linear_schedule(8,250,220,220)
@@ -89,7 +94,7 @@ par.dpos = dpos
 -- par.solution = solution
 par.a = a
 par.fmask = fmask
--- par.probe = probe
+par.probe = probe
 
 
 local ngin = engine(par)

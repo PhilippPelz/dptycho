@@ -30,6 +30,7 @@ function engine:DM_update_without_background()
     -- z_{i+1} = z_i - P_Q z_i , P_Qz can be used as buffer now
     self.z:add(-1,self.P_Qz)
     -- self.P_Fz = P_F((2P_Q - I))z
+    self.plots = 0
     mod_error, mod_updates = self:P_F()
     --  z_{i+1} = z_i - P_Q z_i + P_F((2P_Q - I))z_i
     self.z:add(self.P_Fz)
@@ -54,6 +55,7 @@ function engine:DM_update_with_background()
     self:maybe_copy_new_batch_z(k)
     self:maybe_copy_new_batch_P_F(k)
     -- self.P_Fz = P_F((2P_Q - I))z
+    self.plots = 0
     mod_error, mod_updates = self:P_F()
     --  z_{i+1} = z_i - P_Q z_i + P_F((2P_Q - I))z_i
     self.z:add(self.P_Fz)

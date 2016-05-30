@@ -13,8 +13,11 @@ local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 local engine = require 'dptycho.core.ptycho.DM_engine'
 
-local path = '/home/philipp/experiments/2013-03-14 ptycho/scan/'
-local file = 'scan2_data_final.h5'
+local path = '/home/philipp/experiments/2016-03-14 ptycho/scan/'
+local file = 'scan2_data_final_flipped.h5'
+
+local M = 1536
+local NP = 3
 
 local f = hdf5.open(path..file,'r')
 
@@ -24,6 +27,15 @@ local pos = f:read('/scan_info/positions'):all()
 local dpos = pos:clone():float()
 pos = pos:int()
 dpos:add(-1,pos:float())
+f:close()
+
+local f = hdf5.open(path..'probe.h5','r')
+local pr = f:read('/pr'):all():cuda()
+local pi = f:read('/pi'):all():cuda()
+local probe = torch.ZCudaTensor().new({1,NP,M,M})
+probe[1][1]:copyIm(pi):copyRe(pr)
+probe[1][1]:copyIm(pi):copyRe(pr):mul(1e4)
+f:close()
 -- dpos[{1,1}] = 5
 
 -- print(dpos)
@@ -64,31 +76,39 @@ collectgarbage()
 DEBUG = false
 
 par = {
-  Np = 2,
+  Np = NP,
   No = 1,
   probe = nil,
   plot_every = 1,
   plot_start = 1,
-  beta = 0.9,
-  fourier_relax_factor = 5e-2,
-  position_refinement_start = 20,
-  position_refinement_every = 3,
+  show_plots = false,
+  beta = 1,
+  fourier_relax_factor = 15e-2,
+  position_refinement_start = 6,
+  position_refinement_every = 2,
+  position_refinement_max_disp = 3,
   probe_update_start = 2,
-  object_inertia = 1e-5,
-  probe_inertia = 1e-3,
-  P_Q_iterations = 1,
+  probe_support = 0.7,
+  fm_support_radius = function(it) return nil end,
+  probe_regularization_amplitude = function(it) return nil end,
+  object_highpass_fwhm = function(it) return nil end,
+  object_inertia = 1e-7,
+  probe_inertia = 1e-9,
+  P_Q_iterations = 10,
   copy_solution = false,
-  background_correction_start = 30,
-  save_interval = 10,
-  save_path = path
+  background_correction_start = 100,
+  save_interval = 5,
+  save_path = path..'/hyperscan_flipped_2/'
 }
+
+par.probe_lowpass_fwhm = u.linear_schedule(2,250,220,220)
 par.pos = pos
 par.dpos = dpos
 -- par.dpos_solution = dpos_solution
 -- par.solution = solution
 par.a = a
 par.fmask = fmask
--- par.probe = probe
+par.probe = probe
 
 local ngin = engine(par)
 -- ngin:generate_data('/home/philipp/drop/Public/moon_subpix2.h5')
