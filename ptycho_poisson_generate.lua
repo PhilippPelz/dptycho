@@ -69,6 +69,10 @@ local solution = torch.ZCudaTensor.new(o_r:size()):copyIm(o_i):copyRe(o_r)
 -- bgc:fftshift()
 -- local dpos = pos:clone():float():zero()
 -- plt:plot(bgc:zfloat(),'bgc')
+pprint(probe)
+pprint(solution)
+plt:plot(probe:zfloat())
+plt:plot(solution:zfloat())
 
 o_r = nil
 o_i = nil
@@ -98,13 +102,14 @@ par = {
   object_inertia = 1e-5,
   probe_inertia = 1e-9,
   P_Q_iterations = 10,
-  copy_solution = false,
+  copy_solution = true,
   background_correction_start = 100
 }
 par.pos = pos
 par.dpos = dpos
 par.dpos_solution = dpos_solution
 par.solution = solution
+par.probe_solution = probe
 par.a = a
 par.fmask = fmask
 par.probe = probe

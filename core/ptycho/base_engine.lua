@@ -75,14 +75,6 @@ function engine:_init(par)
   self.Ny = object_size[2] - 1
   if self.Nx % 2 ~= 0 then self.Nx = self.Nx + 1 end
   if self.Ny % 2 ~= 0 then self.Ny = self.Ny + 1 end
-  -- pprint( pos:max(1))
-  -- pprint(object_size)
-  -- pprint(self.solution)
-  if par.probe then
-    self.P = par.probe
-  end
-
-  u.printram('before allocateBuffers')
 
   self:allocateBuffers(self.K,self.No,self.Np,self.M,self.Nx,self.Ny)
 
@@ -101,8 +93,6 @@ function engine:_init(par)
     self.P:zero()
     self.P[1]:add(300+0i)
   end
-
-  u.printram('after allocateBuffers')
 
   if self.has_solution then
     local startx, starty = 1,1
@@ -141,8 +131,8 @@ function engine:_init(par)
 
   self.err_hist = {}
 
-  self.max_power = self.a_buffer:cmul(self.a,self.fm):pow(2):sum(2):sum(3):max()
-  self.total_power = self.a_buffer:cmul(self.a,self.fm):pow(2):sum()
+  self.max_power = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum(2):sum(3):max()
+  self.total_power = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum()
   self.total_measurements = self.fm:sum()
   self.power_threshold = 0.25 * self.fourier_relax_factor^2 * self.max_power / self.MM
   self.update_positions = false
@@ -155,12 +145,11 @@ function engine:_init(par)
   self.iterations = 1
 
   if par.copy_solution then
-    self.O[1]:copy(self.solution)
-    self.P[1]:copy(self.probe_solution)
+    self.O[1][1]:copy(self.solution)
+    self.P[1][1]:copy(self.probe_solution)
   end
 
-  self.norm_a = self.a_buffer:cmul(self.a,self.fm):pow(2):sum()
-  pprint(self.P_buffer)
+  self.norm_a = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum()
   local P_fluence = self.P_buffer_real:normZ(self.P):sum()
 
   if self.probe_support then
@@ -370,6 +359,17 @@ function engine:initialize_plotting()
   u.printram('after initialize_plotting')
 end
 
+function engine:allocate_probe(Np,M)
+  if not self.P then
+    self.P = torch.ZCudaTensor.new(1,Np,M,M)
+  elseif not self.P:dim() == 4 then
+    print('allocateBuffers 1')
+    local tmp = self.P
+    self.P = torch.ZCudaTensor.new(1,Np,M,M)
+    self.P[1][1]:copy(tmp)
+  end
+end
+
 -- total memory requirements:
 -- 1 x object complex
 -- 1 x object real
@@ -380,11 +380,12 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   local frames_memory = 0
   local Fsize_bytes ,Zsize_bytes = 4,8
 
+  print(self.P:dim())
+
   self.O = torch.ZCudaTensor.new(No,1,Nx,Ny)
   self.O_denom = torch.CudaTensor(self.O:size())
-  if not self.P then
-    self.P = torch.ZCudaTensor.new(1,Np,M,M)
-  end
+
+  self:allocate_probe(Np,M)
 
   if self.background_correction_start > 0 then
     self.eta = torch.CudaTensor(M,M)
@@ -446,6 +447,10 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   self.z = torch.ZCudaTensor.new(torch.LongStorage{K,No,Np,M,M})
   self.P_Qz = torch.ZCudaTensor.new(torch.LongStorage{K,No,Np,M,M})
   self.P_Fz = torch.ZCudaTensor.new(torch.LongStorage{K,No,Np,M,M})
+
+  self.z1 = self.P_Qz
+  self.z2 = self.P_Fz
+
 
   if self.batches > 1 then
     self.z_h = torch.ZFloatTensor.new(torch.LongStorage{self.K,No,Np,M,M})
@@ -510,7 +515,7 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     P_Qstorage_offset = P_Qstorage_offset + self.d:nElement() + 1
   end
 
-  self.a_buffer = torch.CudaTensor(P_Qz_storage_real,1,torch.LongStorage{self.K,M,M})
+  self.a_buffer1 = torch.CudaTensor(P_Qz_storage_real,1,torch.LongStorage{self.K,M,M})
 
   -- buffers in P_Fz_storage
 
@@ -546,6 +551,7 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
   self.P_buffer = self.P_tmp1_PQstore
   self.P_buffer_real = self.P_tmp1_real_PQstore
+  self.zk_buffer_update_frames = self.zk_tmp1_PFstore
 end
 
 function engine:update_iteration_dependent_parameters(it)
@@ -627,8 +633,10 @@ function engine:generate_data(filename,poisson_noise)
   self:update_views()
   self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
 
-  local a = self.a_buffer
+  local a = self.a_buffer1
   local P_norm = self.P:normall(2)
+
+  u.printf('probe intensity: %g',P_norm)
 
   for _, params1 in ipairs(self.batch_params) do
     local batch_start1, batch_end1, batch_size1 = table.unpack(params1)
@@ -643,7 +651,9 @@ function engine:generate_data(filename,poisson_noise)
         if first then
           plt:plot(self.z[k][o][1]:abs():log():float(),'self.z[k][o][1]')
         end
+
         local abs = self.z[k][o]:fftBatched():sum(1)
+
         if first then
           plt:plot(self.z[k][o][1]:abs():log():float(),'self.z[k][o][1] fft')
         end
@@ -659,25 +669,27 @@ function engine:generate_data(filename,poisson_noise)
         end
       end
 
-      if first then
-        plt:plot(a[k_full][1][1]:float():log(),'a[1][1]')
-        first = false
-      end
-
       if poisson_noise then
-        local a_h = a[k_full]:float()
-        a_h:mul(poisson_noise/P_norm)
-        local a_h_noisy = u.poisson(a_h)
+        local a_h = a[k_full]:mul(poisson_noise/P_norm):float()
+        local a_h_noisy = u.stats.poisson(a_h)
         a[k_full]:copy(a_h_noisy)
       end
 
       a[k_full]:sqrt()
+
+      if first then
+        plt:plot(a[k_full]:float():log(),'a')
+        first = false
+      end
     end
     self.a:copy(a)
   end
 
   local I_max = self.a:sum(2):sum(3):max()
   local I_mean = self.a:sum()/self.a:size(1)
+
+  u.printf('max counts: %g',I_max^2)
+  u.printf('mean counts: %g',I_mean^2)
 
   plt:plot(self.P[1][1]:re():float(),'P')
   plt:plot(self.O[1][1]:re():float(),'O')

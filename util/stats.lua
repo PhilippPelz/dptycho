@@ -19,8 +19,8 @@ function m.truncnorm(shape,a,b,mu,sigma)
   return py.eval('truncnorm(shape,a,b,mu,sigma)',{shape = shape, a=a,b=b,mu=mu,sigma=sigma})
 end
 
-function m.poisson(x,lambda)
-  return py.eval('poisson(x,lambda)',{x=x,lambda=lambda})
+function m.poisson(x)
+  return py.eval('poisson(x)',{x=x})
 end
 
 return m

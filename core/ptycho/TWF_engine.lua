@@ -28,16 +28,11 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
     self.dL_dO = torch.ZCudaTensor.new(self.O:size())
 
-    if not self.P then
-      self.P = torch.ZCudaTensor.new(1,Np,M,M)
-    end
+    self:allocate_probe(Np,M)
 
     self.dL_dP = torch.ZCudaTensor.new(self.P:size())
     self.dL_dP_tmp1 = torch.ZCudaTensor.new(self.P:size())
     self.dL_dP_tmp1_real = torch.CudaTensor.new(self.P:size())
-
-    self.P_buffer = self.dL_dP
-    self.P_buffer_real = self.dL_dP_tmp1_real
 
     -- if self.background_correction_start > 0 then
     --   self.eta = torch.CudaTensor(M,M)
@@ -117,14 +112,14 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
     -- buffers
 
-    self.buffer1 = torch.CudaTensor.new(z1_storage_real, z1_storage_offset, torch.LongStorage{K,M,M})
-    z1_storage_offset = z1_storage_offset + self.buffer1:nElement() + 1
+    self.a_buffer1 = torch.CudaTensor.new(z1_storage_real, z1_storage_offset, torch.LongStorage{K,M,M})
+    z1_storage_offset = z1_storage_offset + self.a_buffer1:nElement() + 1
 
     if No > 1 or Np > 1 then
       -- there is enough room already allocated for the second buffer
-      self.buffer1 = torch.CudaTensor.new(z1_storage_real, z1_storage_offset, torch.LongStorage{K,M,M})
+      self.a_buffer1 = torch.CudaTensor.new(z1_storage_real, z1_storage_offset, torch.LongStorage{K,M,M})
     else
-      self.buffer2 = torch.CudaTensor.new(torch.LongStorage{K,M,M})
+      self.a_buffer2 = torch.CudaTensor.new(torch.LongStorage{K,M,M})
     end
 
     z1_storage_offset = 1
@@ -134,9 +129,11 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     -- offset for real arrays
     z1_storage_offset = z1_storage_offset*2 + 1
 
-    self.L = znn.TruncatedPoissonLikelihood(self.a_h, self.z, self.fm, self.buffer1, self.buffer2, self.par, K, No, Np)
+    self.L = znn.TruncatedPoissonLikelihood(self.a_h, self.z, self.fm, self.a_buffer1, self.a_buffer2, self.par, K, No, Np)
 
-    self.a_buffer = self.buffer1
+    self.zk_buffer_update_frames = self.z1[1]
+    self.P_buffer = self.dL_dP
+    self.P_buffer_real = self.dL_dP_tmp1_real
 end
 
 function TWF_engine:initialize_views()

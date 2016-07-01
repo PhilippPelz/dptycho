@@ -350,7 +350,9 @@ end
 --  1 x sizeof(P) el C
 function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
   print('update_frames')
-  local mul_split_shifted = self.zk_tmp1_PFstore
+  local mul_split_shifted = self.zk_buffer_update_frames
+  pprint(mul_split_shifted)
+  pprint(mul_split)
   local pos = torch.FloatTensor{1,1}
   for k, view in ipairs(merge_memory_views) do
     if self.batches > 2 then xlua.progress(k,self.K) end
@@ -358,9 +360,9 @@ function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
     local ind = self.k_to_batch_index[k]
     -- print(k,ind)
     pos:fill(1):cmul(self.dpos[k])
-    mul_split_shifted[1]:shift(mul_split[1],pos)
-    for i = 2, self.No do
-      mul_split_shifted[i]:copy(mul_split_shifted[1])
+    -- mul_split_shifted[1]:shift(mul_split[1],pos)
+    for i = 1, self.No do
+      mul_split_shifted[i]:shift(mul_split[i],pos)
     end
     local view_exp = view:expandAs(z[ind])
     z[ind]:cmul(mul_split_shifted,view_exp)
