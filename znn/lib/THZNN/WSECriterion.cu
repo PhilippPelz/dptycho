@@ -1,7 +1,9 @@
-#include "THZNN.h"
 
+#include "THZNN.h"
 #include <thrust/fill.h>
 #include <thrust/functional.h>
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
 #include <thrust/inner_product.h>
@@ -10,6 +12,7 @@
 #if CUDA_VERSION >= 7000
 #include <thrust/system/cuda/execution_policy.h>
 #endif
+
 #include <stdlib.h>
 
 template <typename T>
@@ -18,43 +21,44 @@ struct PoissonLikelihood : public thrust::unary_function<T, float> {
     // thrust::get<0>(x) F[psi]
     // thrust::get<1>(x) a
     // thrust::get<2>(x) mask
-    float I = thrust::abs(thrust::get<0>(x));
-    I = I*I;
-    float a = thrust::get<1>(x);
-    float m = thrust::get<2>(x);
-    return m*(I - a * logf(I));
+    float intens = (float)thrust::abs(thrust::get<0>(x));
+    intens = intens * intens;
+    float a = (float)thrust::get<1>(x);
+    float m = (float)thrust::get<2>(x);
+    float l = logf(intens);
+    return m*(intens - a * l);
   }
 };
 
 void THNN_ZCudaTruncatedPoissonLikelihood_updateOutput(THCState *state, THZCudaTensor *input, THCudaTensor *target, THCudaTensor *mask, THCudaTensor *output)
 {
   THAssert(THCudaTensor_checkGPU(state, 2, input, target));
-  THArgCheck(THCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, target), 2,
+  THArgCheck(THZCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, target), 2,
     "input and target need to have the same number of elements"
   );
 
-  long size = THCudaTensor_nElement(state, input);
+  long size = THZCudaTensor_nElement(state, input);
 
   input = THZCudaTensor_newContiguous(state, input);
   target = THCudaTensor_newContiguous(state, target);
   mask = THCudaTensor_newContiguous(state, mask);
 
-  thrust::device_ptr<thrust::complex<float>> input_data(THCudaTensor_data(state, input));
+  thrust::device_ptr<thrust::complex<float> > input_data((thrust::complex<float>*)THZCudaTensor_data(state, input));
   thrust::device_ptr<float> target_data(THCudaTensor_data(state, target));
-  thrust::device_ptr<float> target_data(THCudaTensor_data(state, target));
+  thrust::device_ptr<float> mask_data(THCudaTensor_data(state, mask));
 
   float sum = thrust::transform_reduce(
     #if CUDA_VERSION >= 7000
         thrust::cuda::par.on(THCState_getCurrentStream(state)),
     #endif
            thrust::make_zip_iterator(
-               thrust::make_tuple(input.begin(), target.begin(), mask.begin())),
+               thrust::make_tuple(input_data, target_data, mask_data)),
            thrust::make_zip_iterator(
-               thrust::make_tuple(input.end(), target.end(), mask.end())),
-           PoissonLikelihood<thrust::tuple<thrust::complex<float>, float, float>>(),
+               thrust::make_tuple(input_data + size , target_data + size, mask_data + size)),
+           PoissonLikelihood<thrust::tuple<thrust::complex<float>, float, float> >(),
            float(0), thrust::plus<float>());
 
-  THCudaTensor_free(state, input);
+  THZCudaTensor_free(state, input);
   THCudaTensor_free(state, target);
   THCudaTensor_free(state, mask);
 
@@ -63,11 +67,9 @@ void THNN_ZCudaTruncatedPoissonLikelihood_updateOutput(THCState *state, THZCudaT
 
 struct TruncatedPoissonLikelihood_GradientFactor_functor
 {
-  TruncatedPoissonLikelihood_GradientFactor_functor()  {}
-
-  __device__ __forceinline__ void operator()(float *I, float *a, float* m) const
+  __host__ __device__ void operator()(float *intens, float *a, float *m) const
   {
-    *I = 2 * *m * (1- *a / *I);
+    *intens = 2 * (*m) * (1- (*a) / (*intens));
   }
 };
 
@@ -75,14 +77,22 @@ void THNN_CudaTruncatedPoissonLikelihood_GradientFactor(THCState *state, THCudaT
 {
   THAssert(THZCudaTensor_checkGPU(state, 1, input));
   THAssert(THCudaTensor_checkGPU(state, 3, target, output, mask));
-  THArgCheck(THZCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, target), 2, "sizes do not match (input,target)");
-  THArgCheck(THZCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, output), 3, "sizes do not match (input,output)");
-  THArgCheck(THZCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, mask), 3, "sizes do not match (input,mask)");
+  THArgCheck(THCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, target), 2, "sizes do not match (input,target)");
+  THArgCheck(THCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, output), 3, "sizes do not match (input,output)");
+  THArgCheck(THCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, mask), 3, "sizes do not match (input,mask)");
 
-  if (!THCudaTensor_pointwiseApply3(state, input, target, mask, TruncatedPoissonLikelihood_GradientFactor_functor())) {
-    THArgCheck(false, 2, CUTORCH_DIM_WARNING);
-  }
+  // if (!THCudaTensor_pointwiseApply3(state, input, target, mask, TruncatedPoissonLikelihood_GradientFactor_functor())) {
+  //   THArgCheck(false, 2, CUTORCH_DIM_WARNING);
+  // }
 }
+
+struct mse_functor
+{
+  __host__ __device__ float operator()(const float &x, const float &y) const
+  {
+    return (x - y)*(x - y);
+  }
+};
 
 void THNN_CudaWSECriterion_updateOutput(THCState *state, THCudaTensor *input, THCudaTensor *target, THCudaTensor *output, float weight)
 {

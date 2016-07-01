@@ -4,6 +4,7 @@ local TruncatedPoissonLikelihood, parent = torch.class('znn.TruncatedPoissonLike
 -- 1.Bian, L. et al. Fourier ptychographic reconstruction using Poisson maximum likelihood and truncated Wirtinger gradient. arXiv:1603.04746 [physics] (2016).
 
 function TruncatedPoissonLikelihood:__init(a_h, gradInput, mask, buffer1, buffer2, par, K, No, Np)
+  print('twf init')
    parent.__init(self)
    self.gradInput = gradInput
    self.lhs = buffer1
@@ -31,7 +32,7 @@ function TruncatedPoissonLikelihood:calculateXsi(in_psi,I_target)
   -- K x 1 x 1 x M x M -- far-field intensity
   local I_model = self.gradInput:norm():sum(2):sum(3)
 
-  self.lhs:copy(I_model):div(in_psi:normall(2))
+  self.lhs:div(I_model,in_psi:normall(2))
   self.rhs:add(I_target,-1,I_model):cmul(self.lhs):mul(self.a_h/I_target:nElement())
 
   self.lhs:add(I_target,-1,I_model):abs()
@@ -64,5 +65,10 @@ function TruncatedPoissonLikelihood:updateGradInput(in_psi, I_target)
 
   return self.gradInput
 end
-
+function TruncatedPoissonLikelihood:__call__(input, target)
+  print('here')
+--    self.output = self:forward(input, target)
+--    self.gradInput = self:backward(input, target)
+--    return self.output, self.gradInput
+end
 return TruncatedPoissonLikelihood

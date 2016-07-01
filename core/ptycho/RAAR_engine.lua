@@ -5,6 +5,8 @@ local plot = require 'dptycho.io.plot'
 local plt = plot()
 local engine, super = classic.class(...,base_engine)
 
+-- NOT FUNCTIONAL
+
 function engine:_init(pos,a,nmodes_probe,nmodes_object,solution,probe)
   super._init(self,pos,a,nmodes_probe,nmodes_object,solution,probe)
 end

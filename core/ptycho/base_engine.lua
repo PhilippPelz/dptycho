@@ -59,6 +59,8 @@ function engine:_init(par)
   self.r2 = (x:pow(2) + y:pow(2))
 
   self.has_solution = par.solution and true
+
+  --expanded views of a and fm
   self.a_exp = self.a:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
   self.fm_exp = self.fm:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
 
@@ -115,12 +117,12 @@ function engine:_init(par)
   end
   self.P = support:forward(self.P)
 
-  self.initialize_views()
+  self:initialize_views()
 
   self.err_hist = {}
 
-  self.max_power = self.a_tmp2_real_PQstore:cmul(self.a,self.fm):pow(2):sum(2):sum(3):max()
-  self.total_power = self.a_tmp2_real_PQstore:cmul(self.a,self.fm):pow(2):sum()
+  self.max_power = self.a_buffer:cmul(self.a,self.fm):pow(2):sum(2):sum(3):max()
+  self.total_power = self.a_buffer:cmul(self.a,self.fm):pow(2):sum()
   self.total_measurements = self.fm:sum()
   self.power_threshold = 0.25 * self.fourier_relax_factor^2 * self.max_power / self.MM
   self.update_positions = false
@@ -137,11 +139,9 @@ function engine:_init(par)
     self.P[1]:copy(self.probe_solution)
   end
 
-  self:update_views()
-  self:calculateO_denom()
-  self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
-  self.norm_a = self.a_tmp2_real_PQstore:cmul(self.a,self.fm):pow(2):sum()
-  local P_fluence = self.P_tmp1_real_PQstore:normZ(self.P):sum()
+  self.norm_a = self.a_buffer:cmul(self.a,self.fm):pow(2):sum()
+  pprint(self.P_buffer)
+  local P_fluence = self.P_buffer_real:normZ(self.P):sum()
 
   if self.probe_support then
     self.support = znn.SupportMask(probe_size,probe_size[#probe_size]*self.probe_support)
@@ -166,9 +166,9 @@ function engine:_init(par)
   self.rescale_regul_amplitude = self.total_measurements / (8*self.O:nElement()*expected_obj_var)
 
   print(   '----------------------------------------------------')
-  u.printf('K = %d',self.K)
+  u.printf('K =  %d',self.K)
   u.printf('N = (%d,%d)',self.Nx,self.Ny)
-  u.printf('M = %d',self.M)
+  u.printf('M =  %d',self.M)
   u.printf('power threshold is                      %g',self.power_threshold)
   u.printf('total measurements:                     %g',self.total_measurements)
   u.printf('total measurements/image_pixels:        %g',self.total_measurements/self.O:nElement())
@@ -185,6 +185,17 @@ function engine:initialize_views()
   self.O_tmp_PF_views = {}
   self.O_tmp_PQ_views = {}
   self.O_denom_views = {}
+end
+
+function engine:update_views()
+  for i=1,self.K do
+    local slice = {{},{},{self.pos[i][1],self.pos[i][1]+self.M-1},{self.pos[i][2],self.pos[i][2]+self.M-1}}
+    -- pprint(slice)
+    self.O_views[i] = self.O[slice]
+    self.O_tmp_PF_views[i] = self.O_tmp_PFstore[slice]
+    self.O_tmp_PQ_views[i] = self.O_tmp_PQstore[slice]
+    self.O_denom_views[i] = self.O_denom[slice]
+  end
 end
 
 function engine.P_Mod(x,abs,measured_abs)
@@ -205,17 +216,6 @@ end
 
 function engine.ClipMinMax(x,min,max)
   x.THNN.ClipMinMax(x:cdata(),x:cdata(),min,max)
-end
-
-function engine:update_views()
-  for i=1,self.K do
-    local slice = {{},{},{self.pos[i][1],self.pos[i][1]+self.M-1},{self.pos[i][2],self.pos[i][2]+self.M-1}}
-    -- pprint(slice)
-    self.O_views[i] = self.O[slice]
-    self.O_tmp_PF_views[i] = self.O_tmp_PFstore[slice]
-    self.O_tmp_PQ_views[i] = self.O_tmp_PQstore[slice]
-    self.O_denom_views[i] = self.O_denom[slice]
-  end
 end
 
 function engine:replace_default_params(p)
@@ -490,7 +490,7 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     P_Qstorage_offset = P_Qstorage_offset + self.d:nElement() + 1
   end
 
-  self.a_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,1,torch.LongStorage{self.K,M,M})
+  self.a_buffer = torch.CudaTensor(P_Qz_storage_real,1,torch.LongStorage{self.K,M,M})
 
   -- buffers in P_Fz_storage
 
@@ -523,6 +523,9 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_real_PFstore:nElement() + 1
   self.O_tmp_real_PFstore = torch.CudaTensor.new(P_Fz_storage_real,P_Fstorage_offset,torch.LongStorage{No,1,Nx,Ny})
   P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_real_PFstore:nElement() + 1
+
+  self.P_buffer = self.P_tmp1_PQstore
+  self.P_buffer_real = self.P_tmp1_real_PQstore
 end
 
 function engine:update_iteration_dependent_parameters(it)
@@ -584,10 +587,12 @@ function engine:save_data(filename)
   f:close()
 end
 
-function engine:generate_data(filename)
+function engine:generate_data(filename,poisson_noise)
+  self:update_views()
   self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
 
-  local a = self.a_tmp_real_PQstore
+  local a = self.a_buffer
+  local P_norm = self.P:normall(2)
 
   for _, params1 in ipairs(self.batch_params) do
     local batch_start1, batch_end1, batch_size1 = table.unpack(params1)
@@ -608,22 +613,36 @@ function engine:generate_data(filename)
         end
         abs = abs[1]:abs()
         abs:pow(2)
-        a:add(abs)
+        a[k_full]:add(abs)
       end
-      if first then
-        plt:plot(self.bg_solution:float(),'bg_solution')
-      end
+
       if self.bg_solution then
-        a:add(self.bg_solution)
+        a[k_full]:add(self.bg_solution)
+        if first then
+          plt:plot(self.bg_solution:float(),'bg_solution')
+        end
       end
-      a:sqrt()
+
       if first then
-        plt:plot(a[1][1]:float():log(),'a[1][1]')
+        plt:plot(a[k_full][1][1]:float():log(),'a[1][1]')
         first = false
       end
-      self.a[k_full]:copy(a)
+
+      if poisson_noise then
+        local a_h = a[k_full]:float()
+        a_h:mul(poisson_noise/P_norm)
+        local a_h_noisy = u.poisson(a_h)
+        a[k_full]:copy(a_h_noisy)
+      end
+
+      a[k_full]:sqrt()
     end
+    self.a:copy(a)
   end
+
+  local I_max = self.a:sum(2):sum(3):max()
+  local I_mean = self.a:sum()/self.a:size(1)
+
   plt:plot(self.P[1][1]:re():float(),'P')
   plt:plot(self.O[1][1]:re():float(),'O')
   self:save_data(filename)

@@ -7,6 +7,9 @@ local engine, super = classic.class(...,base_engine)
 
 function engine:_init(par)
   super._init(self,par)
+  self:update_views()
+  self:calculateO_denom()
+  self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
 end
 
 function engine:DM_update()

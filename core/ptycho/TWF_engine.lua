@@ -2,23 +2,23 @@ local classic = require 'classic'
 local base_engine = require "dptycho.core.ptycho.base_engine_shifted"
 local u = require 'dptycho.util'
 local plot = require 'dptycho.io.plot'
-local TruncatedPoissonLikelihood = require 'dptycho.znn.TruncatedPoissonLikelihood'
+local znn = require 'dptycho.znn'
 local plt = plot()
 local optim = require 'optim'
-local engine, super = classic.class(...,base_engine)
+local TWF_engine, super = classic.class(...,base_engine)
 
-function engine:_init(par, a_h)
+function TWF_engine:_init(par, a_h)
   super._init(self,par)
   self.a_h = a_h
 
   self.mu_max = 0.01
   self.tau0 = 330
 
-  self.P_optim = self.P_optim(opfunc, x, config, state)
-  self.O_optim = self.O_optim(opfunc, x, config, state)
+  -- self.P_optim = self.P_optim(opfunc, x, config, state)
+  -- self.O_optim = self.O_optim(opfunc, x, config, state)
 end
 
-function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
+function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
     local frames_memory = 0
     local Fsize_bytes ,Zsize_bytes = 4,8
@@ -27,8 +27,6 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     self.O_denom = torch.CudaTensor(self.O:size())
 
     self.dL_dO = torch.ZCudaTensor.new(self.O:size())
-    self.dL_dO_tmp1 = torch.ZCudaTensor.new(self.O:size())
-    self.dL_dO_tmp2 = torch.ZCudaTensor.new(self.O:size())
 
     if not self.P then
       self.P = torch.ZCudaTensor.new(1,Np,M,M)
@@ -36,7 +34,11 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
     self.dL_dP = torch.ZCudaTensor.new(self.P:size())
     self.dL_dP_tmp1 = torch.ZCudaTensor.new(self.P:size())
-    self.dL_dP_tmp2 = torch.ZCudaTensor.new(self.P:size())
+    self.dL_dP_tmp1_real = torch.CudaTensor.new(self.P:size())
+
+    self.P_buffer = self.dL_dP
+    self.P_buffer_real = self.dL_dP_tmp1_real
+
     -- if self.background_correction_start > 0 then
     --   self.eta = torch.CudaTensor(M,M)
     --   self.bg = torch.CudaTensor(M,M)
@@ -54,8 +56,8 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
     local free_memory, total_memory = cutorch.getMemoryUsage(cutorch.getDevice())
     local used_memory = total_memory - free_memory
-    local probe_grad_memory = Np * M * M * Zsize_bytes * 3
-    local object_grad_memory = No * M * M * Zsize_bytes * 3
+    local probe_grad_memory = Np * M * M * Zsize_bytes * 2.5
+    local object_grad_memory = No * M * M * Zsize_bytes * 1.5
     local batches = 1
     for n_batches = 1,50 do
       frames_memory = math.ceil(K/n_batches)*No*Np*M*M * Zsize_bytes
@@ -99,9 +101,7 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
     self.z = torch.ZCudaTensor.new(torch.LongStorage{K,No,Np,M,M})
     self.dL_dz = z
-
-    self.buffer1 = torch.CudaTensor.new(torch.LongStorage{K,M,M})
-    self.buffer2 = torch.CudaTensor.new(torch.LongStorage{K,M,M})
+    self.z1 = torch.ZCudaTensor.new(torch.LongStorage{K,No,Np,M,M})
 
     if self.batches > 1 then
       self.z_h = torch.ZFloatTensor.new(torch.LongStorage{self.K,No,Np,M,M})
@@ -110,51 +110,62 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     self.old_batch_params = {}
     self.old_batch_params['z'] = self.batch_params[1]
 
-    local P_Qz_storage = self.P_Qz:storage()
-    local P_Fz_storage = self.P_Fz:storage()
+    local z1_storage = self.z1:storage()
+    local z1_pointer = tonumber(torch.data(z1_storage,true))
+    local z1_storage_real = torch.CudaStorage(z1_storage:size()*2,z1_pointer)
+    local z1_storage_offset = 1
 
-    local z2_pointer = tonumber(torch.data(P_Qz_storage,true))
-    local z3_pointer = tonumber(torch.data(P_Fz_storage,true))
+    -- buffers
 
-    local P_Qz_storage_real = torch.CudaStorage(P_Qz_storage:size()*2,z2_pointer)
-    local P_Fz_storage_real = torch.CudaStorage(P_Fz_storage:size()*2,z3_pointer)
+    self.buffer1 = torch.CudaTensor.new(z1_storage_real, z1_storage_offset, torch.LongStorage{K,M,M})
+    z1_storage_offset = z1_storage_offset + self.buffer1:nElement() + 1
 
-    local P_Qstorage_offset, P_Fstorage_offset = 1,1
+    if No > 1 or Np > 1 then
+      -- there is enough room already allocated for the second buffer
+      self.buffer1 = torch.CudaTensor.new(z1_storage_real, z1_storage_offset, torch.LongStorage{K,M,M})
+    else
+      self.buffer2 = torch.CudaTensor.new(torch.LongStorage{K,M,M})
+    end
 
-    -- buffers in P_Qz_storage
-
-    self.P_tmp1_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{1,Np,M,M})
-    P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_PQstore:nElement() + 1
+    z1_storage_offset = 1
+    self.P_tmp1_z1store = torch.ZCudaTensor.new(z1_storage,z1_storage_offset,{1,Np,M,M})
+    z1_storage_offset = z1_storage_offset + self.P_tmp1_z1store:nElement() + 1
 
     -- offset for real arrays
-    P_Qstorage_offset = P_Qstorage_offset*2 + 1
+    z1_storage_offset = z1_storage_offset*2 + 1
 
-    self.P_tmp1_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
+    self.L = znn.TruncatedPoissonLikelihood(self.a_h, self.z, self.fm, self.buffer1, self.buffer2, self.par, K, No, Np)
 
-    self.L = TruncatedPoissonLikelihood(self.a_h, self.z, self.fm, self.buffer1, self.buffer2, self.par, K, No, Np)
+    self.a_buffer = self.buffer1
 end
 
-function engine:initialize_views()
+function TWF_engine:initialize_views()
   self.O_views = {}
   self.dL_dO_views = {}
 end
 
-function engine:calculate_dL_dP(dL_dP)
-  self:refine_probe_internal(dL_dP,self.zk_tmp1_PQstore,self.zk_tmp2_PQstore,self.P_tmp3_PQstore,self.P_tmp3_real_PQstore)
+function TWF_engine:update_views()
+  for i=1,self.K do
+    local slice = {{},{},{self.pos[i][1],self.pos[i][1]+self.M-1},{self.pos[i][2],self.pos[i][2]+self.M-1}}
+    -- pprint(slice)
+    self.O_views[i] = self.O[slice]
+    self.dL_dO_views[i] = self.dL_dO[slice]
+  end
+end
+
+function TWF_engine:calculate_dL_dP(dL_dP)
+  self:refine_probe_internal(dL_dP,self.z1,self.z,self.dL_dP_tmp1,self.dL_dP_tmp1_real)
 end
 
 -- buffers:
 --  3 x sizeof(z[k]) el C
 --  2 x sizeof(P) el C
 --  1 x sizeof(P) el R
-function engine:refine_probe_internal(P_update_buffer, z_buffer1, z_buffer2, P_buffer, P_real_buffer)
+function TWF_engine:refine_probe_internal(P_update_buffer, z_buffer1, z_buffer2, P_real_buffer)
   -- print('refine_probe')
   local new_P = P_update_buffer
   local oview_conj = z_buffer1
   local oview_conj_shifted = z_buffer2
-
-  local dP = P_buffer
-  local dP_abs = P_real_buffer
 
   new_P:zero()
 
@@ -172,8 +183,8 @@ function engine:refine_probe_internal(P_update_buffer, z_buffer1, z_buffer2, P_b
 
     new_P:add(oview_conj_shifted:sum(self.O_dim))
   end
-  local P_norm = dP_abs:normZ(self.P):sum()
-  u.printf('total current: %g, max_pow/total_current = %g',P_norm,self.max_power/P_norm)
+  local P_norm = P_real_buffer:normZ(new_P):sum()
+  u.printf('probe gradient norm: %g',P_norm)
   -- plt:plot(new_P[1][1]:zfloat(),title1,self.save_path ..title1)
 
   -- if self.probe_support then self.P = self.support:forward(self.P) end
@@ -185,26 +196,16 @@ function engine:refine_probe_internal(P_update_buffer, z_buffer1, z_buffer2, P_b
   return math.sqrt(P_norm/self.Np)
 end
 
-function engine:update_views()
-  for i=1,self.K do
-    local slice = {{},{},{self.pos[i][1],self.pos[i][1]+self.M-1},{self.pos[i][2],self.pos[i][2]+self.M-1}}
-    -- pprint(slice)
-    self.O_views[i] = self.O[slice]
-    self.dL_dO_views[i] = self.dL_dO[slice]
-  end
+function TWF_engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
+  self:merge_frames_internal(self.z, mul_merge, merge_memory, merge_memory_views, self.z1, self.dL_dP_tmp1, false)
 end
 
-function engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
-  -- TODO buffers
-  self:merge_frames_internal(self.z, mul_merge, merge_memory, merge_memory_views, self.zk_tmp1_PQstore, self.P_tmp1_PQstore, false)
-end
-
-function engine:mu(it)
+function TWF_engine:mu(it)
   -- muf = @(t) min(1-exp(-t/Params.tau0), Params.muTWF)
   return math.min(1-math.exp(-it/self.tau0),self.mu_max)
 end
 
-function engine:iterate(steps)
+function TWF_engine:iterate(steps)
   for i = 1, steps do
     self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
     local L = self.L:updateOutput(self.z,self.a)
@@ -213,14 +214,19 @@ function engine:iterate(steps)
     self:merge_frames(self.P,self.dL_dO, self.dL_dO_views)
     self:calculate_dL_dP(self.dL_dP)
 
-    self.O:add(self:mu(i),self.dL_dO)
-    self.P:add(self:mu(i),self.dL_dP)
+    self.O:add(- self:mu(i),self.dL_dO)
+    self.P:add(- self:mu(i),self.dL_dP)
 
     u.printf('iteration %-3d: L = %-02.02g',i,L)
 
+    self:maybe_plot()
+    self:maybe_save_data()
 
+    collectgarbage()
     -- grad = fun_compute_grad_TPWFP_Real(z, y, Params, A, At, Masks, n1_LR, n2_LR, fmaskpro);
     -- z = z - muf(t) * grad;             % Gradient update
 
   end
 end
+
+return TWF_engine
