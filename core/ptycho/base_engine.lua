@@ -73,6 +73,8 @@ function engine:_init(par)
   self.pos:add(self.margin)
   self.Nx = object_size[1] - 1
   self.Ny = object_size[2] - 1
+  if self.Nx % 2 ~= 0 then self.Nx = self.Nx + 1 end
+  if self.Ny % 2 ~= 0 then self.Ny = self.Ny + 1 end
   -- pprint( pos:max(1))
   -- pprint(object_size)
   -- pprint(self.solution)
@@ -83,6 +85,22 @@ function engine:_init(par)
   u.printram('before allocateBuffers')
 
   self:allocateBuffers(self.K,self.No,self.Np,self.M,self.Nx,self.Ny)
+
+  local Ox, Oy = self.O:size(3), self.O:size(4)
+  -- print(Ox,Oy)
+  local x = torch.FloatTensor(Ox,1)
+  x:copy(torch.linspace(-Ox/2,Ox/2,Ox))
+  local x = torch.repeatTensor(x,1,Oy)
+  local y = torch.repeatTensor(torch.linspace(-Oy/2,Oy/2,Oy),Ox,1):float()
+  self.r2_object = (x:pow(2) + y:pow(2))
+  -- pprint(self.r2_object)
+  -- pprint(self.O)
+  -- plt:plot(self.r2_object)
+
+  if not par.probe then
+    self.P:zero()
+    self.P[1]:add(300+0i)
+  end
 
   u.printram('after allocateBuffers')
 
@@ -103,19 +121,21 @@ function engine:_init(par)
   end
 
   local probe_size = self.P:size():totable()
-  local support = znn.SupportMask(probe_size,probe_size[#probe_size]/4)
+  local support = znn.SupportMask(probe_size,probe_size[#probe_size]/3)
 
   local re = stats.truncnorm({self.No,self.Nx,self.Ny},0,1,1e-1,1e-2):cuda()
   local Pre = stats.truncnorm({self.M,self.M},0,1,1e-1,1e-2):cuda()
   self.O = self.O:zero():copyRe(re):add(1+0i)
   self.O_denom:zero()
-  self.P:zero()
-  self.P[1]:add(300+0i)
   for i=2,self.Np do
     self.P[1][i]:copyRe(Pre):copyIm(Pre)
-    -- self.P[1][i]:add(150+0i)
+    self.P[1][i]:cmul(self.P[1][1]:abs())
   end
-  self.P = support:forward(self.P)
+
+  if self.probe_support then
+    self.P = support:forward(self.P)
+    plt:plot(self.P[1][1]:zfloat())
+  end
 
   self:initialize_views()
 
@@ -150,7 +170,7 @@ function engine:_init(par)
   end
   -- self.bandwidth_limit = znn.SupportMask(probe_size,200)
   --
-  -- self.P:mul(math.sqrt(self.max_power/P_fluence))
+  --
   -- print(P_fluence,max_measured_I,self.P_tmp1_real_PQstore:normZ(self.P):sum())
   -- plt:plot(self.P[1][1]:zfloat(),'1probe - it '..0)
   -- plt:plot(self.P[1][2]:zfloat(),'2probe - it '..0)
@@ -295,11 +315,11 @@ function engine:maybe_plot()
     self.O_hZ:copy(self.O_tmp_PFstore)
     for n = 1, self.No do
       local title = self.i..'_O_'..n
-      plt:plot(self.O_hZ[n][1],title,self.save_path ..title,self.show_plots)
+      plt:plot(self.O_hZ[n][1],title,self.save_path ..title,self.show_plots,{'hot','hsv'})
     end
     for n = 1, self.Np do
       local title = self.i..'_P_'..n
-      plt:plot(self.P_hZ[1][n],title,self.save_path ..title,self.show_plots)
+      plt:plot(self.P_hZ[1][n],title,self.save_path ..title,self.show_plots,{'hot','hsv'})
       -- ,self.show_plots
     end
     -- plt:plot(self.bg:float(),'bg')
@@ -550,12 +570,28 @@ function engine:update_iteration_dependent_parameters(it)
     plt:plot(self.probe_lowpass[1][1]:re():float(),title,savepath,self.show_plots)
   end
   if self.object_highpass_fwhm(it) then
-    self.object_highpass = self.r2:clone():fill(1):add(-1,self.r2:clone():div(-2*(self.object_highpass_fwhm(it)/2.35482)^2):exp()):cuda():fftshift()
-    self.object_highpass = self.object_highpass:view(1,1,self.M,self.M):expand(self.No,1,self.M,self.M)
+    self.object_highpass = self.r2_object:clone():div(-2*(self.object_highpass_fwhm(it)/2.35482)^2):exp():cuda():fftshift()
+    -- self.r2:clone():fill(1):add(-1,self.r2:clone():div(-2*(self.object_highpass_fwhm(it)/2.35482)^2):exp()):cuda():fftshift()
+    -- pprint(self.object_highpass)
+    self.object_highpass = self.object_highpass:view(1,1,self.Nx,self.Ny):expand(self.No,1,self.Nx,self.Ny)
   end
   if self.fm_support_radius(it) then
     self.fm_support = self.r2:lt(self.fm_support_radius(it)):cuda():fftshift()
     self.fm_support = self.fm_support:view(1,1,self.M,self.M):expand(self.No,self.Np,self.M,self.M)
+  end
+  if self.fm_mask_radius(it) then
+    -- local conv = self.r2:clone():div(-2*(50/2.35482)^2):exp():cuda():fftshift()
+    self.fm_mask = torch.CudaTensor.new(self.r2:size()):zero()
+    self.fm_mask:copy(self.r2:clone():sqrt():gt(self.fm_mask_radius(it))):fftshift()--:fft()
+    -- self.fm_mask:cmul(conv)
+    -- self.fm_mask:ifft():fftshift()
+    -- self.fm_mask:mul(1/self.fm_mask:max())
+    -- :div(-2*(self.probe_lowpass_fwhm(it)/2.35482)^2):exp():cuda():fftshift()
+    -- self.probe_lowpass = self.r2:clone():div(-2*(self.probe_lowpass_fwhm(it)/2.35482)^2):exp():cuda():fftshift()
+    self.fm_mask = self.fm_mask:view(1,1,self.M,self.M):expand(self.No,self.Np,self.M,self.M)
+    local title = self.i..' fm_mask'
+    local savepath = self.save_path .. title
+    plt:plot(self.fm_mask[1][1]:float(),title,savepath,self.show_plots)
   end
 end
 
@@ -583,7 +619,7 @@ function engine:save_data(filename)
   f:write('/scan_info/positions',self.pos:clone():float():add(self.dpos))
   f:write('/scan_info/dpos',self.dpos)
   -- f:write('/parameters',self.par)
-  f:write('/data_unshift',self.a:float())
+  -- f:write('/data_unshift',self.a:float())
   f:close()
 end
 
@@ -657,7 +693,7 @@ function engine:calculateO_denom()
   for _, view in ipairs(self.O_denom_views) do
     view:add(norm_P)
   end
-  local fact_start, fact_end = 1e-3, 1e-6
+  local fact_start, fact_end = 1e-6, 1e-9
 
   local fact = fact_start-(self.i/self.iterations)*(fact_start-fact_end)
   local abs_max = tmp:absZ(self.P):max()
@@ -777,24 +813,24 @@ function engine:P_F_with_background()
     -- plt:plot(eta:float(),'eta')
     -- sum_a = (sum_k |F z_k|^2) / eta
     sum_a:cdiv(eta)
-    local title = self.i..'_sum_a'
-    plt:plot(sum_a:float():log(),title,self.save_path..title,true)
+    -- local title = self.i..'_sum_a'
+    -- plt:plot(sum_a:float():log(),title,self.save_path..title,true)
     -- plt:plot(sum_a:float():log(),'sum_a 2')
     d:sqrt()
     -- sum_a = (sum_k |F z_k|^2) / eta - (sum_k d_k)
     local dsum = d:sum(1)
     sum_a:add(-1,dsum)
-    local title = self.i..'_sum_a_minus_dsum'
-    plt:plot(sum_a:float():log(),title,self.save_path..title,true)
+    -- local title = self.i..'_sum_a_minus_dsum'
+    -- plt:plot(sum_a:float():log(),title,self.save_path..title,true)
     -- sum_a = 1/K [ (sum_k d_k) - (sum_k |F z_k|^2) / eta ]
     sum_a:mul(-1/self.K)
     -- plt:plot(sum_a:float(),'sum_a 3')
     self.bg:add(sum_a)
     local title = self.i..'_bg_unclamped'
-    plt:plot(self.bg:float():log(),title,self.save_path..title,true)
-    self.bg:clamp(0,1e10)
-    local title = self.i..'_bg_clamped'
-    plt:plot(self.bg:float():log(),title,self.save_path..title,true)
+    plt:plot(self.bg:float():log(),title,self.save_path..title,self.show_plots)
+    -- self.bg:clamp(0,1e10)
+    -- local title = self.i..'_bg_clamped'
+    -- plt:plot(self.bg:float():log(),title,self.save_path..title,true)
 
     self.calculate_new_background = false
 
@@ -861,8 +897,8 @@ function engine:P_F_without_background()
   -- pprint(da)
   -- pprint(fdev)
   -- print('loop')
-  local plots = 0
-  local f = hdf5.open(self.save_path..self.i..'_abs.h5','w')
+
+  -- local f = hdf5.open(self.save_path..self.i..'_abs.h5','w')
   for k=1,batch_size do
     for o = 1, self.No do
       -- print('P_F_without_background before fft')
@@ -873,8 +909,7 @@ function engine:P_F_without_background()
     abs = abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
     abs:sqrt()
 
-    if plots < 5 and k % 10 == 0 then
-
+    if self.plots < 10 and k % 3 == 0 then
       -- {name="self", type='table'},
       -- {name="imgs", type='table'},
       -- {name="suptitle", default='Image', type='string'},
@@ -882,14 +917,14 @@ function engine:P_F_without_background()
       -- {name="show", default=true, type='boolean'},
       -- {name="cmap", default={'hot','hot'}, type='table'},
       -- {name="title", default={'Img1','Img2'}, type='table'},
-      local title = self.i..'_abs_'..plots
+      local title = self.i..'_abs_'..self.plots
       local ab = abs[1][1]:clone():fftshift():float():log()
       local ak = self.a[k]:clone():fftshift():float():log()
       plt:plotcompare({ab,ak},title,self.save_path ..title,self.show_plots)
-      f:write('/ab_'..plots,ab)
-      f:write('/ak_'..plots,ak)
+      -- f:write('/ab_'..plots,ab)
+      -- f:write('/ak_'..plots,ak)
 
-      plots = plots + 1
+      self.plots = self.plots + 1
     end
 
     fdev[1][1]:add(abs[1][1],-1,self.a[k_all])
@@ -910,6 +945,13 @@ function engine:P_F_without_background()
       -- [k_all]
       -- self.P_Mod_renorm(z[k],self.fm_support,fdev:expandAs(z[k]),self.a_exp[k_all],abs:expandAs(z[k]),renorm)
       self.P_Mod(z[k],abs:expandAs(z[k]),self.a_exp[k_all])
+
+      if self.fm_mask_radius(self.i) then
+        z[k]:maskedFill(self.fm_mask,zt.tocomplex(0))
+      end
+
+
+
       -- plt:plot(z[ind][1][1]:abs():float():log(),'z_out[k][1] after')
       self.mod_updates = self.mod_updates + 1
     end
@@ -918,7 +960,7 @@ function engine:P_F_without_background()
       z[k][o]:ifftBatched()
     end
   end
-  f:close()
+  -- f:close()
   -- u.printMem()
   -- plt:plot(self.P_Fz[1][1][1]:zfloat(),'self.z')
   -- plt:plot(self.P_Fz[2][1][1]:zfloat(),'self.z2')

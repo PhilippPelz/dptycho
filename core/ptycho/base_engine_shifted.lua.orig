@@ -283,6 +283,7 @@ function engine:refine_positions2()
   -- local answer=io.read()
 end
 
+<<<<<<< HEAD
 function engine:filter_object()
   pprint(self.O_tmp_PQstore)
   local O_fluence = self.O_tmp_PQstore:copy(self.O):normall(2)
@@ -306,10 +307,12 @@ function engine:filter_object()
   -- plt:plot(self.P[1][1]:zfloat(),self.i..' P filtered ',self.save_path .. self.i..' P filtered ',false)
   -- -- self:calculateO_denom()
   -- -- self:merge_frames(self.P,self.O,self.O_views)
-end
+=======
 function engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
   self:merge_frames_internal(self.z, mul_merge, merge_memory, merge_memory_views, self.zk_tmp1_PQstore, self.P_tmp1_PQstore, true)
+>>>>>>> 85b7de0b22d9e3362335a5cb3c939252bb8931ec
 end
+
 -- buffers:
 --  0 x sizeof(P) el R
 --  1 x sizeof(z[k]) el C
@@ -339,9 +342,14 @@ function engine:merge_frames_internal(frames, mul_merge, merge_memory, merge_mem
     merge_memory:cmul(self.O_denom)
   end
 
+<<<<<<< HEAD
+  if self.object_highpass_fwhm(self.i) then self:filter_object() end
+
   O_norm = self.O_tmp_PQstore:norm(merge_memory):sum()
   u.printf('object norm: %g',O_norm)
   -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory 2')
+=======
+>>>>>>> 85b7de0b22d9e3362335a5cb3c939252bb8931ec
   u.printram('after merge_frames')
 end
 
