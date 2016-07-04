@@ -13,7 +13,7 @@ local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 
 local path = '/home/philipp/drop/Public/'
-local file = 'moon_subpix_bg.h5'
+local file = 'moon_subpix_poisson.h5'
 
 local engine = require 'dptycho.core.ptycho.TWF_engine'
 
@@ -59,8 +59,8 @@ local dpos = pos:clone():float():zero()
 -- local bg_r = f:read('/bgr'):all()
 -- local bg = bg_r:pow(2):add(bg_i:pow(2)):mul(1e5)
 -- plt:plot(bg_r:pow(2):add(bg_i:pow(2)))
-local o_r = f:read('/o_r'):all():cuda()
-local o_i = f:read('/o_i'):all():cuda()
+local o_r = f:read('/or'):all():cuda()
+local o_i = f:read('/oi'):all():cuda()
 local pr = f:read('/pr'):all():cuda()
 local pi = f:read('/pi'):all():cuda()
 local probe = torch.ZCudaTensor.new(pr:size()):copyIm(pi):copyRe(pr)
@@ -92,19 +92,18 @@ par = {
   nmodes_probe = 1,
   nmodes_object = 1,
   probe = nil,
-  plot_every = 15,
+  plot_every = 2,
   plot_start = 1,
   beta = 0.9,
   fourier_relax_factor = 5e-2,
-  position_refinement_start = 50,
+  position_refinement_start = 100,
   position_refinement_every = 3,
   probe_update_start = 2,
   object_inertia = 1e-5,
   probe_inertia = 1e-9,
   P_Q_iterations = 10,
   copy_solution = true,
-  background_correction_start = 100,
-  save_raw_data = true
+  background_correction_start = 100
 }
 par.pos = pos
 par.dpos = dpos
@@ -118,5 +117,5 @@ par.probe = probe
 -- par.bg_solution = torch.CudaTensor(M,M):zero()
 
 local ngin = engine(par)
-ngin:generate_data('/home/philipp/drop/Public/moon_subpix_poisson',1e6)
--- ngin:iterate(250)
+-- ngin:generate_data('/home/philipp/drop/Public/moon_subpix_poisson',1e6)
+ngin:iterate(250)

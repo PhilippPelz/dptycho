@@ -99,7 +99,8 @@ function engine:_init(par)
     local endx = self.Nx-2*self.margin
     local endy = self.Ny-2*self.margin
     -- {},{},
-    local slice = {{startx,endx},{starty,endy}}
+    local slice = {{},{},{startx,endx},{starty,endy}}
+
     pprint(slice)
     pprint(par.solution)
     local sv = par.solution[slice]:clone()
@@ -107,6 +108,7 @@ function engine:_init(par)
     self.solution:zero()
 
     self.solution[{{},{},{startx+self.margin,endx+self.margin},{starty+self.margin,endy+self.margin}}]:copy(sv)
+    self.slice = {{startx+self.margin,endx+self.margin},{starty+self.margin,endy+self.margin}}
     -- plt:plot(self.solution[1][1]:zfloat(),'solution')
   end
 
@@ -187,6 +189,9 @@ function engine:_init(par)
   print(   '----------------------------------------------------')
   -- u.printMem()
   u.printram('after init')
+
+  self.par = nil
+  collectgarbage()
 end
 
 function engine:initialize_views()
@@ -612,20 +617,40 @@ function engine:save_data(filename)
   local f = hdf5.open(filename .. '.h5','w')
   f:write('/pr',self.P:zfloat():re())
   f:write('/pi',self.P:zfloat():im())
-  if self.solution then
-    f:write('/solr',self.solution:zfloat():re())
-    f:write('/soli',self.solution:zfloat():im())
+
+
+  if self.slice then
+    local O = self.O[self.slice]:zfloat()
+    f:write('/or',O:re())
+    f:write('/oi',O:im())
+
+    if self.solution then
+      local s = self.solution[self.slice]
+      :zfloat()
+      f:write('/solr',s:re())
+      f:write('/soli',s:im())
+    end
+  else
+    f:write('/or',self.O:zfloat():re())
+    f:write('/oi',self.O:zfloat():im())
+
+    if self.solution then
+      local s = self.solution:zfloat()
+      f:write('/solr',s:re())
+      f:write('/soli',s:im())
+    end
   end
-  f:write('/or',self.O:zfloat():re())
-  f:write('/oi',self.O:zfloat():im())
+
   if self.bg_solution then
     f:write('/bg',self.bg_solution:float())
   end
-  f:write('/scan_info/positions_int',self.pos)
-  f:write('/scan_info/positions',self.pos:clone():float():add(self.dpos))
+  f:write('/scan_info/positions_int',self.pos:clone():add(-1,self.margin))
+  f:write('/scan_info/positions',self.pos:clone():float():add(self.dpos):add(-1,self.margin))
   f:write('/scan_info/dpos',self.dpos)
   -- f:write('/parameters',self.par)
-  -- f:write('/data_unshift',self.a:float())
+  if self.save_raw_data then
+    f:write('/data_unshift',self.a:float())
+  end
   f:close()
 end
 
@@ -634,9 +659,11 @@ function engine:generate_data(filename,poisson_noise)
   self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
 
   local a = self.a_buffer1
-  local P_norm = self.P:normall(2)
-
-  u.printf('probe intensity: %g',P_norm)
+  a:zero()
+  -- local P_norm = self.P:abs():pow(2):sum()
+  --
+  -- u.printf('probe intensity: %g',P_norm)
+  u.printf('poisson noise  : %g',poisson_noise)
 
   for _, params1 in ipairs(self.batch_params) do
     local batch_start1, batch_end1, batch_size1 = table.unpack(params1)
@@ -645,12 +672,11 @@ function engine:generate_data(filename,poisson_noise)
     for k = 1, batch_size1 do
       local k_full = k + batch_start1 - 1
       print(k_full)
-      a:zero()
       for o = 1,self.No do
         -- plt:plotcompare({self.z[k][1]:re():float(),self.z[k][1]:im():float()},'self.z[k]')
-        if first then
-          plt:plot(self.z[k][o][1]:abs():log():float(),'self.z[k][o][1]')
-        end
+        -- if first then
+        --   plt:plot(self.z[k][o][1]:abs():log():float(),'self.z[k][o][1]')
+        -- end
 
         local abs = self.z[k][o]:fftBatched():sum(1)
 
@@ -670,8 +696,15 @@ function engine:generate_data(filename,poisson_noise)
       end
 
       if poisson_noise then
-        local a_h = a[k_full]:mul(poisson_noise/P_norm):float()
+
+        local I_total = a[k_full]:sum()
+        -- u.printf('%g',I_total)
+
+        local a_h = a[k_full]:mul(poisson_noise/I_total):float()
+
         local a_h_noisy = u.stats.poisson(a_h)
+
+        -- u.printf('%g',a_h_noisy:sum())
         a[k_full]:copy(a_h_noisy)
       end
 
@@ -682,14 +715,18 @@ function engine:generate_data(filename,poisson_noise)
         first = false
       end
     end
-    self.a:copy(a)
   end
 
-  local I_max = self.a:sum(2):sum(3):max()
-  local I_mean = self.a:sum()/self.a:size(1)
+  self.a:copy(a)
 
-  u.printf('max counts: %g',I_max^2)
-  u.printf('mean counts: %g',I_mean^2)
+  local I = self.a:clone():pow(2)
+  local I_max = I:sum(2):sum(3):max()
+  local I_total = I:sum()
+  local I_mean = I_total/self.a:size(1)
+
+  u.printf('total counts in this scan: %g',I_total)
+  u.printf('max counts in pattern    : %g',I_max)
+  u.printf('mean counts              : %g',I_mean)
 
   plt:plot(self.P[1][1]:re():float(),'P')
   plt:plot(self.O[1][1]:re():float(),'O')

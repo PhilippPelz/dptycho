@@ -14,6 +14,7 @@ function TruncatedPoissonLikelihood:__init(a_h, gradInput, mask, buffer1, buffer
    self.Np = Np
    self.K = K
    self.a_h = a_h
+   self.output = torch.Tensor()
 end
 
 function TruncatedPoissonLikelihood:updateOutput(in_psi, I_target)

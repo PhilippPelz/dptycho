@@ -31,10 +31,11 @@ local _DEFAULT_PARAMS = {
   object_inertia = 0.1,
   P_Q_iterations = 5,
   copy_solution = false,
-  margin = 10,
+  margin = 0,
   background_correction_start = 1e5,
   save_interval = 5,
-  save_path = '/tmp/'
+  save_path = '/tmp/',
+  save_raw_data = false
 }
 
 function m.DEFAULT_PARAMS()
