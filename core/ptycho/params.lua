@@ -35,7 +35,12 @@ local _DEFAULT_PARAMS = {
   background_correction_start = 1e5,
   save_interval = 5,
   save_path = '/tmp/',
-  save_raw_data = false
+  save_raw_data = false,
+  twf = {
+    a_h = 25,
+    mu_max = 0.01,
+    tau0 = 330,
+  }
 }
 
 function m.DEFAULT_PARAMS()

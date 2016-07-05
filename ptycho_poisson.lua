@@ -13,7 +13,7 @@ local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 
 local path = '/home/philipp/drop/Public/'
-local file = 'moon_subpix_poisson.h5'
+local file = 'moon_subpix.h5'
 
 local engine = require 'dptycho.core.ptycho.TWF_engine'
 
@@ -59,8 +59,8 @@ local dpos = pos:clone():float():zero()
 -- local bg_r = f:read('/bgr'):all()
 -- local bg = bg_r:pow(2):add(bg_i:pow(2)):mul(1e5)
 -- plt:plot(bg_r:pow(2):add(bg_i:pow(2)))
-local o_r = f:read('/or'):all():cuda()
-local o_i = f:read('/oi'):all():cuda()
+local o_r = f:read('/o_r'):all():cuda()
+local o_i = f:read('/o_i'):all():cuda()
 local pr = f:read('/pr'):all():cuda()
 local pi = f:read('/pi'):all():cuda()
 local probe = torch.ZCudaTensor.new(pr:size()):copyIm(pi):copyRe(pr)

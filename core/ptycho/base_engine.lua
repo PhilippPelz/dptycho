@@ -133,6 +133,10 @@ function engine:_init(par)
 
   self.err_hist = {}
 
+  pprint(self.a)
+  pprint(self.fm)
+  plt:plot(self.a[1]:float():log())
+
   self.max_power = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum(2):sum(3):max()
   self.total_power = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum()
   self.total_measurements = self.fm:sum()
@@ -141,6 +145,9 @@ function engine:_init(par)
   self.update_probe = false
   self.object_inertia = par.object_inertia * self.K
   self.probe_inertia = par.probe_inertia * self.Np * self.No * self.K
+
+  pprint(self.max_power)
+  pprint(self.total_power)
 
   self.i = 0
   self.j = 0
@@ -159,22 +166,10 @@ function engine:_init(par)
   else
     self.support = nil
   end
-  -- self.bandwidth_limit = znn.SupportMask(probe_size,200)
-  --
-  --
-  -- print(P_fluence,max_measured_I,self.P_tmp1_real_PQstore:normZ(self.P):sum())
-  -- plt:plot(self.P[1][1]:zfloat(),'1probe - it '..0)
-  -- plt:plot(self.P[1][2]:zfloat(),'2probe - it '..0)
-  -- plt:plot(self.P[1][3]:zfloat(),'3probe - it '..0)
 
---   obj_Npix = obj.size
--- expected_obj_var = obj_Npix / tot_power  # Poisson
--- reg_rescale  = tot_measpts / (8. * obj_Npix * expected_obj_var)
--- verbose(2, 'Rescaling regularization amplitude using the Poisson distribution assumption.')
--- verbose(2, 'Factor: %8.5g' % reg_rescale)
--- reg_del2_amplitude *= reg_rescale
   local expected_obj_var = self.O:nElement() / self.total_power
   self.rescale_regul_amplitude = self.total_measurements / (8*self.O:nElement()*expected_obj_var)
+-- reg_del2_amplitude *= reg_rescale
 
   print(   '----------------------------------------------------')
   u.printf('K =  %d',self.K)

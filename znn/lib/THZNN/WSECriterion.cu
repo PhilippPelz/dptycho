@@ -21,8 +21,7 @@ struct PoissonLikelihood : public thrust::unary_function<T, float> {
     // thrust::get<0>(x) F[psi]
     // thrust::get<1>(x) a
     // thrust::get<2>(x) mask
-    float intens = (float)thrust::abs(thrust::get<0>(x));
-    intens = intens * intens;
+    float intens = thrust::get<0>(x);
     float a = (float)thrust::get<1>(x);
     float m = (float)thrust::get<2>(x);
     float l = logf(intens);
@@ -30,20 +29,23 @@ struct PoissonLikelihood : public thrust::unary_function<T, float> {
   }
 };
 
-void THNN_ZCudaTruncatedPoissonLikelihood_updateOutput(THCState *state, THZCudaTensor *input, THCudaTensor *target, THCudaTensor *mask, THCudaTensor *output)
+TH_API void THNN_CudaTruncatedPoissonLikelihood_updateOutput(THCState *state, THCudaTensor *input, THCudaTensor *target, THCudaTensor *mask, THCudaTensor *output)
 {
-  THAssert(THCudaTensor_checkGPU(state, 2, input, target));
-  THArgCheck(THZCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, target), 2,
+  THAssert(THCudaTensor_checkGPU(state, 1, target));
+  THAssert(THCudaTensor_checkGPU(state, 1, mask));
+  THAssert(THCudaTensor_checkGPU(state, 1, output));
+  THAssert(THCudaTensor_checkGPU(state, 1, input));
+  THArgCheck(THCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, target), 2,
     "input and target need to have the same number of elements"
   );
 
-  long size = THZCudaTensor_nElement(state, input);
+  long size = THCudaTensor_nElement(state, input);
 
-  input = THZCudaTensor_newContiguous(state, input);
+  input = THCudaTensor_newContiguous(state, input);
   target = THCudaTensor_newContiguous(state, target);
   mask = THCudaTensor_newContiguous(state, mask);
 
-  thrust::device_ptr<thrust::complex<float> > input_data((thrust::complex<float>*)THZCudaTensor_data(state, input));
+  thrust::device_ptr<float> input_data(THCudaTensor_data(state, input));
   thrust::device_ptr<float> target_data(THCudaTensor_data(state, target));
   thrust::device_ptr<float> mask_data(THCudaTensor_data(state, mask));
 
@@ -55,10 +57,10 @@ void THNN_ZCudaTruncatedPoissonLikelihood_updateOutput(THCState *state, THZCudaT
                thrust::make_tuple(input_data, target_data, mask_data)),
            thrust::make_zip_iterator(
                thrust::make_tuple(input_data + size , target_data + size, mask_data + size)),
-           PoissonLikelihood<thrust::tuple<thrust::complex<float>, float, float> >(),
+           PoissonLikelihood<thrust::tuple<float, float, float> >(),
            float(0), thrust::plus<float>());
 
-  THZCudaTensor_free(state, input);
+  THCudaTensor_free(state, input);
   THCudaTensor_free(state, target);
   THCudaTensor_free(state, mask);
 
@@ -73,17 +75,16 @@ struct TruncatedPoissonLikelihood_GradientFactor_functor
   }
 };
 
-void THNN_CudaTruncatedPoissonLikelihood_GradientFactor(THCState *state, THCudaTensor *input, THCudaTensor *target, THCudaTensor *output, THCudaTensor *mask)
+TH_API void THNN_CudaTruncatedPoissonLikelihood_GradientFactor(THCState *state, THCudaTensor *input, THCudaTensor *target, THCudaTensor *mask)
 {
-  THAssert(THZCudaTensor_checkGPU(state, 1, input));
-  THAssert(THCudaTensor_checkGPU(state, 3, target, output, mask));
+  THAssert(THCudaTensor_checkGPU(state, 1, input));
+  THAssert(THCudaTensor_checkGPU(state, 2, target, mask));
   THArgCheck(THCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, target), 2, "sizes do not match (input,target)");
-  THArgCheck(THCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, output), 3, "sizes do not match (input,output)");
   THArgCheck(THCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, mask), 3, "sizes do not match (input,mask)");
 
-  // if (!THCudaTensor_pointwiseApply3(state, input, target, mask, TruncatedPoissonLikelihood_GradientFactor_functor())) {
-  //   THArgCheck(false, 2, CUTORCH_DIM_WARNING);
-  // }
+  if (!THCudaTensor_pointwiseApply3(state, input, target, mask, TruncatedPoissonLikelihood_GradientFactor_functor())) {
+    THArgCheck(false, 2, CUTORCH_DIM_WARNING);
+  }
 }
 
 struct mse_functor
@@ -94,7 +95,7 @@ struct mse_functor
   }
 };
 
-void THNN_CudaWSECriterion_updateOutput(THCState *state, THCudaTensor *input, THCudaTensor *target, THCudaTensor *output, float weight)
+TH_API void THNN_CudaWSECriterion_updateOutput(THCState *state, THCudaTensor *input, THCudaTensor *target, THCudaTensor *output, float weight)
 {
   THAssert(THCudaTensor_checkGPU(state, 2, input, target));
   THArgCheck(THCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, target), 2,

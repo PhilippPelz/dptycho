@@ -310,11 +310,12 @@ end
 function engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
   self:merge_frames_internal(self.z, mul_merge, merge_memory, merge_memory_views, self.zk_tmp1_PQstore, self.P_tmp1_PQstore, true)
 end
+
 -- buffers:
 --  0 x sizeof(P) el R
 --  1 x sizeof(z[k]) el C
 function engine:merge_frames_internal(frames, mul_merge, merge_memory, merge_memory_views, product_shifted_buffer, mul_merge_shifted_buffer, do_normalize_merge_memory)
-  print('merge_frames')
+  -- print('merge_frames')
   local z = frames
   local product_shifted = product_shifted_buffer
   local mul_merge_shifted = mul_merge_shifted_buffer
@@ -339,8 +340,8 @@ function engine:merge_frames_internal(frames, mul_merge, merge_memory, merge_mem
     merge_memory:cmul(self.O_denom)
   end
 
-  O_norm = self.O_tmp_PQstore:norm(merge_memory):sum()
-  u.printf('object norm: %g',O_norm)
+  -- O_norm = self.O_tmp_PQstore:norm(merge_memory):sum()
+  -- u.printf('object norm: %g',O_norm)
   -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory 2')
   u.printram('after merge_frames')
 end
@@ -349,10 +350,8 @@ end
 --  0 x sizeof(P) el R
 --  1 x sizeof(P) el C
 function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
-  print('update_frames')
+  -- print('update_frames')
   local mul_split_shifted = self.zk_buffer_update_frames
-  pprint(mul_split_shifted)
-  pprint(mul_split)
   local pos = torch.FloatTensor{1,1}
   for k, view in ipairs(merge_memory_views) do
     if self.batches > 2 then xlua.progress(k,self.K) end
