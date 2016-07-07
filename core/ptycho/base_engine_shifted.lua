@@ -319,7 +319,16 @@ function engine:merge_frames_internal(frames, mul_merge, merge_memory, merge_mem
   local z = frames
   local product_shifted = product_shifted_buffer
   local mul_merge_shifted = mul_merge_shifted_buffer
-  merge_memory:mul(self.object_inertia)
+
+  -- this is only used with DM_engine
+  if self.object_inertia then
+    merge_memory:mul(self.object_inertia)
+  end
+
+  plt:plot(frames[1][1][1]:zfloat(),'frames')
+  plt:plot(frames[2][1][1]:zfloat(),'frames 2')
+  plt:plot(frames[3][1][1]:zfloat(),'frames 3')
+
   local pos = torch.FloatTensor{1,1}
   u.printram('before merge_frames')
 
@@ -328,11 +337,11 @@ function engine:merge_frames_internal(frames, mul_merge, merge_memory, merge_mem
     pos:fill(1):cmul(self.dpos[k])
     self:maybe_copy_new_batch_z(k)
     local ind = self.k_to_batch_index[k]
-    -- print(k,ind)
     mul_merge_shifted[1]:shift(mul_merge[1],pos)
     mul_merge_shifted[1]:conj()
     product_shifted = product_shifted:cmul(z[ind],mul_merge_shifted:expandAs(z[ind])):sum(self.P_dim)
     view:add(product_shifted)
+    plt:plot(merge_memory[1][1]:zfloat(),'merge_memory')
   end
   -- plt:plot(self.O_denom[1][1]:float():log(),'O_denom')
   -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory')

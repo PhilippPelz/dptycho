@@ -47,4 +47,10 @@ function m.DEFAULT_PARAMS()
   return u.copytable(_DEFAULT_PARAMS)
 end
 
+function m.DEFAULT_PARAMS_TWF()
+  local t = u.copytable(_DEFAULT_PARAMS)
+  t.object_inertia = nil
+  return t
+end
+
 return m

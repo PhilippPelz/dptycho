@@ -187,7 +187,7 @@ function TWF_engine:refine_probe_internal(P_update_buffer, z_buffer1, z_buffer2,
 end
 
 function TWF_engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
-  self:merge_frames_internal(self.z, mul_merge, merge_memory, merge_memory_views, self.z1, self.dL_dP_tmp1, false)
+  self:merge_frames_internal(self.dL_dz, mul_merge, merge_memory, merge_memory_views, self.z1, self.dL_dP_tmp1, false)
 end
 
 function TWF_engine:mu(it)
@@ -201,8 +201,16 @@ function TWF_engine:iterate(steps)
     self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
     local L = self.L:updateOutput(self.z,self.a)
     self.dL_dz = self.L:updateGradInput(self.z,self.a)
+
+    plt:plot(self.dL_dz[1][1][1]:zfloat(),'frames')
+    plt:plot(self.dL_dz[2][1][1]:zfloat(),'frames 2')
+    plt:plot(self.dL_dz[3][1][1]:zfloat(),'frames 3')
+
     self:merge_frames(self.P,self.dL_dO, self.dL_dO_views)
     self:calculate_dL_dP(self.dL_dP)
+
+    plt:plot(self.dL_dO[1][1]:zfloat(),'self.dL_dO')
+    plt:plot(self.dL_dP[1][1]:zfloat(),'self.dL_dP')
 
     self.O:add(- self:mu(i),self.dL_dO)
     self.P:add(- self:mu(i),self.dL_dP)

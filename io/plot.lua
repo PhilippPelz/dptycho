@@ -126,13 +126,13 @@ c.plotcompare = argcheck{
             overload = plot,
             {name="self", type='table'},
             {name="imgs", type='table'},
-            {name="suptitle", default='Image', type='string'},
+            {name="title", default={'Img1','Img2'}, type='table'},
+            {name="suptitle", default='comparison', type='string'},
             {name="savepath", default=py.None, type='string'},
             {name="show", default=true, type='boolean'},
             {name="cmap", default={'viridis','viridis'}, type='table'},
-            {name="title", default={'Img1','Img2'}, type='table'},
             call =
-                function (self,imgs, suptitle, savepath, show, cmap, title)
+                function (self,imgs, title, suptitle, savepath, show, cmap)
                   py.eval('zplot(img,suptitle,savepath,cmap,title,show)',{img = imgs, suptitle=suptitle, savepath=savepath, cmap=cmap,title=title, show=show})
                 end
             }

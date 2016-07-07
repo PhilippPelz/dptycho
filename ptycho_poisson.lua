@@ -15,7 +15,7 @@ local stats = require "dptycho.util.stats"
 local path = '/home/philipp/drop/Public/'
 local file = 'moon_subpix.h5'
 
-local engine = require 'dptycho.core.ptycho.TWF_engine'
+local ptycho = require 'dptycho.core.ptycho'
 
 local par = {}
 par.i = 50
@@ -88,23 +88,23 @@ local nmodes_probe = 1
 local nmodes_object = 1
 -- pprint(a)
 
-par = {
-  nmodes_probe = 1,
-  nmodes_object = 1,
-  probe = nil,
-  plot_every = 2,
-  plot_start = 1,
-  beta = 0.9,
-  fourier_relax_factor = 5e-2,
-  position_refinement_start = 100,
-  position_refinement_every = 3,
-  probe_update_start = 2,
-  object_inertia = 1e-5,
-  probe_inertia = 1e-9,
-  P_Q_iterations = 10,
-  copy_solution = true,
-  background_correction_start = 100
-}
+par = ptycho.params.DEFAULT_PARAMS_TWF()
+
+par.nmodes_probe = 1
+par.nmodes_object = 1
+par.probe = nil
+par.plot_every = 2
+par.plot_start = 1
+par.beta = 0.9
+par.fourier_relax_factor = 5e-2
+par.position_refinement_start = 100
+par.position_refinement_every = 3
+par.probe_update_start = 2
+par.object_inertia = 1e-5
+par.probe_inertia = 1e-9
+par.P_Q_iterations = 10
+par.copy_solution = true
+par.background_correction_start = 100
 par.pos = pos
 par.dpos = dpos
 par.dpos_solution = dpos_solution
@@ -113,9 +113,7 @@ par.probe_solution = probe
 par.a = a
 par.fmask = fmask
 par.probe = probe
--- par.bg_solution = bgc:abs():mul(4e3)
--- par.bg_solution = torch.CudaTensor(M,M):zero()
 
-local ngin = engine(par)
+local ngin = ptycho.TWF_engine(par)
 -- ngin:generate_data('/home/philipp/drop/Public/moon_subpix_poisson',1e6)
 ngin:iterate(250)

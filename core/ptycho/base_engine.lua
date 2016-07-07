@@ -975,7 +975,7 @@ function engine:P_F_without_background()
       local title = self.i..'_abs_'..self.plots
       local ab = abs[1][1]:clone():fftshift():float():log()
       local ak = self.a[k]:clone():fftshift():float():log()
-      plt:plotcompare({ab,ak},title,self.save_path ..title,self.show_plots)
+      plt:plotcompare({ab,ak},{'abs_model','abs'},title,self.save_path ..title,self.show_plots)
       -- f:write('/ab_'..plots,ab)
       -- f:write('/ak_'..plots,ak)
 
