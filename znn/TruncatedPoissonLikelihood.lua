@@ -1,5 +1,7 @@
 local nn = require 'nn'
 local u = require 'dptycho.util'
+local plot = require 'dptycho.io.plot'
+local plt = plot()
 require 'pprint'
 local TruncatedPoissonLikelihood, parent = torch.class('znn.TruncatedPoissonLikelihood', 'nn.Criterion')
 
@@ -21,37 +23,40 @@ function TruncatedPoissonLikelihood:__init(a_h, gradInput, mask, buffer1, buffer
    self.output = torch.CudaTensor(1):fill(0)
 end
 
-function TruncatedPoissonLikelihood:updateOutput(in_psi, I_target)
+function TruncatedPoissonLikelihood:updateOutput(z, I_target)
+  -- plt:plot(z[1][1][1]:abs():float():log(),'in_psi abs')
   for k = 1, self.K do
     for o = 1, self.No do
-      in_psi[k][o]:fftBatched(in_psi[k][o])
+      z[k][o]:fftBatched(z[k][o])
     end
   end
-  local I_model = self.z_real:normZ(in_psi):sum(2):sum(3)
-  I_model.THNN.TruncatedPoissonLikelihood_updateOutput(I_model:cdata(),I_target:cdata(),self.mask:cdata(),self.output:cdata())
+  self.I_model = self.z_real:normZ(z):sum(2):sum(3)
+  -- plt:plot(I_model[1][1][1]:float():log(),'I_model')
+  self.I_model.THNN.TruncatedPoissonLikelihood_updateOutput(self.I_model:cdata(),I_target:cdata(),self.mask:cdata(),self.output:cdata())
   return self.output[1]
 end
 
-function TruncatedPoissonLikelihood:calculateXsi(in_psi,I_target)
+function TruncatedPoissonLikelihood:calculateXsi(z,I_target)
   -- for k = 1, self.K do
   --   for o = 1, self.No do
-  --     self.gradInput[k][o]:fftBatched(in_psi[k][o])
+  --     self.gradInput[k][o]:fftBatched(z[k][o])
   --   end
   -- end
 
   -- K x 1 x 1 x M x M -- far-field intensity
   -- local I_model = self.gradInput:norm():sum(2):sum(3)
-  local I_model = self.z_real:normZ(in_psi):sum(2):sum(3)
+  -- local I_model = self.z_real:normZ(z):sum(2):sum(3)
 
-  self.lhs:div(I_model,in_psi:normall(2))
-  self.rhs:add(I_target,-1,I_model):cmul(self.lhs):mul(self.a_h/I_target:nElement())
+  self.lhs:div(self.I_model,z:normall(2))
+  self.rhs:add(I_target,-1,self.I_model):cmul(self.lhs):mul(self.a_h/I_target:nElement())
 
-  self.lhs:add(I_target,-1,I_model):abs()
+  self.lhs:add(I_target,-1,self.I_model):abs()
 
-  I_model.THNN.TruncatedPoissonLikelihood_GradientFactor(I_model:cdata(),I_target:cdata(),self.mask:cdata())
+  self.I_model.THNN.TruncatedPoissonLikelihood_GradientFactor(self.I_model:cdata(),I_target:cdata(),self.mask:cdata())
 
-  self.gradInput:cmul(I_model:expandAs(self.gradInput))
-
+  -- z * 2 * fm * (1 - I_target/I_model)
+  self.gradInput:cmul(self.I_model:expandAs(self.gradInput))
+  plt:plot(self.gradInput[1][1][1]:float():log(),'self.gradInput')
   for k = 1, self.K do
     for o = 1, self.No do
       self.gradInput[k][o]:ifftBatched()

@@ -30,8 +30,8 @@ local pos = f:read('/scan_info/positions_int'):all():int()
 -- dpos[{1,1}] = 5
 
 local M = 128
--- local a = f:read('/data_unshift'):all():cuda()
-local a = torch.CudaTensor(pos:size(1),M,M)
+local a = f:read('/data_unshift'):all():cuda()
+-- local a = torch.CudaTensor(pos:size(1),M,M)
 local fmask = a:clone():fill(1)
 -- print(dpos)
 

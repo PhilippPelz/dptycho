@@ -365,7 +365,6 @@ function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
     end
     local view_exp = view:expandAs(z[ind])
     z[ind]:cmul(mul_split_shifted,view_exp)
-    -- plt:plot(self.P_Qz[ind][1][1]:zfloat(),'self.P_Qz[ind]')
   end
   -- plt:plot(z[1][1][1]:zfloat(),'z[1]')
   -- plt:plot(z[2][1][1]:zfloat(),'z[2]')

@@ -7,7 +7,7 @@ local plt = plot()
 local optim = require 'optim'
 local TWF_engine, super = classic.class(...,base_engine)
 
-function TWF_engine:_init(par, a_h)
+function TWF_engine:_init(par)
   super._init(self,par)
 
   -- self.P_optim = self.P_optim(opfunc, x, config, state)
@@ -197,6 +197,7 @@ end
 
 function TWF_engine:iterate(steps)
   for i = 1, steps do
+    self:update_iteration_dependent_parameters(i)
     self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
     local L = self.L:updateOutput(self.z,self.a)
     self.dL_dz = self.L:updateGradInput(self.z,self.a)

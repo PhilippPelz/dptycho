@@ -68,7 +68,6 @@ function engine:_init(par)
   self.O_dim = 1
   self.P_dim = 2
 
-  self.margin = par.margin
   local object_size = par.pos:max(1):add(torch.IntTensor({par.a:size(2) + 2*self.margin,par.a:size(3)+ 2*self.margin})):squeeze()
   self.pos:add(self.margin)
   self.Nx = object_size[1] - 1
@@ -99,16 +98,19 @@ function engine:_init(par)
     local endx = self.Nx-2*self.margin
     local endy = self.Ny-2*self.margin
     -- {},{},
-    local slice = {{},{},{startx,endx},{starty,endy}}
+    local slice = {{startx,endx},{starty,endy}}
+
 
     pprint(slice)
     pprint(par.solution)
+    print(self.Nx,self.Ny)
+
     local sv = par.solution[slice]:clone()
     pprint(sv)
     self.solution:zero()
 
     self.solution[{{},{},{startx+self.margin,endx+self.margin},{starty+self.margin,endy+self.margin}}]:copy(sv)
-    self.slice = {{startx+self.margin,endx+self.margin},{starty+self.margin,endy+self.margin}}
+    self.slice = {{},{},{startx+self.margin,endx+self.margin},{starty+self.margin,endy+self.margin}}
     -- plt:plot(self.solution[1][1]:zfloat(),'solution')
   end
 
@@ -126,7 +128,7 @@ function engine:_init(par)
 
   if self.probe_support then
     self.P = support:forward(self.P)
-    plt:plot(self.P[1][1]:zfloat())
+    -- plt:plot(self.P[1][1]:zfloat())
   end
 
   self:initialize_views()
@@ -135,7 +137,7 @@ function engine:_init(par)
 
   pprint(self.a)
   pprint(self.fm)
-  plt:plot(self.a[1]:float():log())
+  -- plt:plot(self.a[2]:float():log())
 
   self.max_power = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum(2):sum(3):max()
   self.total_power = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum()
@@ -172,11 +174,11 @@ function engine:_init(par)
 -- reg_del2_amplitude *= reg_rescale
 
   print(   '----------------------------------------------------')
-  u.printf('K =  %d',self.K)
-  u.printf('N = (%d,%d)',self.Nx,self.Ny)
-  u.printf('M =  %d',self.M)
-  u.printf('power threshold is                      %g',self.power_threshold)
-  u.printf('total measurements:                     %g',self.total_measurements)
+  u.printf('                                   K =  %d',self.K)
+  u.printf('                                   N = (%d,%d)',self.Nx,self.Ny)
+  u.printf('                                   M =  %d',self.M)
+  u.printf('power threshold is                     :%g',self.power_threshold)
+  u.printf('total measurements                     :%g',self.total_measurements)
   u.printf('total measurements/image_pixels:        %g',self.total_measurements/self.O:nElement())
   u.printf('total power:                            %g',self.total_power)
   u.printf('maximum power:                          %g',self.max_power)
@@ -186,6 +188,10 @@ function engine:_init(par)
   u.printram('after init')
 
   self.par = nil
+
+  self:initialize_plotting()
+  self:update_views()
+
   collectgarbage()
 end
 
@@ -293,15 +299,17 @@ function engine:prepare_plot_data()
   self.O_hZ:copy(self.O)
   self.P_hZ:copy(self.P)
   self.plot_pos:add(self.pos:float(),self.dpos)
-  self.bg_h:copy(self.bg)
+  if self.bg then
+    self.bg_h:copy(self.bg)
+  end
 end
 
 function engine:maybe_plot()
   if self.do_plot then
     -- :cmul(self.O_mask)
-    self.O_tmp_PFstore:copy(self.O)--:cmul(self.O_mask)
+    -- self.O_tmp_PFstore:copy(self.O)--:cmul(self.O_mask)
     self.P_hZ:copy(self.P)
-    self.O_hZ:copy(self.O_tmp_PFstore)
+    self.O_hZ:copy(self.O)
     for n = 1, self.No do
       local title = self.i..'_O_'..n
       plt:plot(self.O_hZ[n][1],title,self.save_path ..title,self.show_plots,{'hot','hsv'})
@@ -318,7 +326,10 @@ function engine:maybe_plot()
 end
 
 function engine:initialize_plotting()
-  self.bg_h = torch.FloatTensor(self.bg:size())
+  if self.bg then
+    self.bg_h = torch.FloatTensor(self.bg:size())
+  end
+
   self.O_hZ = torch.ZFloatTensor(self.O:size())
   self.P_hZ = torch.ZFloatTensor(self.P:size())
   -- local O_hZ_store = self.O_hZ:storage()
@@ -344,16 +355,16 @@ function engine:initialize_plotting()
   -- print(self.P_h:max(),self.P_h:min())
   -- print(self.O_h:max(),self.O_h:min())
 
-  self.plot_data = {
-    self.O_hZ:abs(),
-    self.O_hZ:arg(),
-    self.P_hZ:re(),
-    self.P_hZ:im(),
-    self.bg_h,
-    self.plot_pos,
-    self.mod_errors,
-    self.overlap_errors
-  }
+  -- self.plot_data = {
+  --   self.O_hZ:abs(),
+  --   self.O_hZ:arg(),
+  --   self.P_hZ:re(),
+  --   self.P_hZ:im(),
+  --   self.bg_h,
+  --   self.plot_pos,
+  --   self.mod_errors,
+  --   self.overlap_errors
+  -- }
   -- plt:init_reconstruction_plot(self.plot_data)
   -- print('here')
   u.printram('after initialize_plotting')
@@ -639,8 +650,8 @@ function engine:save_data(filename)
   if self.bg_solution then
     f:write('/bg',self.bg_solution:float())
   end
-  f:write('/scan_info/positions_int',self.pos:clone():add(-1,self.margin))
-  f:write('/scan_info/positions',self.pos:clone():float():add(self.dpos):add(-1,self.margin))
+  f:write('/scan_info/positions_int',self.pos:clone():float())
+  f:write('/scan_info/positions',self.pos:clone():float():add(self.dpos))
   f:write('/scan_info/dpos',self.dpos)
   -- f:write('/parameters',self.par)
   if self.save_raw_data then

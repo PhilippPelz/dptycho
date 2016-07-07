@@ -69,9 +69,9 @@ TH_API void THNN_CudaTruncatedPoissonLikelihood_updateOutput(THCState *state, TH
 
 struct TruncatedPoissonLikelihood_GradientFactor_functor
 {
-  __host__ __device__ void operator()(float *intens, float *a, float *m) const
+  __host__ __device__ void operator()(float *intens, float *I_target, float *m) const
   {
-    *intens = 2 * (*m) * (1- (*a) / (*intens));
+    *intens = 2 * (*m) * (1- (*I_target) / (*intens));
   }
 };
 
