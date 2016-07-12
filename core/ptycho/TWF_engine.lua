@@ -20,7 +20,7 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     local Fsize_bytes ,Zsize_bytes = 4,8
 
     self.O = torch.ZCudaTensor.new(No,1,Nx,Ny)
-    self.O_denom = torch.CudaTensor(self.O:size())
+    self.O_denom = torch.CudaTensor(1,1,Nx,Ny):expandAs(self.O)
 
     self.dL_dO = torch.ZCudaTensor.new(self.O:size())
 
@@ -42,7 +42,7 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     -- end
 
     if self.has_solution then
-      self.solution = torch.ZCudaTensor.new(No,1,Nx,Ny)
+      self.object_solution = torch.ZCudaTensor.new(No,1,Nx,Ny)
     end
 
     local free_memory, total_memory = cutorch.getMemoryUsage(cutorch.getDevice())
@@ -59,7 +59,7 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
         u.printf('Using %d batches for the reconstruction. ',batches )
         u.printf('Total memory requirements:')
         u.printf('-- used  :    %-5.2f MB' , used_memory * 1.0 / 2^20)
-        u.printf('-- needed: 3x %-5.2f MB' , needed_memory / 2^20)
+        u.printf('-- needed:    %-5.2f MB' , needed_memory / 2^20)
         print(   '====================================================')
         u.printf('-- Total   :    %-5.2f MB (%2.1f percent)' , (used_memory + needed_memory) / 2^20,(used_memory + needed_memory)/ total_memory * 100)
         u.printf('-- Avail   :    %-5.2f MB' , total_memory * 1.0 / 2^20)
@@ -107,11 +107,13 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     -- buffers
 
     self.a_buffer1 = torch.CudaTensor.new(z1_storage_real, z1_storage_offset, torch.LongStorage{K,M,M})
+
+    self.Pk_buffer_real = torch.CudaTensor.new(z1_storage_real, z1_storage_offset, torch.LongStorage{1,1,M,M})
     z1_storage_offset = z1_storage_offset + self.a_buffer1:nElement() + 1
 
     if No > 1 or Np > 1 then
       -- there is enough room already allocated for the second buffer
-      self.a_buffer1 = torch.CudaTensor.new(z1_storage_real, z1_storage_offset, torch.LongStorage{K,M,M})
+      self.a_buffer2 = torch.CudaTensor.new(z1_storage_real, z1_storage_offset, torch.LongStorage{K,M,M})
     else
       self.a_buffer2 = torch.CudaTensor.new(torch.LongStorage{K,M,M})
     end
@@ -132,6 +134,7 @@ end
 
 function TWF_engine:initialize_views()
   self.O_views = {}
+  self.O_denom_views = {}
   self.dL_dO_views = {}
 end
 
@@ -139,6 +142,7 @@ function TWF_engine:update_views()
   for i=1,self.K do
     local slice = {{},{},{self.pos[i][1],self.pos[i][1]+self.M-1},{self.pos[i][2],self.pos[i][2]+self.M-1}}
     self.O_views[i] = self.O[slice]
+    self.O_denom_views[i] = self.O_denom[slice]
     self.dL_dO_views[i] = self.dL_dO[slice]
   end
 end
@@ -174,7 +178,7 @@ function TWF_engine:refine_probe_internal(P_update_buffer, z_buffer1, z_buffer2,
   end
 
   local P_norm = P_real_buffer:normZ(new_P):sum()
-  u.printf('probe gradient norm: %g',P_norm)
+  -- u.printf('probe gradient norm: %g',P_norm)
   -- plt:plot(new_P[1][1]:zfloat(),title1,self.save_path ..title1)
 
   -- if self.probe_support then self.P = self.support:forward(self.P) end
@@ -187,6 +191,7 @@ function TWF_engine:refine_probe_internal(P_update_buffer, z_buffer1, z_buffer2,
 end
 
 function TWF_engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
+  merge_memory:zero()
   self:merge_frames_internal(self.dL_dz, mul_merge, merge_memory, merge_memory_views, self.z1, self.dL_dP_tmp1, false)
 end
 
@@ -201,30 +206,29 @@ function TWF_engine:iterate(steps)
     self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
     local L = self.L:updateOutput(self.z,self.a)
     self.dL_dz = self.L:updateGradInput(self.z,self.a)
-
-    plt:plot(self.dL_dz[1][1][1]:zfloat(),'frames')
-    plt:plot(self.dL_dz[2][1][1]:zfloat(),'frames 2')
-    plt:plot(self.dL_dz[3][1][1]:zfloat(),'frames 3')
-
+    -- calculate dL_dO
     self:merge_frames(self.P,self.dL_dO, self.dL_dO_views)
-    self:calculate_dL_dP(self.dL_dP)
-
     plt:plot(self.dL_dO[1][1]:zfloat(),'self.dL_dO')
-    plt:plot(self.dL_dP[1][1]:zfloat(),'self.dL_dP')
-
     self.O:add(- self:mu(i),self.dL_dO)
-    self.P:add(- self:mu(i),self.dL_dP)
 
-    u.printf('iteration %-3d: L = %-02.02g',i,L)
+    if self.update_probe then
+      self:calculate_dL_dP(self.dL_dP)
+      plt:plot(self.dL_dP[1][1]:zfloat(),'self.dL_dP')
+      self.P:add(- self:mu(i),self.dL_dP)
+      self:calculateO_denom()
+    end
+
+    u.printf('iteration %-3d: L = %-02.02g    mu = %g',i,L,self:mu(i))
 
     self:maybe_plot()
     self:maybe_save_data()
 
-    collectgarbage()
+
     -- grad = fun_compute_grad_TPWFP_Real(z, y, Params, A, At, Masks, n1_LR, n2_LR, fmaskpro);
     -- z = z - muf(t) * grad;             % Gradient update
 
   end
+  collectgarbage()
 end
 
 return TWF_engine

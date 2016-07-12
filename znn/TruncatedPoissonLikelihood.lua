@@ -47,56 +47,58 @@ function TruncatedPoissonLikelihood:calculateXsi(z,I_target)
   -- local I_model = self.gradInput:norm():sum(2):sum(3)
   -- local I_model = self.z_real:normZ(z):sum(2):sum(3)
 
-  plt:plot(self.I_model[1][1][1]:float():log(),'self.I_model')
+  -- plt:plot(self.I_model[1][1][1]:float():log(),'self.I_model')
 
-  self.lhs:div(self.I_model,z:normall(2))
-  self.rhs:add(I_target,-1,self.I_model):cmul(self.lhs):mul(self.a_h/self.K)
-
+  -- ||c - |Az|^2||_1 / K
+  local L1_mean = self.rhs:add(I_target,-1,self.I_model):norm(1)/self.K
+  -- u.printf('L_1 mean: %g',L1_mean)
+  --  a_h * ||c - |Az|^2||_1 / K * |Az|^2/||z||_2
+  self.rhs:div(self.I_model,z:normall(2)):mul(self.a_h * L1_mean)
+  -- |c - |Az|^2|
   self.lhs:add(I_target,-1,self.I_model):abs()
 
   self.I_model.THNN.TruncatedPoissonLikelihood_GradientFactor(self.I_model:cdata(),I_target:cdata(),self.mask:cdata())
 
   -- z * 2 * fm * (1 - I_target/I_model)
-  plt:plot(self.I_model[1][1][1]:float():log(),'self.I_model')
-  plt:plot(self.gradInput[1][1][1]:zfloat():abs():log(),'self.gradInput 1')
+  -- plt:plot(self.I_model[1][1][1]:float():log(),'self.I_model')
+  -- plt:plot(self.gradInput[1][1][1]:zfloat():abs():log(),'self.gradInput 1')
   self.gradInput:cmul(self.I_model:expandAs(self.gradInput))
+  -- plt:plot(self.gradInput[1][1][1]:zfloat():abs():log(),'self.gradInput 2')
 
   for k = 1, self.K do
     for o = 1, self.No do
       self.gradInput[k][o]:ifftBatched()
     end
   end
-  plt:plotcompare({self.lhs[1]:float():log(),self.rhs[1]:float():abs():log()},{'lhs','rhs'})
-  plt:plotcompare({self.lhs[2]:float():log(),self.rhs[2]:float():abs():log()},{'lhs2','rhs2'})
-  plt:plotcompare({self.lhs[3]:float():log(),self.rhs[3]:float():abs():log()},{'lhs3','rhs3'})
+
+  plt:plot(self.gradInput[1][1][1]:zfloat():abs():log(),'self.gradInput 3')
+
+  -- pprint(self.lhs)
+  -- pprint(self.rhs)
+  -- plt:plotcompare({self.lhs[1]:float():log() ,self.rhs[1][1][1]:float():log() },{'lhs','rhs'})
+  -- plt:plotcompare({self.lhs[2]:float():log() ,self.rhs[2][1][1]:float():log() },{'lhs2','rhs2'})
+  -- plt:plotcompare({self.lhs[3]:float():log() ,self.rhs[3][1][1]:float():log() },{'lhs3','rhs3'})
   return self.gradInput
 end
 
 function TruncatedPoissonLikelihood:updateGradInput(z, I_target)
   self.gradInput = self:calculateXsi(z,I_target)
 
-  plt:plotcompare({self.lhs[1]:float(),self.rhs[1]:float():abs()},{'lhs','rhs'})
-  plt:plotcompare({self.lhs[2]:float():log(),self.rhs[2]:float():abs():log()},{'lhs2','rhs2'})
-  plt:plotcompare({self.lhs[3]:float():log(),self.rhs[3]:float():abs():log()},{'lhs3','rhs3'})
-
   local valid_gradients = torch.le(self.lhs,self.rhs)
 
-  plt:plot(self.gradInput[1][1][1]:zfloat():abs():log(),'self.gradInput 111')
-  plt:plot(self.gradInput[2][1][1]:zfloat():abs():log(),'self.gradInput 211')
-  plt:plot(self.gradInput[3][1][1]:zfloat():abs():log(),'self.gradInput 311')
-
-  plt:plot(valid_gradients:float(),'valid_gradients')
+  plt:plot(valid_gradients[1]:float(),'valid_gradients')
 
   valid_gradients = valid_gradients:view(self.K,1,1,self.M,self.M):expandAs(self.gradInput)
 
-  pprint(valid_gradients)
-  print(valid_gradients:max(),valid_gradients:min())
+  -- pprint(valid_gradients)
+  local sum = valid_gradients:sum()
+  u.printf('valid gradients: %d, %2.2f percent', sum, sum/valid_gradients:nElement()*100.0)
 
   self.gradInput:cmul(valid_gradients)
 
-  plt:plot(self.gradInput[1][1][1]:zfloat():abs():log(),'self.gradInput 111')
-  plt:plot(self.gradInput[2][1][1]:zfloat():abs():log(),'self.gradInput 211')
-  plt:plot(self.gradInput[3][1][1]:zfloat():abs():log(),'self.gradInput 311')
+  -- plt:plot(self.gradInput[1][1][1]:zfloat():abs():log(),'self.gradInput 111')
+  -- plt:plot(self.gradInput[2][1][1]:zfloat():abs():log(),'self.gradInput 211')
+  -- plt:plot(self.gradInput[3][1][1]:zfloat():abs():log(),'self.gradInput 311')
 
   return self.gradInput
 end

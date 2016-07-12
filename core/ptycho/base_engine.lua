@@ -32,7 +32,7 @@ require 'hdf5'
 
 
 local engine = classic.class(...)
---pos,a,nmodes_probe,nmodes_object,solution,probe,dpos,fmask
+--pos,a,nmodes_probe,nmodes_object,object_solution,probe,dpos,fmask
 function engine:_init(par)
   local par = self:replace_default_params(par)
   tablex.update(self,par)
@@ -58,7 +58,7 @@ function engine:_init(par)
   local y = x:clone():t()
   self.r2 = (x:pow(2) + y:pow(2))
 
-  self.has_solution = par.solution and true
+  self.has_solution = par.object_solution and true
 
   --expanded views of a and fm
   self.a_exp = self.a:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
@@ -102,16 +102,16 @@ function engine:_init(par)
 
 
     pprint(slice)
-    pprint(par.solution)
+    pprint(par.object_solution)
     print(self.Nx,self.Ny)
 
-    local sv = par.solution[slice]:clone()
+    local sv = par.object_solution[slice]:clone()
     pprint(sv)
-    self.solution:zero()
+    self.object_solution:zero()
 
-    self.solution[{{},{},{startx+self.margin,endx+self.margin},{starty+self.margin,endy+self.margin}}]:copy(sv)
+    self.object_solution[{{},{},{startx+self.margin,endx+self.margin},{starty+self.margin,endy+self.margin}}]:copy(sv)
     self.slice = {{},{},{startx+self.margin,endx+self.margin},{starty+self.margin,endy+self.margin}}
-    -- plt:plot(self.solution[1][1]:zfloat(),'solution')
+    -- plt:plot(self.object_solution[1][1]:zfloat(),'object_solution')
   end
 
   local probe_size = self.P:size():totable()
@@ -121,6 +121,7 @@ function engine:_init(par)
   local Pre = stats.truncnorm({self.M,self.M},0,1,1e-1,1e-2):cuda()
   self.O = self.O:zero():copyRe(re):add(1+0i)
   self.O_denom:zero()
+
   for i=2,self.Np do
     self.P[1][i]:copyRe(Pre):copyIm(Pre)
     self.P[1][i]:cmul(self.P[1][1]:abs())
@@ -135,10 +136,6 @@ function engine:_init(par)
 
   self.err_hist = {}
 
-  pprint(self.a)
-  pprint(self.fm)
-  -- plt:plot(self.a[2]:float():log())
-
   self.max_power = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum(2):sum(3):max()
   self.total_power = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum()
   self.total_measurements = self.fm:sum()
@@ -148,18 +145,17 @@ function engine:_init(par)
   self.object_inertia = par.object_inertia * self.K
   self.probe_inertia = par.probe_inertia * self.Np * self.No * self.K
 
-  pprint(self.max_power)
-  pprint(self.total_power)
-
   self.i = 0
   self.j = 0
   self.iterations = 1
 
-  if par.copy_solution then
-    self.O[1][1]:copy(self.solution)
+  if self.copy_probe then
     self.P[1][1]:copy(self.probe_solution)
   end
 
+  if self.copy_object then
+    self.O[1][1]:copy(self.object_solution)
+  end
   self.norm_a = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum()
   local P_fluence = self.P_buffer_real:normZ(self.P):sum()
 
@@ -188,7 +184,6 @@ function engine:_init(par)
   u.printram('after init')
 
   self.par = nil
-
   self:initialize_plotting()
   self:update_views()
 
@@ -394,7 +389,7 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   print(self.P:dim())
 
   self.O = torch.ZCudaTensor.new(No,1,Nx,Ny)
-  self.O_denom = torch.CudaTensor(self.O:size())
+  self.O_denom = torch.CudaTensor(1,1,Nx,Ny):expandAs(self.O)
 
   self:allocate_probe(Np,M)
 
@@ -410,7 +405,7 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   end
 
   if self.has_solution then
-    self.solution = torch.ZCudaTensor.new(No,1,Nx,Ny)
+    self.object_solution = torch.ZCudaTensor.new(No,1,Nx,Ny)
   end
 
   local free_memory, total_memory = cutorch.getMemoryUsage(cutorch.getDevice())
@@ -563,6 +558,7 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   self.P_buffer = self.P_tmp1_PQstore
   self.P_buffer_real = self.P_tmp1_real_PQstore
   self.zk_buffer_update_frames = self.zk_tmp1_PFstore
+  self.Pk_buffer_real = self.a_tmp_real_PQstore
 end
 
 function engine:update_iteration_dependent_parameters(it)
@@ -630,8 +626,8 @@ function engine:save_data(filename)
     f:write('/or',O:re())
     f:write('/oi',O:im())
 
-    if self.solution then
-      local s = self.solution[self.slice]
+    if self.object_solution then
+      local s = self.object_solution[self.slice]
       :zfloat()
       f:write('/solr',s:re())
       f:write('/soli',s:im())
@@ -640,8 +636,8 @@ function engine:save_data(filename)
     f:write('/or',self.O:zfloat():re())
     f:write('/oi',self.O:zfloat():im())
 
-    if self.solution then
-      local s = self.solution:zfloat()
+    if self.object_solution then
+      local s = self.object_solution:zfloat()
       f:write('/solr',s:re())
       f:write('/soli',s:im())
     end
@@ -965,13 +961,6 @@ function engine:P_F_without_background()
     abs:sqrt()
 
     if self.plots < 10 and k % 3 == 0 then
-      -- {name="self", type='table'},
-      -- {name="imgs", type='table'},
-      -- {name="suptitle", default='Image', type='string'},
-      -- {name="savepath", default=py.None, type='string'},
-      -- {name="show", default=true, type='boolean'},
-      -- {name="cmap", default={'hot','hot'}, type='table'},
-      -- {name="title", default={'Img1','Img2'}, type='table'},
       local title = self.i..'_abs_'..self.plots
       local ab = abs[1][1]:clone():fftshift():float():log()
       local ak = self.a[k]:clone():fftshift():float():log()
@@ -1033,9 +1022,7 @@ function engine:maybe_refine_positions()
   end
 end
 
-
-function engine:refine_positions()
-end
+engine:mustHave("refine_positions")
 
 function engine:refine_probe()
   local new_P = self.P_tmp1_PQstore
@@ -1087,20 +1074,20 @@ end
 function engine:image_error()
   local norm = self.O_tmp_real_PFstore
   local O_res = self.O_tmp_PFstore
-  if self.solution then
+  if self.object_solution then
     -- pprint(self.O[1])
-    -- pprint(self.solution)
-    local c = self.O[1]:dot(self.solution)
+    -- pprint(self.object_solution)
+    local c = self.O[1]:dot(self.object_solution)
     -- print(c)
     local phase_diff = c/zt.abs(c)
     --:cmul(self.O_mask)
     -- print('phase difference: ',phase_diff)
     O_res:mul(self.O,phase_diff)
-    norm:normZ(O_res:add(-1,self.solution):cmul(self.O_mask))
-    local norm1 = norm:sum()/self.solution:norm():sum()
+    norm:normZ(O_res:add(-1,self.object_solution):cmul(self.O_mask))
+    local norm1 = norm:sum()/self.object_solution:norm():sum()
     O_res:mul(self.O,phase_diff)
-    norm:normZ(O_res:add(self.solution):cmul(self.O_mask))
-    local norm2 = norm:sum()/self.solution:norm():sum()
+    norm:normZ(O_res:add(self.object_solution):cmul(self.O_mask))
+    local norm2 = norm:sum()/self.object_solution:norm():sum()
     return math.min(norm1,norm2)
   end
 end
@@ -1111,7 +1098,7 @@ function engine:probe_error()
   local P_corr = self.P_tmp2_PFstore
   if self.probe_solution then
     -- pprint(self.O[1])
-    -- pprint(self.solution)
+    -- pprint(self.object_solution)
     local c = self.P[1]:dot(self.probe_solution)
     -- print(c)
     local phase_diff = c/zt.abs(c)

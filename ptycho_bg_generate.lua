@@ -64,7 +64,7 @@ local o_i = f:read('/o_i'):all():cuda()
 local pr = f:read('/pr'):all():cuda()
 local pi = f:read('/pi'):all():cuda()
 local probe = torch.ZCudaTensor.new(pr:size()):copyIm(pi):copyRe(pr)
-local solution = torch.ZCudaTensor.new(o_r:size()):copyIm(o_i):copyRe(o_r)
+local object_solution = torch.ZCudaTensor.new(o_r:size()):copyIm(o_i):copyRe(o_r)
 local bgc = torch.ZCudaTensor.new(bg_r:size()):copyIm(bg_i):copyRe(bg_r)
 bgc:fftshift()
 -- local dpos = pos:clone():float():zero()
@@ -104,7 +104,7 @@ par = {
 par.pos = pos
 par.dpos = dpos
 par.dpos_solution = dpos_solution
-par.solution = solution
+par.object_solution = object_solution
 par.a = a
 par.fmask = fmask
 par.probe = probe

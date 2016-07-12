@@ -64,15 +64,15 @@ local o_i = f:read('/o_i'):all():cuda()
 local pr = f:read('/pr'):all():cuda()
 local pi = f:read('/pi'):all():cuda()
 local probe = torch.ZCudaTensor.new(pr:size()):copyIm(pi):copyRe(pr)
-local solution = torch.ZCudaTensor.new(o_r:size()):copyIm(o_i):copyRe(o_r)
+local object_solution = torch.ZCudaTensor.new(o_r:size()):copyIm(o_i):copyRe(o_r)
 -- local bgc = torch.ZCudaTensor.new(bg_r:size()):copyIm(bg_i):copyRe(bg_r)
 -- bgc:fftshift()
 -- local dpos = pos:clone():float():zero()
 -- plt:plot(bgc:zfloat(),'bgc')
 pprint(probe)
-pprint(solution)
--- plt:plot(probe:zfloat())
--- plt:plot(solution:zfloat())
+pprint(object_solution)
+plt:plot(probe:zfloat())
+plt:plot(object_solution:zfloat())
 
 o_r = nil
 o_i = nil
@@ -86,34 +86,41 @@ DEBUG = false
 
 local nmodes_probe = 1
 local nmodes_object = 1
--- pprint(a)
 
 par = ptycho.params.DEFAULT_PARAMS_TWF()
 
 par.nmodes_probe = 1
 par.nmodes_object = 1
-par.probe = nil
-par.plot_every = 2
+
+par.plot_every = 1
 par.plot_start = 1
-par.beta = 0.9
 par.fourier_relax_factor = 5e-2
+
 par.position_refinement_start = 100
 par.position_refinement_every = 3
-par.probe_update_start = 2
-par.object_inertia = 1e-5
+
+par.probe_update_start = 300
+par.probe_solution = probe
 par.probe_inertia = 1e-9
-par.P_Q_iterations = 10
-par.copy_solution = true
+
+par.object_inertia = 1e-5
+par.object_solution = object_solution
+
+par.copy_object = false
+par.copy_probe = true
 par.background_correction_start = 100
+
+par.save_interval = 5
+par.save_path = '/tmp/'
+par.save_raw_data = false
+
 par.pos = pos
 par.dpos = dpos
 par.dpos_solution = dpos_solution
-par.solution = solution
-par.probe_solution = probe
+
 par.a = a
 par.fmask = fmask
 par.probe = probe
 
 local ngin = ptycho.TWF_engine(par)
--- ngin:generate_data('/home/philipp/drop/Public/moon_subpix_poisson',1e6)
 ngin:iterate(250)
