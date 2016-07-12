@@ -152,7 +152,7 @@ function m.copytable(obj, seen)
 end
 
 function m.printf(s,...)
-  print(string.format(s,...))
+  return io.write(s:format(...)..'\n')
 end
 
 function m.debug(s,...)

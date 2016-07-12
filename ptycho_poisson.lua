@@ -92,14 +92,14 @@ par = ptycho.params.DEFAULT_PARAMS_TWF()
 par.nmodes_probe = 1
 par.nmodes_object = 1
 
-par.plot_every = 1
+par.plot_every = 100
 par.plot_start = 1
 par.fourier_relax_factor = 5e-2
 
 par.position_refinement_start = 100
 par.position_refinement_every = 3
 
-par.probe_update_start = 300
+par.probe_update_start = 1000
 par.probe_solution = probe
 par.probe_inertia = 1e-9
 
@@ -110,7 +110,7 @@ par.copy_object = false
 par.copy_probe = true
 par.background_correction_start = 100
 
-par.save_interval = 5
+par.save_interval = 500
 par.save_path = '/tmp/'
 par.save_raw_data = false
 
@@ -123,4 +123,4 @@ par.fmask = fmask
 par.probe = probe
 
 local ngin = ptycho.TWF_engine(par)
-ngin:iterate(250)
+ngin:iterate(1000)

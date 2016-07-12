@@ -71,7 +71,7 @@ struct TruncatedPoissonLikelihood_GradientFactor_functor
 {
   __host__ __device__ void operator()(float *intens, float *I_target, float *m) const
   {
-    *intens = 2 * (*m) * (1- (*I_target) / (*intens));
+    *intens = 2 * (*m) * (1- (*I_target) / (*intens + 1e-9));
   }
 };
 

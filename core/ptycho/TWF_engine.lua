@@ -26,7 +26,7 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
     self:allocate_probe(Np,M)
 
-    self.dL_dP = torch.ZCudaTensor.new(self.P:size())
+    self.dL_dP = torch.ZCudaTensor.new(self.P:size()):zero()
     self.dL_dP_tmp1 = torch.ZCudaTensor.new(self.P:size())
     self.dL_dP_tmp1_real = torch.CudaTensor.new(self.P:size())
 
@@ -196,11 +196,11 @@ function TWF_engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
 end
 
 function TWF_engine:mu(it)
-  -- muf = @(t) min(1-exp(-t/Params.tau0), Params.muTWF)
-  return math.min(1-math.exp(-it/self.twf.tau0),self.twf.mu_max)
+  return math.min(1-math.exp(-it/self.twf.tau0),self.twf.mu_max) / self.a:nElement()
 end
 
 function TWF_engine:iterate(steps)
+  u.printf('%-10s%-15s%-15s%-15s%-15s','iteration','L','||dL/dO||','||dL/dP||','mu')
   for i = 1, steps do
     self:update_iteration_dependent_parameters(i)
     self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
@@ -208,8 +208,10 @@ function TWF_engine:iterate(steps)
     self.dL_dz = self.L:updateGradInput(self.z,self.a)
     -- calculate dL_dO
     self:merge_frames(self.P,self.dL_dO, self.dL_dO_views)
-    plt:plot(self.dL_dO[1][1]:zfloat(),'self.dL_dO')
-    self.O:add(- self:mu(i),self.dL_dO)
+
+    self.dL_dO:mul(- self:mu(i))
+    -- plt:plot(self.dL_dO[1][1]:zfloat(),'self.dL_dO')
+    self.O:add(self.dL_dO)
 
     if self.update_probe then
       self:calculate_dL_dP(self.dL_dP)
@@ -218,7 +220,7 @@ function TWF_engine:iterate(steps)
       self:calculateO_denom()
     end
 
-    u.printf('iteration %-3d: L = %-02.02g    mu = %g',i,L,self:mu(i))
+    u.printf('%-10d%-15g%-15g%-15g%-15g',i,L,self.dL_dO:normall(1),self.dL_dP:normall(1),self:mu(i))
 
     self:maybe_plot()
     self:maybe_save_data()
