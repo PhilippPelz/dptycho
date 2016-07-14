@@ -37,8 +37,6 @@ function engine:_init(par)
   local par = self:replace_default_params(par)
   tablex.update(self,par)
 
-  self.par = par.par_save
-
   if not paths.dirp(self.save_path) then
     paths.mkdir(self.save_path)
   end
@@ -97,13 +95,7 @@ function engine:_init(par)
     local startx, starty = 1,1
     local endx = self.Nx-2*self.margin
     local endy = self.Ny-2*self.margin
-    -- {},{},
     local slice = {{startx,endx},{starty,endy}}
-
-
-    pprint(slice)
-    pprint(par.object_solution)
-    print(self.Nx,self.Ny)
 
     local sv = par.object_solution[slice]:clone()
     pprint(sv)
@@ -568,6 +560,8 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   self.P_buffer_real = self.P_tmp1_real_PQstore
   self.zk_buffer_update_frames = self.zk_tmp1_PFstore
   self.Pk_buffer_real = self.a_tmp_real_PQstore
+  self.O_buffer_real = self.O_tmp_real_PFstore
+  self.O_buffer = self.O_tmp_PFstore
 end
 
 function engine:update_iteration_dependent_parameters(it)
@@ -1081,8 +1075,8 @@ function engine:overlap_error(z_in,z_out)
 end
 
 function engine:image_error()
-  local norm = self.O_tmp_real_PFstore
-  local O_res = self.O_tmp_PFstore
+  local norm = self.O_buffer_real
+  local O_res = self.O_buffer
   if self.object_solution then
     -- pprint(self.O[1])
     -- pprint(self.object_solution)
@@ -1092,12 +1086,9 @@ function engine:image_error()
     --:cmul(self.O_mask)
     -- print('phase difference: ',phase_diff)
     O_res:mul(self.O,phase_diff)
-    norm:normZ(O_res:add(-1,self.object_solution):cmul(self.O_mask))
+    norm:normZ(O_res:add(-1,self.object_solution))--:cmul(self.O_mask))
     local norm1 = norm:sum()/self.object_solution:norm():sum()
-    O_res:mul(self.O,phase_diff)
-    norm:normZ(O_res:add(self.object_solution):cmul(self.O_mask))
-    local norm2 = norm:sum()/self.object_solution:norm():sum()
-    return math.min(norm1,norm2)
+    return norm1
   end
 end
 

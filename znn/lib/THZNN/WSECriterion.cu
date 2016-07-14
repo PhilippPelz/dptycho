@@ -350,22 +350,10 @@ __global__ void batched_bilinear_interpolation_kernelZ(ccx * dest, ccx * src, co
     const float  b     = shifty;
 
     ccx h00, h01, h10, h11;
-    if (((ind_x)   < X)&&((ind_y)   < Y) && ((ind_x)   > 0)&&((ind_y)   > 0))
-      h00 = src[ind3d(ind_x,ind_y,z,X,Y)];
-    else
-      h00 =0;
-    if (((ind_x+1) < X)&&((ind_y)   < Y) && ((ind_x+1) > 0)&&((ind_y)   > 0))
-      h10 = src[ind3d(ind_x+1,ind_y,z,X,Y)];
-    else
-      h10 = 0;
-    if (((ind_x)   < X)&&((ind_y+1) < Y) && ((ind_x)   > 0)&&((ind_y+1) > 0))
-      h01 = src[ind3d(ind_x,ind_y+1,z,X,Y)];
-    else
-      h01 = 0;
-    if (((ind_x+1) < X)&&((ind_y+1) < Y) && ((ind_x+1) > 0)&&((ind_y+1) > 0))
-      h11 = src[ind3d(ind_x+1,ind_y+1,z,X,Y)];
-    else
-      h11 = 0;
+    if (((ind_x)   < X)&&((ind_y)   < Y) && ((ind_x)   >= 0)&&((ind_y)   >= 0)) h00 = src[ind3d(ind_x,ind_y,z,X,Y)];  else    h00 =0;
+    if (((ind_x+1) < X)&&((ind_y)   < Y) && ((ind_x+1) >= 0)&&((ind_y)   > 0)) h10 = src[ind3d(ind_x+1,ind_y,z,X,Y)];     else    h10 = 0;
+    if (((ind_x)   < X)&&((ind_y+1) < Y) && ((ind_x)   >= 0)&&((ind_y+1) >= 0)) h01 = src[ind3d(ind_x,ind_y+1,z,X,Y)];   else    h01 = 0;
+    if (((ind_x+1) < X)&&((ind_y+1) < Y) && ((ind_x+1) >= 0)&&((ind_y+1) >= 0)) h11 = src[ind3d(ind_x+1,ind_y+1,z,X,Y)]; else    h11 = 0;
 
     dest[ind3d(x,y,z,X,Y)] = (1-a)*(1-b)*h00 +
                               (a)*(1-b)*h10 +
@@ -433,10 +421,10 @@ __global__ void batched_bilinear_interpolation_kernel(float * dest, float * src,
    const float  b     = shifty;
 
    float h00, h01, h10, h11;
-   if (((ind_x)   < X)&&((ind_y)   < Y) && ((ind_x)   > 0)&&((ind_y)   > 0)) h00 = src[ind3d(ind_x,ind_y,z,X,Y)];  else    h00 =0;
-   if (((ind_x+1) < X)&&((ind_y)   < Y) && ((ind_x+1) > 0)&&((ind_y)   > 0)) h10 = src[ind3d(ind_x+1,ind_y,z,X,Y)];     else    h10 = 0;
-   if (((ind_x)   < X)&&((ind_y+1) < Y) && ((ind_x)   > 0)&&((ind_y+1) > 0)) h01 = src[ind3d(ind_x,ind_y+1,z,X,Y)];   else    h01 = 0;
-   if (((ind_x+1) < X)&&((ind_y+1) < Y) && ((ind_x+1) > 0)&&((ind_y+1) > 0)) h11 = src[ind3d(ind_x+1,ind_y+1,z,X,Y)]; else    h11 = 0;
+   if (((ind_x)   < X)&&((ind_y)   < Y) && ((ind_x)   >= 0)&&((ind_y)   >= 0)) h00 = src[ind3d(ind_x,ind_y,z,X,Y)];  else    h00 =0;
+   if (((ind_x+1) < X)&&((ind_y)   < Y) && ((ind_x+1) >= 0)&&((ind_y)   > 0)) h10 = src[ind3d(ind_x+1,ind_y,z,X,Y)];     else    h10 = 0;
+   if (((ind_x)   < X)&&((ind_y+1) < Y) && ((ind_x)   >= 0)&&((ind_y+1) >= 0)) h01 = src[ind3d(ind_x,ind_y+1,z,X,Y)];   else    h01 = 0;
+   if (((ind_x+1) < X)&&((ind_y+1) < Y) && ((ind_x+1) >= 0)&&((ind_y+1) >= 0)) h11 = src[ind3d(ind_x+1,ind_y+1,z,X,Y)]; else    h11 = 0;
 
    dest[ind3d(x,y,z,X,Y)] = (1-a)*(1-b)*h00 +
                              (a)*(1-b)*h10 +
@@ -472,8 +460,8 @@ TH_API void THNN_CudaBatchedBilinearInterpolation(THCState *state,
     yi++;
   }
   long iz = THCudaTensor_size(state, self_, 0);
-  long ix = THCudaTensor_size(state, self_, 1);
-  long iy = THCudaTensor_size(state, self_, 2);
+  long iy = THCudaTensor_size(state, self_, 1);
+  long ix = THCudaTensor_size(state, self_, 2);
 
   // printf("xi,u,yi,v = %d,%f,%d,%f\n",xi,u,yi,v);
 

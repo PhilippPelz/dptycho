@@ -10,7 +10,7 @@ local TWF_engine, super = classic.class(...,base_engine)
 function TWF_engine:_init(par)
   super._init(self,par)
 
-  self.L = znn.TruncatedPoissonLikelihood(self.twf.a_h, self.z, self.fm, self.a_buffer1, self.a_buffer2, self.z1_buffer_real, self.par, self.K, self.No, self.Np, self.M)
+  self.L = znn.TruncatedPoissonLikelihood(self.twf.a_h,self.twf.a_lb,self.twf.a_ub, self.z, self.fm, self.a_buffer1, self.a_buffer2, self.z1_buffer_real, self.K, self.No, self.Np, self.M, self.Nx, self.Ny)
   self.R = znn.SpatialSmoothnessCriterion(self.O_tmp,self.dR_dO,self.rescale_regul_amplitude*self.twf.nu)
   -- self.P_optim = self.P_optim(opfunc, x, config, state)
   -- self.O_optim = self.O_optim(opfunc, x, config, state)
@@ -132,6 +132,8 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     self.zk_buffer_update_frames = self.z1[1]
     self.P_buffer = self.dL_dP
     self.P_buffer_real = self.dL_dP_tmp1_real
+    self.O_buffer_real = self.O_denom
+    self.O_buffer = self.dR_dO
 end
 
 function TWF_engine:initialize_views()
@@ -202,7 +204,7 @@ function TWF_engine:mu(it)
 end
 
 function TWF_engine:iterate(steps)
-  u.printf('%-10s%-15s%-15s%-12s%-15s%-15s%-15s','iteration','L','R','R (%)','||dL/dO||','||dL/dP||','mu')
+  u.printf('%-10s%-15s%-15s%-13s%-15s%-15s%-15s%-15s','iteration','L','R','R (%)','||dL/dO||','||dL/dP||','mu', 'e_img')
   for i = 1, steps do
     self:update_iteration_dependent_parameters(i)
     self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
@@ -212,13 +214,13 @@ function TWF_engine:iterate(steps)
     -- calculate dL_dO
     self:merge_frames(self.P,self.dL_dO, self.dL_dO_views)
     local R = self.R:updateOutput(self.O)
-    self.dR_dO = self.R:updateGradInput(self.O)
+    -- self.dR_dO = self.R:updateGradInput(self.O)
 
-    plt:plot(self.dR_dO[1][1]:zfloat(),'self.dR_dO')
+    -- plt:plot(self.dR_dO[1][1]:zfloat(),'self.dR_dO')
 
-    self.dL_dO:add(self.dR_dO)
+    -- self.dL_dO:add(self.dR_dO)
     self.dL_dO:mul(- self:mu(i))
-    plt:plot(self.dL_dO[1][1]:zfloat(),'self.dL_dO')
+    -- plt:plot(self.dL_dO[1][1]:zfloat(),'self.dL_dO')
     self.O:add(self.dL_dO)
 
     if self.update_probe then
@@ -228,7 +230,7 @@ function TWF_engine:iterate(steps)
       self:calculateO_denom()
     end
 
-    u.printf('%-10d%-15g%-15g%-10g%%%-15g%-15g',i,L,R,100.0*R/(L+R),self.dL_dO:normall(1),self.dL_dP:normall(1),self:mu(i))
+    u.printf('%-10d%-15g%-15g%-10.2g%%%-15g%-15g%-15g',i,L,R,100.0*R/(L+R),self.dL_dO:normall(1),self.dL_dP:normall(1),self:mu(i),self:image_error())
 
     self:maybe_plot()
     self:maybe_save_data()

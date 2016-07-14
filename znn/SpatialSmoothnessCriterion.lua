@@ -16,8 +16,8 @@ function c:updateOutput(input, target)
   local d = self.tmp
   self.output = 0
   local inp = input:squeeze(2) --squeeze away the probe dimension
-  pprint(inp)
-  pprint(d)
+  -- pprint(inp)
+  -- pprint(d)
   local a = d:dx_bw(inp):normall(2)
   local b = d:dy_bw(inp):normall(2)
   local c = d:dx_fw(inp):normall(2)
@@ -27,7 +27,7 @@ function c:updateOutput(input, target)
 end
 
 function c:updateGradInput(input, target)
-  plt:plot(input[1][1]:zfloat(),'input')
+  -- plt:plot(input[1][1]:zfloat(),'input')
   self.gradInput:zero()
   local d = self.tmp
   local inp = input:squeeze(2) --squeeze away the probe dimension
@@ -49,7 +49,7 @@ function c:updateGradInput(input, target)
   self.gradInput:add(-1,d)
 
   self.gradInput:mul(2*self.amplitude)
-  plt:plot(self.gradInput[1][1]:zfloat(),'self.gradInput')
+  -- plt:plot(self.gradInput[1][1]:zfloat(),'self.gradInput')
   return self.gradInput
 end
 

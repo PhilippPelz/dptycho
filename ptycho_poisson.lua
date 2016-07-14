@@ -69,10 +69,8 @@ local object_solution = torch.ZCudaTensor.new(o_r:size()):copyIm(o_i):copyRe(o_r
 -- bgc:fftshift()
 -- local dpos = pos:clone():float():zero()
 -- plt:plot(bgc:zfloat(),'bgc')
-pprint(probe)
-pprint(object_solution)
-plt:plot(probe:zfloat())
-plt:plot(object_solution:zfloat())
+-- plt:plot(probe:zfloat())
+-- plt:plot(object_solution:zfloat())
 
 o_r = nil
 o_i = nil
@@ -92,14 +90,14 @@ par = ptycho.params.DEFAULT_PARAMS_TWF()
 par.nmodes_probe = 1
 par.nmodes_object = 1
 
-par.plot_every = 100
+par.plot_every = 1000
 par.plot_start = 1
 par.fourier_relax_factor = 5e-2
 
-par.position_refinement_start = 100
+par.position_refinement_start = 5000
 par.position_refinement_every = 3
 
-par.probe_update_start = 1000
+par.probe_update_start = 5000
 par.probe_solution = probe
 par.probe_inertia = 1e-9
 
@@ -108,9 +106,9 @@ par.object_solution = object_solution
 
 par.copy_object = false
 par.copy_probe = true
-par.background_correction_start = 100
+par.background_correction_start = 5000
 
-par.save_interval = 500
+par.save_interval = 2500
 par.save_path = '/tmp/'
 par.save_raw_data = false
 
@@ -125,4 +123,4 @@ par.probe = probe
 par.twf.nu = 1e-2
 
 local ngin = ptycho.TWF_engine(par)
-ngin:iterate(1000)
+ngin:iterate(5000)

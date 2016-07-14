@@ -149,13 +149,13 @@ local dx_bwZ = argcheck{
    {name="dst", type='torch.ZCudaTensor'},
    {name="src", type='torch.ZCudaTensor'},
    call = function(dst, src)
-      plt:plot(src[1]:zfloat(),'src')
+      -- plt:plot(src[1]:zfloat(),'src')
       dst:shift(src,torch.FloatTensor({1,0}))
-      plt:plot(dst[1]:zfloat(),'dst1')
+      -- plt:plot(dst[1]:zfloat(),'dst1')
       dst:mul(-1)
-      plt:plot(dst[1]:zfloat(),'dst2')
+      -- plt:plot(dst[1]:zfloat(),'dst2')
       dst:add(src)
-      plt:plot(dst[1]:zfloat(),'dst3')
+      -- plt:plot(dst[1]:zfloat(),'dst3')
       return dst
    end
 }
