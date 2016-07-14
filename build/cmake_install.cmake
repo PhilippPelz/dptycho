@@ -124,6 +124,7 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
     "/home/philipp/projects/dptycho/znn/ConvParams.lua"
     "/home/philipp/projects/dptycho/znn/TraceCriterion.lua"
     "/home/philipp/projects/dptycho/znn/Square.lua"
+    "/home/philipp/projects/dptycho/znn/SpatialSmoothnessCriterion.lua"
     "/home/philipp/projects/dptycho/znn/ConvFFT2D.lua"
     "/home/philipp/projects/dptycho/znn/MultiCriterionVariableWeights.lua"
     "/home/philipp/projects/dptycho/znn/ConvSlice.lua"

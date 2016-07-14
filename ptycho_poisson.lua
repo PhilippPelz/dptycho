@@ -122,5 +122,7 @@ par.a = a
 par.fmask = fmask
 par.probe = probe
 
+par.twf.nu = 1e-2
+
 local ngin = ptycho.TWF_engine(par)
 ngin:iterate(1000)

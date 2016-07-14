@@ -119,7 +119,7 @@ function engine:_init(par)
 
   local re = stats.truncnorm({self.No,self.Nx,self.Ny},0,1,1e-1,1e-2):cuda()
   local Pre = stats.truncnorm({self.M,self.M},0,1,1e-1,1e-2):cuda()
-  self.O = self.O:zero():copyRe(re):add(1+0i)
+  self.O = self.O:zero():add(1+0i)
   self.O_denom:zero()
 
   for i=2,self.Np do
@@ -139,6 +139,7 @@ function engine:_init(par)
   self.max_power = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum(2):sum(3):max()
   self.total_power = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum()
   self.total_measurements = self.fm:sum()
+  self.total_nonzero_measurements = torch.gt(self.a_buffer1:cmul(self.a,self.fm),0):sum()
   self.power_threshold = 0.25 * self.fourier_relax_factor^2 * self.max_power / self.MM
   self.update_positions = false
   self.update_probe = false
@@ -173,12 +174,20 @@ function engine:_init(par)
   u.printf('                                   K =  %d',self.K)
   u.printf('                                   N = (%d,%d)',self.Nx,self.Ny)
   u.printf('                                   M =  %d',self.M)
-  u.printf('power threshold is                     :%g',self.power_threshold)
-  u.printf('total measurements                     :%g',self.total_measurements)
-  u.printf('total measurements/image_pixels:        %g',self.total_measurements/self.O:nElement())
-  u.printf('total power:                            %g',self.total_power)
-  u.printf('maximum power:                          %g',self.max_power)
-  u.printf('rescale_regul_amplitude:                %g',self.rescale_regul_amplitude)
+  u.printf('power threshold is                     : %g',self.power_threshold)
+  u.printf('total measurements                     : %g',self.total_measurements)
+  u.printf('# unknowns object                      : %2.3g',self.O:nElement())
+  u.printf('# unknowns probe                       : %2.3g',self.P:nElement())
+  u.printf('# unknowns total                       : %2.3g',self.O:nElement() + self.P:nElement())
+  u.printf('total measurements/image_pixels        : %g',
+  self.total_measurements/self.O:nElement())
+  u.printf('nonzero measurements/image_pixels      : %g',
+  self.total_nonzero_measurements/self.O:nElement())
+  u.printf('nonzero measurements/# unknowns        : %g',
+  self.total_nonzero_measurements/(self.O:nElement() + self.P:nElement()))
+  u.printf('total power                            : %g',self.total_power)
+  u.printf('maximum power                          : %g',self.max_power)
+  u.printf('rescale_regul_amplitude                : %g',self.rescale_regul_amplitude)
   print(   '----------------------------------------------------')
   -- u.printMem()
   u.printram('after init')

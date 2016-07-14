@@ -31,5 +31,6 @@ require 'dptycho.znn.ConvParams'
 require 'dptycho.znn.ConvFFT2D'
 require 'dptycho.znn.FFT'
 require 'dptycho.znn.TruncatedPoissonLikelihood'
+require 'dptycho.znn.SpatialSmoothnessCriterion'
 
 return znn
