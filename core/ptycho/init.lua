@@ -10,5 +10,6 @@ m:class("base_engine")
 m:class("base_engine_shifted")
 m:class("RAAR_engine")
 m:class("TWF_engine")
+m:class("DM_engine")
 
 return m

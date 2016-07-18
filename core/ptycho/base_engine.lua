@@ -93,6 +93,12 @@ function engine:_init(par)
     self.P[1]:add(300+0i)
   end
 
+  if self.probe_support then
+    local probe_size = self.P:size():totable()
+    local support = znn.SupportMask(probe_size,probe_size[#probe_size]/3)
+    self.P = support:forward(self.P)
+  end
+
   if self.has_solution then
     local startx, starty = 1,1
     local endx = self.Nx-2*self.margin
@@ -114,9 +120,6 @@ function engine:_init(par)
     -- plt:plot(self.object_solution[1][1]:zfloat(),'object_solution')
   end
 
-  local probe_size = self.P:size():totable()
-  local support = znn.SupportMask(probe_size,probe_size[#probe_size]/3)
-
   local re = stats.truncnorm({self.No,self.Nx,self.Ny},0,1,1e-1,1e-2):cuda()
   local Pre = stats.truncnorm({self.M,self.M},0,1,1e-1,1e-2):cuda()
   self.O = self.O:zero():add(1+0i)
@@ -127,15 +130,7 @@ function engine:_init(par)
     self.P[1][i]:cmul(self.P[1][1]:abs())
   end
 
-  if self.probe_support then
-    self.P = support:forward(self.P)
-    -- plt:plot(self.P[1][1]:zfloat())
-  end
-
-  self:initialize_views()
-
   self.err_hist = {}
-
   self.max_power = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum(2):sum(3):max()
   self.total_power = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum()
   self.total_measurements = self.fm:sum()
@@ -151,6 +146,8 @@ function engine:_init(par)
   self.iterations = 1
 
   if self.copy_probe then
+    pprint(self.P)
+    pprint(self.probe_solution)
     self.P[1][1]:copy(self.probe_solution)
   end
 
@@ -161,6 +158,7 @@ function engine:_init(par)
   local P_fluence = self.P_buffer_real:normZ(self.P):sum()
 
   if self.probe_support then
+    local probe_size = self.P:size():totable()
     self.support = znn.SupportMask(probe_size,probe_size[#probe_size]*self.probe_support)
   else
     self.support = nil
@@ -194,6 +192,7 @@ function engine:_init(par)
 
   self.par = nil
   self:initialize_plotting()
+  self:initialize_views()
   self:update_views()
 
   collectgarbage()
@@ -311,9 +310,9 @@ end
 function engine:maybe_plot()
   if self.do_plot then
     -- :cmul(self.O_mask)
-    -- self.O_tmp_PFstore:copy(self.O)--:cmul(self.O_mask)
+    self.O_buffer:cmul(self.O,self.O_mask)
     self.P_hZ:copy(self.P)
-    self.O_hZ:copy(self.O)
+    self.O_hZ:copy(self.O_buffer)
     for n = 1, self.No do
       local title = self.i..'_O_'..n
       plt:plot(self.O_hZ[n][1],title,self.save_path ..title,self.show_plots,{'hot','hsv'})
@@ -671,10 +670,10 @@ function engine:generate_data(filename,poisson_noise)
 
   local a = self.a_buffer1
   a:zero()
-  -- local P_norm = self.P:abs():pow(2):sum()
-  --
-  -- u.printf('probe intensity: %g',P_norm)
-  u.printf('poisson noise  : %g',poisson_noise)
+
+  if poisson_noise then
+    u.printf('poisson noise  : %g',poisson_noise)
+  end
 
   for _, params1 in ipairs(self.batch_params) do
     local batch_start1, batch_end1, batch_size1 = table.unpack(params1)
@@ -947,16 +946,13 @@ function engine:P_F()
 end
 
 function engine:P_F_without_background()
-  print('P_F_without_background ' .. self.i)
+  -- print('P_F_without_background ' .. self.i)
   local z = self.P_Fz
   local abs = self.zk_tmp1_real_PQstore
   local da = self.a_tmp_real_PQstore
   local fdev = self.a_tmp3_real_PQstore
   local err_fmag, renorm  = 0, 0
   local batch_start, batch_end, batch_size = table.unpack(self.old_batch_params['P_Fz'])
-  -- pprint(da)
-  -- pprint(fdev)
-  -- print('loop')
 
   -- local f = hdf5.open(self.save_path..self.i..'_abs.h5','w')
   for k=1,batch_size do
@@ -969,9 +965,9 @@ function engine:P_F_without_background()
     abs = abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
     abs:sqrt()
 
-    if self.plots < 10 and k % 3 == 0 then
+    if self.plots < 10 and k % 200 == 0 then
       local title = self.i..'_abs_'..self.plots
-      pprint(abs[1][1])
+      -- pprint(abs[1][1])
       local ab = abs[1][1]:clone():fftshift():float():log()
       local ak = self.a[k]:clone():fftshift():float():log()
       plt:plotcompare({ab,ak},{'abs_model','abs'},title,self.save_path ..title,self.show_plots)
@@ -996,21 +992,16 @@ function engine:P_F_without_background()
       else
         self.fm_support = self.fm_exp[k_all]
       end
-      -- [k_all]
-      -- self.P_Mod_renorm(z[k],self.fm_support,fdev:expandAs(z[k]),self.a_exp[k_all],abs:expandAs(z[k]),renorm)
       self.P_Mod(z[k],abs:expandAs(z[k]),self.a_exp[k_all])
 
       if self.fm_mask_radius(self.i) then
         z[k]:maskedFill(self.fm_mask,zt.tocomplex(0))
       end
 
-
-
       -- plt:plot(z[ind][1][1]:abs():float():log(),'z_out[k][1] after')
       self.mod_updates = self.mod_updates + 1
     end
     for o = 1, self.No do
-      -- print('P_F_without_background before ifft')
       z[k][o]:ifftBatched()
     end
   end
@@ -1075,8 +1066,8 @@ function engine:overlap_error(z_in,z_out)
   for k = 1, self.K, self.batch_size do
     self:maybe_copy_new_batch_P_Q(k)
     self:maybe_copy_new_batch_z(k)
-    res = res + result:add(z_in,-1,z_out):norm():sum()
-    res_denom = res_denom + result:norm(z_out):sum()
+    res = res + result:add(z_in,-1,z_out):normall(2)
+    res_denom = res_denom + z_out:normall(2)
   end
   return res/res_denom
 end
@@ -1085,16 +1076,13 @@ function engine:image_error()
   local norm = self.O_buffer_real
   local O_res = self.O_buffer
   if self.object_solution then
-    -- pprint(self.O[1])
-    -- pprint(self.object_solution)
     local c = self.O[1]:dot(self.object_solution)
     -- print(c)
     local phase_diff = c/zt.abs(c)
-    --:cmul(self.O_mask)
     -- print('phase difference: ',phase_diff)
     O_res:mul(self.O,phase_diff)
-    norm:normZ(O_res:add(-1,self.object_solution))--:cmul(self.O_mask))
-    local norm1 = norm:sum()/self.object_solution:norm():sum()
+    norm:normZ(O_res:add(-1,self.object_solution):cmul(self.O_mask))
+    local norm1 = norm:sum()/self.object_solution:normall(2)
     return norm1
   end
 end
@@ -1113,10 +1101,10 @@ function engine:probe_error()
     -- print('phase difference: ',phase_diff)
     P_corr:mul(self.P,phase_diff)
     norm:normZ(P_corr:add(-1,self.probe_solution))
-    local norm1 = norm:sum()/self.probe_solution:norm():sum()
+    local norm1 = norm:sum()/self.probe_solution:normall(2)
     P_corr:mul(self.P,phase_diff)
     norm:normZ(P_corr:add(self.probe_solution))
-    local norm2 = norm:sum()/self.probe_solution:norm():sum()
+    local norm2 = norm:sum()/self.probe_solution:normall(2)
     return math.min(norm1,norm2)
   end
 end

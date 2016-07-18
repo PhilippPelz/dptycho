@@ -12,6 +12,48 @@ from PIL import Image
 from mayavi import mlab
 plt.style.use('ggplot')
 
+def load_image(filename):
+    a = np.array(Image.open(filename))
+    cx = rgb2complex(a)
+
+def rgb2hsv(rgb):
+    """
+    Reverse to :any:`hsv2rgb`
+    """
+    eps = 1e-6
+    rgb=np.asarray(rgb).astype(float)
+    maxc = rgb.max(axis=-1)
+    minc = rgb.min(axis=-1)
+    v = maxc
+    s = (maxc-minc) / (maxc+eps)
+    s[maxc<=eps]=0.0
+    rc = (maxc-rgb[:,:,0]) / (maxc-minc+eps)
+    gc = (maxc-rgb[:,:,1]) / (maxc-minc+eps)
+    bc = (maxc-rgb[:,:,2]) / (maxc-minc+eps)
+
+    h =  4.0+gc-rc
+    maxgreen = (rgb[:,:,1] == maxc)
+    h[maxgreen] = 2.0+rc[maxgreen]-bc[maxgreen]
+    maxred = (rgb[:,:,0] == maxc)
+    h[maxred] = bc[maxred]-gc[maxred]
+    h[minc==maxc]=0.0
+    h = (h/6.0) % 1.0
+
+    return np.asarray((h, s, v))
+
+def hsv2complex(cin):
+    """
+    Reverse to :any:`complex2hsv`
+    """
+    h,s,v = cin
+    return v * np.exp(np.pi*2j*(h-.5)) /v.max()
+
+def rgb2complex(rgb):
+    """
+    Reverse to :any:`complex2rgb`
+    """
+    return hsv2complex(rgb2hsv(rgb))
+
 def plot(img, title='Image', savePath=None, cmap='hot', show=True):
     fig, ax = plt.subplots()
     cax = ax.imshow(img, interpolation='nearest', cmap=plt.cm.get_cmap(cmap))

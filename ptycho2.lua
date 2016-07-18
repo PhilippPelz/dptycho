@@ -13,9 +13,9 @@ local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 
 local path = '/home/philipp/drop/Public/'
-local file = 'moon_subpix.h5'
+local file = 'moon.h5'
 
-local engine = require 'dptycho.core.ptycho.DM_engine'
+local ptycho = require 'dptycho.core.ptycho'
 
 local par = {}
 par.i = 50
@@ -27,77 +27,72 @@ local f = hdf5.open(path..file,'r')
 local a = f:read('/data_unshift'):all():cuda()
 local fmask = a:clone():fill(1)
 local pos = f:read('/scan_info/positions_int'):all():int():add(1)
-local dpos = pos:clone():float():zero()
--- local dpos = f:read('/scan_info/dpos'):all():float()
+-- local dpos = pos:clone():float():zero()
+local dpos = f:read('/scan_info/dpos'):all():float()
 local dpos_solution  = dpos:clone()
--- dpos[{1,1}] = 5
-
--- print(dpos)
-
--- local dpos_solution = pos:clone():float():zero()
--- local dpos_solution = f:read('/scan_info/dpos'):all():float()
-
--- dpos:add(-1,pos:float())
 dpos:zero()
--- local errpos = stats.truncnorm({pos:size(1),pos:size(2)},-5,5,0,3)
--- print(errpos:max(),errpos:min())
--- dpos:add(errpos:float())
-
--- print(dpos)
--- dpos:zero()
--- local pos = f:read('/positions_int'):all():int()
--- local dx_spec = f:read('/scan_info/dx_spec')
--- local w = f:read('/fmask'):all():cuda()
--- local o_r = f:read('/or'):all():cuda()
--- local o_i = f:read('/oi'):all():cuda()
-local o_r = f:read('/o_r'):all():cuda()
-local o_i = f:read('/o_i'):all():cuda()
+local o_r = f:read('/or'):all():cuda()
+local o_i = f:read('/oi'):all():cuda()
 local pr = f:read('/pr'):all():cuda()
 local pi = f:read('/pi'):all():cuda()
 local probe = torch.ZCudaTensor.new(pr:size()):copyIm(pi):copyRe(pr)
 local object_solution = torch.ZCudaTensor.new(o_r:size()):copyIm(o_i):copyRe(o_r)
--- local dpos = pos:clone():float():zero()
--- plt:plot(object_solution:zfloat(),'object_solution')
--- plt:plot(probe:zfloat(),'probe')
+
 o_r = nil
 o_i = nil
 pr = nil
 pi = nil
 collectgarbage()
 
--- frames
-
 DEBUG = false
 
-local nmodes_probe = 1
-local nmodes_object = 1
--- pprint(a)
+par = ptycho.params.DEFAULT_PARAMS_TWF()
 
-par = {
-  nmodes_probe = 1,
-  nmodes_object = 1,
-  probe = nil,
-  plot_every = 15,
-  plot_start = 1,
-  beta = 0.9,
-  fourier_relax_factor = 5e-2,
-  position_refinement_start = 10,
-  position_refinement_every = 3,
-  probe_update_start = 2,
-  object_inertia = 1e-5,
-  probe_inertia = 1e-9,
-  P_Q_iterations = 10,
-  copy_solution = false,
-  background_correction_start = 30
-}
+par.Np = 1
+par.No = 1
+par.bg_solution = nil
+par.plot_every = 20
+par.plot_start = 1
+par.show_plots = true
+par.beta = 0.9
+par.fourier_relax_factor = 5e-2
+par.position_refinement_start = 50
+par.position_refinement_every = 3
+par.position_refinement_max_disp = 2
+par.fm_support_radius = function(it) return nil end
+par.fm_mask_radius = function(it) return nil end
+
+par.probe_update_start = 3
+par.probe_support = 0.5
+par.probe_regularization_amplitude = function(it) return nil end
+par.probe_inertia = 1e-9
+par.probe_lowpass_fwhm = function(it) return nil end
+
+par.object_highpass_fwhm = function(it) return nil end
+par.object_inertia = 1e-5
+
+par.P_Q_iterations = 10
+par.copy_probe = true
+par.copy_object = false
+par.margin = 0
+par.background_correction_start = 1e5
+
+par.save_interval = 50
+par.save_path = '/tmp/'
+par.save_raw_data = false
+
+par.O_denom_regul_factor_start = 1e-10
+par.O_denom_regul_factor_end = 1e-12
+
 par.pos = pos
 par.dpos = dpos
 par.dpos_solution = dpos_solution
 par.object_solution = object_solution
+par.probe_solution = probe
 par.a = a
 par.fmask = fmask
-par.probe = probe
+par.probe = nil
 
-local ngin = engine(par)
+local ngin = ptycho.DM_engine(par)
 -- ngin:generate_data('/home/philipp/drop/Public/moon_subpix2.h5')
 ngin:iterate(250)

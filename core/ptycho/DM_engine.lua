@@ -72,9 +72,12 @@ function engine:iterate(steps)
   self:initialize_plotting()
   local mod_error, overlap_error, image_error, probe_error, mod_updates = -1,-1,nil, nil, 0
   local probe_change_0, last_probe_change, probe_change = nil, 1e10, 0
+  u.printf('%-10s%-15s%-15s%-15s%-15s%-15s','iteration','e_mod','e_overlap','e_image','e_probe','modulus updates %')
+  print('----------------------------------------------------------------------------------------------')
   for i=1,steps do
     self:update_iteration_dependent_parameters(i)
     self:P_Q()
+
     self:maybe_refine_positions()
     overlap_error = self:overlap_error(self.z,self.P_Qz)
     mod_error, mod_updates = self:DM_update()
@@ -82,7 +85,7 @@ function engine:iterate(steps)
     image_error = self:image_error()
     probe_error = self:probe_error()
 
-    u.printf('iteration %-3d: e_mod = %-02.02g    e_overlap = %-02.02g    e_image = %-02.02g  e_probe = %-02.02g  %d/%d modulus updates',i,mod_error  or -1,overlap_error or -1 ,image_error or -1, probe_error or -1, mod_updates, self.K)
+    u.printf('%-10d%-15g%-15g%-15g%-15g%-15g',i,mod_error or -1,overlap_error or -1 ,image_error or -1, probe_error or -1, mod_updates/self.K*100.0)
 
     self:maybe_plot()
     self:maybe_save_data()

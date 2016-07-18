@@ -19,6 +19,7 @@ local _DEFAULT_PARAMS = {
   beta = 1,
   fourier_relax_factor = 5e-2,
   position_refinement_start = 1e5,
+  position_refinement_every = 3,
   position_refinement_max_disp = 2,
   fm_support_radius = function(it) return nil end,
   fm_mask_radius = function(it) return nil end,
