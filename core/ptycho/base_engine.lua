@@ -39,6 +39,7 @@ function engine:_init(par)
 
   if not paths.dirp(self.save_path) then
     paths.mkdir(self.save_path)
+    u.printf('Created path %s',self.save_path)
   end
 
   local min = par.pos:min(1)
@@ -68,7 +69,7 @@ function engine:_init(par)
 
   local object_size = par.pos:max(1):add(torch.IntTensor({par.a:size(2) + 2*self.margin,par.a:size(3)+ 2*self.margin})):squeeze()
 
-  pprint(object_size)
+  -- pprint(object_size)
   self.pos:add(self.margin)
   self.Nx = object_size[1] - 1
   self.Ny = object_size[2] - 1
@@ -146,9 +147,9 @@ function engine:_init(par)
   self.iterations = 1
 
   if self.copy_probe then
-    pprint(self.P)
-    pprint(self.probe_solution)
-    self.P[1][1]:copy(self.probe_solution)
+    -- pprint(self.P)
+    -- pprint(self.probe_solution)
+    self.P:copy(self.probe_solution)
   end
 
   if self.copy_object then
@@ -955,17 +956,22 @@ function engine:P_F_without_background()
   local batch_start, batch_end, batch_size = table.unpack(self.old_batch_params['P_Fz'])
 
   -- local f = hdf5.open(self.save_path..self.i..'_abs.h5','w')
+
   for k=1,batch_size do
     for o = 1, self.No do
       -- print('P_F_without_background before fft')
+      -- plt:plot(z[k][o][1]:zfloat(),'z[k][o]')
+      -- plt:plot(self.P[1][1]:zfloat(),'P')
+      -- plt:plot(self.O[1][1]:zfloat(),'O')
       z[k][o]:fftBatched()
+
     end
     local k_all = batch_start+k-1
     -- sum over probe and object modes - 1x1xMxM
     abs = abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
     abs:sqrt()
 
-    if self.plots < 10 and k % 200 == 0 then
+    if self.plots < 10 and k % 3 == 0 then
       local title = self.i..'_abs_'..self.plots
       -- pprint(abs[1][1])
       local ab = abs[1][1]:clone():fftshift():float():log()

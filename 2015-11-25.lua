@@ -11,7 +11,7 @@ local znn = require "dptycho.znn"
 local plt = plot()
 local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
-local engine = require 'dptycho.core.ptycho.DM_engine'
+local ptycho = require 'dptycho.core.ptycho'
 
 local path = '/home/philipp/experiments/2015-11-25 oxford/scan2/'
 local file = '2015-11-25_final_cropped_intpos.h5'
@@ -48,7 +48,7 @@ local pi = f:read('/pi'):all():cuda()
 local probe = torch.ZCudaTensor.new({1,NP,340,340})
 probe[1][1]:copyIm(pi):copyRe(pr):mul(1e4)
 f:close()
-probe[1][1]:copyIm(pi):copyRe(pr)
+-- probe[1][1]:copyIm(pi):copyRe(pr)
 -- plt:plot(probe[1][1]:zfloat())
 pr = nil
 pi = nil
@@ -60,28 +60,48 @@ collectgarbage()
 
 DEBUG = false
 
-par = {
-  Np = NP,
-  No = 1,
-  probe = nil,
-  plot_every = 1,
-  plot_start = 1,
-  show_plots = false,
-  beta = 0.8,
-  fourier_relax_factor = 15e-2,
-  position_refinement_start = 5,
-  position_refinement_every = 3,
-  position_refinement_max_disp = 3,
-  probe_update_start = 2,
-  probe_support = 0.8,
-  object_inertia = 1e-7,
-  probe_inertia = 3e-8,
-  P_Q_iterations = 10,
-  copy_solution = false,
-  background_correction_start = 100,
-  save_interval = 5,
-  save_path = path..'/hyperscan_lowres1/'
-}
+local par = ptycho.params.DEFAULT_PARAMS_TWF()
+
+par.Np = NP
+par.No = 1
+par.bg_solution = nil
+par.plot_every = 1
+par.plot_start = 1
+par.show_plots = true
+par.beta = 0.9
+par.fourier_relax_factor = 15e-2
+par.position_refinement_start = 50
+par.position_refinement_every = 3
+par.position_refinement_max_disp = 2
+
+par.probe_update_start = 3
+par.probe_support = 0.8
+par.probe_inertia = 1e-8
+
+par.object_inertia = 1e-7
+
+par.P_Q_iterations = 10
+par.copy_probe = true
+par.copy_object = false
+par.margin = 0
+par.background_correction_start = 1e5
+
+par.save_interval = 50
+par.save_path = path..'/hyperscan_lowres2/'
+par.save_raw_data = false
+
+par.O_denom_regul_factor_start = 1e-10
+par.O_denom_regul_factor_end = 1e-12
+
+par.pos = pos
+par.dpos = dpos
+par.dpos_solution = nil
+par.object_solution = nil
+par.probe_solution = probe
+par.a = a
+par.fmask = fmask
+par.probe = nil
+
 
 par.probe_lowpass_fwhm = function(it) return nil end--u.linear_schedule(6,250,130,130)
 par.object_highpass_fwhm = function(it) return nil end--u.linear_schedule(6,250,170,170)
@@ -98,6 +118,6 @@ par.fmask = fmask
 par.probe = probe
 
 
-local ngin = engine(par)
+local ngin = ptycho.DM_engine(par)
 -- ngin:generate_data('/home/philipp/drop/Public/moon_subpix2.h5')
 ngin:iterate(250)

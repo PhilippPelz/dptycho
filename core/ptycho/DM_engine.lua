@@ -76,8 +76,11 @@ function engine:iterate(steps)
   print('----------------------------------------------------------------------------------------------')
   for i=1,steps do
     self:update_iteration_dependent_parameters(i)
+    plt:plot(self.P[1][1]:zfloat(),'P 0')
+    plt:plot(self.O[1][1]:zfloat(),'O 0')
     self:P_Q()
-
+    plt:plot(self.P[1][1]:zfloat(),'P 1')
+    plt:plot(self.O[1][1]:zfloat(),'O 1')
     self:maybe_refine_positions()
     overlap_error = self:overlap_error(self.z,self.P_Qz)
     mod_error, mod_updates = self:DM_update()

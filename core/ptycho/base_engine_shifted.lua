@@ -325,6 +325,8 @@ function engine:merge_frames_internal(frames, mul_merge, merge_memory, merge_mem
     merge_memory:mul(self.object_inertia)
   end
 
+  -- plt:plot(mul_merge[1][1]:zfloat(),'mul_merge')
+
   local pos = torch.FloatTensor{1,1}
   u.printram('before merge_frames')
 
@@ -337,20 +339,23 @@ function engine:merge_frames_internal(frames, mul_merge, merge_memory, merge_mem
     mul_merge_shifted[1]:conj()
     -- plt:plot(mul_merge_shifted[1][1]:zfloat(),'mul_merge_shifted')
     -- plt:plot(z[ind][1][1]:zfloat(),'z[ind]')
-    product_shifted = product_shifted:cmul(z[ind],mul_merge_shifted:expandAs(z[ind])):sum(self.P_dim)
+    local mul_merge_shifted_expanded = mul_merge_shifted:expandAs(z[ind])
+    -- plt:plot(mul_merge_shifted_expanded[1][1]:zfloat(),'mul_merge_shifted_expanded')
+    product_shifted:cmul(z[ind],mul_merge_shifted_expanded):sum(2)
     -- plt:plot(product_shifted[1][1]:zfloat(),'product_shifted')
-    view:add(product_shifted)
+    -- pprint(view)
+    -- pprint(product_shifted)
+    view:add(product_shifted[1][1])
     -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory')
   end
   -- plt:plot(self.O_denom[1][1]:float():log(),'O_denom')
-  -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory')
+  plt:plot(merge_memory[1][1]:zfloat(),'merge_memory')
   if do_normalize_merge_memory then
     merge_memory:cmul(self.O_denom)
   end
-
   -- O_norm = self.O_tmp_PQstore:norm(merge_memory):sum()
   -- u.printf('object norm: %g',O_norm)
-  -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory 2')
+  plt:plot(merge_memory[1][1]:zfloat(),'merge_memory 2')
   u.printram('after merge_frames')
 end
 
@@ -372,9 +377,11 @@ function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
       mul_split_shifted[i]:shift(mul_split[i],pos)
     end
     local view_exp = view:expandAs(z[ind])
+    -- plt:plot(mul_split_shifted[1][1]:zfloat(),'mul_split_shifted')
+    -- plt:plot(view_exp[1][1]:zfloat(),'view_exp')
     z[ind]:cmul(mul_split_shifted,view_exp)
   end
-
+  plt:plot(z[1][1][1]:zfloat(),'z[ind]')
   -- plt:plot(z[1][1][1]:zfloat(),'z[1]')
   -- plt:plot(z[2][1][1]:zfloat(),'z[2]')
   -- plt:plot(z[3][1][1]:zfloat(),'z[3]')
@@ -566,14 +573,20 @@ function engine:calculateO_denom()
   -- 1 x 1 x M x M
   local norm_P_shifted = self.Pk_buffer_real
   -- 1 x 1 x M x M
-  local norm_P =  self.P_buffer_real:normZ(self.P):sum(self.P_dim)
+  self.P_buffer_real:normZ(self.P):sum(self.P_dim)
+  local norm_P = self.P_buffer_real[{{1},{1},{},{}}]
+  -- plt:plot(self.P_buffer_real[1][1]:float(),'self.P_buffer_real 0')
+  -- plt:plot(norm_P[1][1]:float(),'self.P_buffer_real 0')
   -- 1 x Np x M x M
   local tmp = self.P_buffer_real
   for k,view in ipairs(self.O_denom_views) do
     -- pprint(norm_P_shifted[1])
     -- pprint(norm_P[1])
+    -- plt:plot(norm_P[1][1]:float(),'norm_P_shifted 0')
     norm_P_shifted[1]:shift(norm_P[1],self.dpos[k])
+    -- plt:plot(norm_P_shifted[1][1]:float(),'norm_P_shifted')
     local np_exp = norm_P_shifted:expandAs(view)
+    -- plt:plot(np_exp[1][1]:float(),'np_exp')
     view:add(np_exp)
   end
 
@@ -581,7 +594,9 @@ function engine:calculateO_denom()
 
   local fact = self.O_denom_regul_factor_start-(self.i/self.iterations)*(self.O_denom_regul_factor_start-self.O_denom_regul_factor_end)
   local sigma = abs_max * abs_max * fact
+  plt:plot(self.O_denom[1][1]:float(),'self.O_denom')
   self.InvSigma(self.O_denom,sigma)
+  plt:plot(self.O_denom[1][1]:float(),'self.O_denom 2')
   self.O_mask = self.O_denom:lt(1e-3)
   u.printram('after calculateO_denom')
 end

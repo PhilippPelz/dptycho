@@ -35,7 +35,7 @@ local o_r = f:read('/or'):all():cuda()
 local o_i = f:read('/oi'):all():cuda()
 local pr = f:read('/pr'):all():cuda()
 local pi = f:read('/pi'):all():cuda()
-local probe = torch.ZCudaTensor.new(pr:size()):copyIm(pi):copyRe(pr)
+local probe = torch.ZCudaTensor.new(pr:size()):copyIm(pi):copyRe(pr):mul(1e6)
 local object_solution = torch.ZCudaTensor.new(o_r:size()):copyIm(o_i):copyRe(o_r)
 
 o_r = nil
@@ -72,7 +72,7 @@ par.object_highpass_fwhm = function(it) return nil end
 par.object_inertia = 1e-5
 
 par.P_Q_iterations = 10
-par.copy_probe = true
+par.copy_probe = false
 par.copy_object = false
 par.margin = 0
 par.background_correction_start = 1e5
