@@ -67,6 +67,8 @@ function engine:_init(par)
   self.P_dim = 2
 
   local object_size = par.pos:max(1):add(torch.IntTensor({par.a:size(2) + 2*self.margin,par.a:size(3)+ 2*self.margin})):squeeze()
+
+  pprint(object_size)
   self.pos:add(self.margin)
   self.Nx = object_size[1] - 1
   self.Ny = object_size[2] - 1
@@ -95,8 +97,14 @@ function engine:_init(par)
     local startx, starty = 1,1
     local endx = self.Nx-2*self.margin
     local endy = self.Ny-2*self.margin
-    local slice = {{startx,endx},{starty,endy}}
-
+    local slice = nil
+    if par.object_solution:dim() == 2 then
+      slice = {{startx,endx},{starty,endy}}
+    else
+      slice = {{},{},{startx,endx},{starty,endy}}
+    end
+    pprint(par.object_solution)
+    pprint(slice)
     local sv = par.object_solution[slice]:clone()
     pprint(sv)
     self.object_solution:zero()
@@ -386,8 +394,6 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
   local frames_memory = 0
   local Fsize_bytes ,Zsize_bytes = 4,8
-
-  print(self.P:dim())
 
   self.O = torch.ZCudaTensor.new(No,1,Nx,Ny)
   self.O_denom = torch.CudaTensor(1,1,Nx,Ny):expandAs(self.O)
@@ -965,6 +971,7 @@ function engine:P_F_without_background()
 
     if self.plots < 10 and k % 3 == 0 then
       local title = self.i..'_abs_'..self.plots
+      pprint(abs[1][1])
       local ab = abs[1][1]:clone():fftshift():float():log()
       local ak = self.a[k]:clone():fftshift():float():log()
       plt:plotcompare({ab,ak},{'abs_model','abs'},title,self.save_path ..title,self.show_plots)

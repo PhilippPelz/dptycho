@@ -13,7 +13,7 @@ local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 
 local path = '/home/philipp/drop/Public/'
-local file = 'moon_subpix2.h5'
+local file = 'moon_subpix.h5'
 
 local engine = require 'dptycho.core.ptycho.DM_engine'
 
@@ -28,7 +28,7 @@ local a = f:read('/data_unshift'):all():cuda()
 local fmask = a:clone():fill(1)
 local pos = f:read('/scan_info/positions_int'):all():int():add(1)
 local dpos = pos:clone():float():zero()
-local dpos = f:read('/scan_info/dpos'):all():float()
+-- local dpos = f:read('/scan_info/dpos'):all():float()
 local dpos_solution  = dpos:clone()
 -- dpos[{1,1}] = 5
 
