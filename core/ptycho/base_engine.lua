@@ -110,10 +110,10 @@ function engine:_init(par)
     else
       slice = {{},{},{startx,endx},{starty,endy}}
     end
-    pprint(par.object_solution)
-    pprint(slice)
+    -- pprint(par.object_solution)
+    -- pprint(slice)
     local sv = par.object_solution[slice]:clone()
-    pprint(sv)
+    -- pprint(sv)
     self.object_solution:zero()
 
     self.object_solution[{{},{},{startx+self.margin,endx+self.margin},{starty+self.margin,endy+self.margin}}]:copy(sv)
@@ -146,18 +146,13 @@ function engine:_init(par)
   self.j = 0
   self.iterations = 1
 
-  if self.copy_probe then
-    -- pprint(self.P)
-    -- pprint(self.probe_solution)
-    self.P:copy(self.probe_solution)
+  if not par.probe then
+    self.P:zero()
+    self.P[1]:add(300+0i)
   end
 
-  if self.copy_object then
-    self.O[1][1]:copy(self.object_solution)
-  end
   self.norm_a = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum()
-  local P_fluence = self.P_buffer_real:normZ(self.P):sum()
-
+  
   if self.probe_support then
     local probe_size = self.P:size():totable()
     self.support = znn.SupportMask(probe_size,probe_size[#probe_size]*self.probe_support)
@@ -197,6 +192,17 @@ function engine:_init(par)
   self:update_views()
 
   collectgarbage()
+end
+
+function engine:before_iterate()
+  if self.copy_probe then
+    -- pprint(self.P)
+    -- pprint(self.probe_solution)
+    self.P:copy(self.probe_solution)
+  end
+  if self.copy_object then
+    self.O[1][1]:copy(self.object_solution)
+  end
 end
 
 function engine:initialize_views()
@@ -300,32 +306,50 @@ function engine:maybe_copy_new_batch(z,z_h,key,k)
 end
 
 function engine:prepare_plot_data()
-  self.O_hZ:copy(self.O)
+  -- self.O_hZ:copy(self.O)
+  -- self.P_hZ:copy(self.P)
+  self.O_buffer:cmul(self.O,self.O_mask)
   self.P_hZ:copy(self.P)
+  self.O_hZ:copy(self.O_buffer)
   self.plot_pos:add(self.pos:float(),self.dpos)
   if self.bg then
     self.bg_h:copy(self.bg)
   end
+  self.plot_data = {
+    self.O_hZ:abs(),
+    self.O_hZ:arg(),
+    self.P_hZ:abs(),
+    self.P_hZ:arg(),
+    self.bg_h,
+    self.plot_pos,
+    self:get_errors()
+    }
+end
+
+function engine:get_errors()
+  return {self.mod_errors, self.overlap_errors}
+end
+
+function engine:get_error_labels()
+  return {'$\frac{||[I-P_F]z||}{||a||}$','$\frac{||[I-P_Q]z||}{||a||}$'}
 end
 
 function engine:maybe_plot()
   if self.do_plot then
     -- :cmul(self.O_mask)
-    self.O_buffer:cmul(self.O,self.O_mask)
-    self.P_hZ:copy(self.P)
-    self.O_hZ:copy(self.O_buffer)
-    for n = 1, self.No do
-      local title = self.i..'_O_'..n
-      plt:plot(self.O_hZ[n][1],title,self.save_path ..title,self.show_plots,{'hot','hsv'})
-    end
-    for n = 1, self.Np do
-      local title = self.i..'_P_'..n
-      plt:plot(self.P_hZ[1][n],title,self.save_path ..title,self.show_plots,{'hot','hsv'})
-      -- ,self.show_plots
-    end
+
+    -- for n = 1, self.No do
+    --   local title = self.i..'_O_'..n
+    --   plt:plot(self.O_hZ[n][1],title,self.save_path ..title,self.show_plots,{'hot','hsv'})
+    -- end
+    -- for n = 1, self.Np do
+    --   local title = self.i..'_P_'..n
+    --   plt:plot(self.P_hZ[1][n],title,self.save_path ..title,self.show_plots,{'hot','hsv'})
+    --   -- ,self.show_plots
+    -- end
     -- plt:plot(self.bg:float(),'bg')
-    -- self:prepare_plot_data()
-    -- plt:update_reconstruction_plot(self.plot_data)
+    self:prepare_plot_data()
+    plt:update_reconstruction_plot(self.plot_data)
   end
 end
 
@@ -352,6 +376,8 @@ function engine:initialize_plotting()
   -- self.P_h = torch.FloatTensor(P_hZ_store_real,1,torch.LongStorage(ps))
   self.mod_errors = torch.FloatTensor(self.iterations)
   self.overlap_errors = torch.FloatTensor(self.iterations)
+  self.image_error = torch.FloatTensor(self.iterations)
+  self.L_error = torch.FloatTensor(self.iterations)
   self.plot_pos = self.dpos:clone()
 
   self:prepare_plot_data()
@@ -359,17 +385,7 @@ function engine:initialize_plotting()
   -- print(self.P_h:max(),self.P_h:min())
   -- print(self.O_h:max(),self.O_h:min())
 
-  -- self.plot_data = {
-  --   self.O_hZ:abs(),
-  --   self.O_hZ:arg(),
-  --   self.P_hZ:re(),
-  --   self.P_hZ:im(),
-  --   self.bg_h,
-  --   self.plot_pos,
-  --   self.mod_errors,
-  --   self.overlap_errors
-  -- }
-  -- plt:init_reconstruction_plot(self.plot_data)
+  plt:init_reconstruction_plot(self.plot_data,self:get_error_labels())
   -- print('here')
   u.printram('after initialize_plotting')
 end
@@ -665,43 +681,50 @@ function engine:save_data(filename)
   f:close()
 end
 
-function engine:generate_data(filename,poisson_noise)
-  self:update_views()
-  self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
-
+function engine:generate_data(filename,poisson_noise,save_data)
+  u.printf('Generating diffraction data:')
   local a = self.a_buffer1
   a:zero()
 
   if poisson_noise then
-    u.printf('poisson noise  : %g',poisson_noise)
-
-    local O_mean = self.O_buffer_real:absZ(self.O):mean()
-    local P_norm2 = self.P_buffer_real:normZ(self.P):sum()
-    u.printf('O mean: %g',O_mean)
-    u.printf('P_norm2: %g',P_norm2)
-    local factor = poisson_noise/P_norm2/O_mean
-    u.printf('factor: %g',factor)
+    local P_norm = self.P:normall(2)^2
+    u.printf('poisson noise                 : %g',poisson_noise)
+    local O_mean_transparency = self.O:abs():mean() - 0.2
+    local factor = math.sqrt(poisson_noise / P_norm / O_mean_transparency)
+    u.printf('mean object transparency      : %g',O_mean_transparency)
+    u.printf('multiply probe with           : %g',factor)
     self.P:mul(factor)
-    self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
-    local P_norm2 = self.P_buffer_real:normZ(self.P):sum()
-    u.printf('P_norm2: %g',P_norm2)
+    -- local P_norm = self.P:normall(2)^2
+    -- u.printf('P_norm             : %g',P_norm)
   end
+
+  self:update_views()
+  self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
 
   for _, params1 in ipairs(self.batch_params) do
     local batch_start1, batch_end1, batch_size1 = table.unpack(params1)
     self:maybe_copy_new_batch_z(batch_start1)
-    local first = true
+    local first = false
     for k = 1, batch_size1 do
       local k_full = k + batch_start1 - 1
-      print(k_full)
+
       for o = 1,self.No do
-        self.z[k][o]:fftBatched()
-        -- self.z[k][o]:mul(1/self.z[k][o]:nElement())
+        -- plt:plotcompare({self.z[k][1]:re():float(),self.z[k][1]:im():float()},'self.z[k]')
+        -- if first then
+        --   plt:plot(self.z[k][o][1]:abs():log():float(),'self.z[k][o][1]')
+        -- end
+        -- local sum1 = self.z[k][o]:abs():pow(2):sum()
+        local abs = self.z[k][o]:fftBatched():abs():div(math.sqrt(self.z[k][o][1]:nElement()))
+        -- local sum2 = abs:clone():pow(2):sum()
+        -- u.printf('I2/I1 = %g, I2 = %g',sum2/sum1,sum2)
+
         if first then
-          plt:plot(self.z[k][o][1]:abs():float(),'self.z[k][o][1] fft')
+          plt:plot(self.z[k][o][1]:abs():log():float(),'self.z[k][o][1] fft')
         end
-        self.P_buffer_real:normZ(self.z[k][o]:sum(1))
-        a[k_full]:add(self.P_buffer_real:sqrt())
+        -- sum over probes
+        abs:sum(1)
+        abs[1]:pow(2)
+        a[k_full]:add(abs[1])
       end
 
       if self.bg_solution then
@@ -712,9 +735,14 @@ function engine:generate_data(filename,poisson_noise)
       end
 
       if poisson_noise then
-        local a_h = a[k_full]:float()
 
+        -- local I_total = a[k_full]:sum()
+        -- u.printf('I_total[%d] = %g',k_full,I_total)
+        --:mul(poisson_noise/I_total)
+        local a_h = a[k_full]:float()
+        a_h[a_h:lt(0)] = 0
         local a_h_noisy = u.stats.poisson(a_h)
+
         -- u.printf('%g',a_h_noisy:sum())
         a[k_full]:copy(a_h_noisy)
       end
@@ -734,14 +762,18 @@ function engine:generate_data(filename,poisson_noise)
   local I_max = I:sum(2):sum(3):max()
   local I_total = I:sum()
   local I_mean = I_total/self.a:size(1)
+  local P_norm = self.P:normall(2)^2
 
+  u.printf('probe intensity          : %g',P_norm)
   u.printf('total counts in this scan: %g',I_total)
   u.printf('max counts in pattern    : %g',I_max)
   u.printf('mean counts              : %g',I_mean)
 
-  plt:plot(self.P[1][1]:re():float(),'P')
-  plt:plot(self.O[1][1]:re():float(),'O')
-  self:save_data(filename)
+  -- plt:plot(self.P[1][1]:re():float(),'P')
+  -- plt:plot(self.O[1][1]:re():float(),'O')
+  if save_data then
+    self:save_data(filename)
+  end
 end
 
 -- recalculate (Q*Q)^-1
@@ -968,11 +1000,10 @@ function engine:P_F_without_background()
     end
     local k_all = batch_start+k-1
     -- sum over probe and object modes - 1x1xMxM
-    abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
-    -- plt:plot(abs[1][1]:float(),'abs')
+    abs = abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
     abs:sqrt()
-    -- plt:plot(abs[1][1]:float(),'abs')
-    -- if self.plots < 10 and k % 100 == 0 then
+
+    -- if self.plots < 10 and k % 3 == 0 then
     --   local title = self.i..'_abs_'..self.plots
     --   -- pprint(abs[1][1])
     --   local ab = abs[1][1]:clone():fftshift():float():log()
@@ -1073,11 +1104,8 @@ function engine:overlap_error(z_in,z_out)
   for k = 1, self.K, self.batch_size do
     self:maybe_copy_new_batch_P_Q(k)
     self:maybe_copy_new_batch_z(k)
-    local ndiff = result:add(z_in,-1,z_out):normall(2)
-    res = res + ndiff
-    local na = z_out:normall(2)
-    res_denom = res_denom + na
-    -- u.printf('z_out:normall: %g, ||z_in - z_out||_2 = %g',na,ndiff)
+    res = res + result:add(z_in,-1,z_out):normall(2)
+    res_denom = res_denom + z_out:normall(2)
   end
   return res/res_denom
 end
@@ -1091,8 +1119,9 @@ function engine:image_error()
     local phase_diff = c/zt.abs(c)
     -- print('phase difference: ',phase_diff)
     O_res:mul(self.O,phase_diff)
-    norm:normZ(O_res:add(-1,self.object_solution):cmul(self.O_mask))
-    local norm1 = norm:sum()/self.object_solution:normall(2)
+
+    local O_res_norm2 = O_res:add(-1,self.object_solution):cmul(self.O_mask):normall(2)
+    local norm1 = O_res_norm2/self.object_solution:normall(2)
     return norm1
   end
 end

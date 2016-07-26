@@ -380,6 +380,7 @@ function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
     -- plt:plot(mul_split_shifted[1][1]:zfloat(),'mul_split_shifted')
     -- plt:plot(view_exp[1][1]:zfloat(),'view_exp')
     z[ind]:cmul(mul_split_shifted,view_exp)
+    -- u.printf('||z|| = %g',z[ind]:normall(2)^2)
   end
   -- plt:plot(z[1][1][1]:zfloat(),'z[ind]')
   -- plt:plot(z[1][1][1]:zfloat(),'z[1]')
@@ -577,7 +578,8 @@ function engine:calculateO_denom()
   local norm_P = self.P_buffer_real[{{1},{1},{},{}}]
   -- plt:plot(self.P_buffer_real[1][1]:float(),'self.P_buffer_real 0')
   -- plt:plot(norm_P[1][1]:float(),'self.P_buffer_real 0')
-
+  -- 1 x Np x M x M
+  local tmp = self.P_buffer_real
   for k,view in ipairs(self.O_denom_views) do
     -- pprint(norm_P_shifted[1])
     -- pprint(norm_P[1])
@@ -588,20 +590,51 @@ function engine:calculateO_denom()
     -- plt:plot(np_exp[1][1]:float(),'np_exp')
     view:add(np_exp)
   end
-  -- 1 x Np x M x M
-  self.P_buffer_real:normZ(self.P):sum(self.P_dim):sqrt()
-  local abs_max = self.P_buffer_real[1][1]:max()
-  -- plt:plot(self.P_buffer_real[1][1]:float(),'self.P_buffer_real')
+  local abs_max = tmp:absZ(self.P):max()
   local fact = self.O_denom_regul_factor_start-(self.i/self.iterations)*(self.O_denom_regul_factor_start-self.O_denom_regul_factor_end)
-  local sigma = abs_max * abs_max * fact
-  if sigma == math.huge then sigma = 1e3 end
-  -- u.printf('sigma : %g',sigma)
-  -- u.printf('abs_max : %g',abs_max)
+  local sigma =  abs_max * abs_max * fact
+  -- u.printf('sigma, fact, abs = %g, %g, %g',sigma,fact,abs_max)
   -- plt:plot(self.O_denom[1][1]:float(),'self.O_denom')
   self.InvSigma(self.O_denom,sigma)
   -- plt:plot(self.O_denom[1][1]:float(),'self.O_denom 2')
   self.O_mask = self.O_denom:lt(1e-3)
+  -- plt:plot(self.O_mask[1][1]:float(),'self.O_mask 2')
   u.printram('after calculateO_denom')
+end
+
+-- recalculate (Q*Q)^-1 and seave it to self.O_denom
+-- buffers:
+--  2 x sizeof(P) el R
+function engine:calculate_pixels_with_sufficient_measurements()
+  if self.object_inertia then
+    self.O_denom:fill(self.object_inertia)
+  else
+    self.O_denom:fill(0)
+  end
+  -- 1 x 1 x M x M
+  local norm_P_shifted = self.Pk_buffer_real
+  -- 1 x 1 x M x M
+  local gt = self.P_buffer_real:normZ(self.P):div(self.P_buffer_real:max()):gt(1e-2)
+  local norm_P = gt[{{1},{1},{},{}}]
+  -- plt:plot(gt[1][1]:float(),'self.P_buffer_real 0')
+  -- plt:plot(norm_P[1][1]:float(),'self.P_buffer_real 0')
+  -- 1 x Np x M x M
+  local tmp = self.P_buffer_real
+  for k,view in ipairs(self.O_denom_views) do
+    -- pprint(norm_P_shifted[1])
+    -- pprint(norm_P[1])
+    -- plt:plot(norm_P[1][1]:float(),'norm_P_shifted 0')
+    norm_P_shifted[1]:shift(norm_P[1],self.dpos[k])
+    -- plt:plot(norm_P_shifted[1][1]:float(),'norm_P_shifted')
+    local np_exp = norm_P_shifted:expandAs(view)
+    -- plt:plot(np_exp[1][1]:float(),'np_exp')
+    view:add(np_exp)
+  end
+  -- plt:plot(self.O_denom[1][1]:float(),'self.O_denom')
+  local ge4 = self.O_denom:ge(4)
+  -- plt:plot(ge4[1][1]:float(),'self.O_denom:ge(4)  ')
+  u.printram('after calculateO_denom')
+  return ge4:sum()
 end
 
 return engine

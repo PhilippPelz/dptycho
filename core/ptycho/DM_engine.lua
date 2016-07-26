@@ -9,8 +9,11 @@ function engine:_init(par)
   u.printf('========================== DM  engine ==========================')
   super._init(self,par)
   self:update_views()
+  print('here')
   self:calculateO_denom()
+  print('here')
   self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
+  print('here')
 end
 
 function engine:DM_update()
@@ -69,6 +72,7 @@ function engine:DM_update_with_background()
 end
 
 function engine:iterate(steps)
+  self:before_iterate()
   self.iterations = steps
   self:initialize_plotting()
   local mod_error, overlap_error, image_error, probe_error, mod_updates = -1,-1,nil, nil, 0

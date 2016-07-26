@@ -22,16 +22,16 @@ c.init_reconstruction_plot = argcheck{
             {name="self", type='table'},
             {name="data", type='table'},
             {name="save_file_path", default='~/', type='string'},
+            {name="error_labels", default={'$\frac{||[I-P_F]z||}{||a||}$', '$\frac{||[I-P_Q]z||}{||a||}$'}, type='table'},
             call =
-                function (self,data,save_file_path)
+                function (self,data,save_file_path,error_labels)
                   -- py.exec(self.plotcode)
                   py.exec(
 [=[
 #test_cx_plot(data[0])
-p = ReconPlot(data,save_file_path)
-p.start_plotting(data)
+p = ReconPlot(data, interactive = False, suptitle=sup_title,save_file_path, interp='nearest', error_labels)
 ]=]
-                  ,{data = data,save_file_path=save_file_path})
+                  ,{data = data,save_file_path=save_file_path,error_labels=error_labels})
                 end
             }
 
@@ -44,6 +44,7 @@ c.update_reconstruction_plot = argcheck{
                 function (self, data)
                   print('update')
                   py.exec('p.update(data)',{data = data})
+                  py.exec('p.draw()')
                 end
             }
 
