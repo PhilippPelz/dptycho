@@ -8,8 +8,8 @@ local optim = require 'optim'
 local TWF_engine, super = classic.class(...,base_engine)
 
 function TWF_engine:_init(par)
+  u.printf('========================== TWF engine ==========================')
   super._init(self,par)
-
   self.L = znn.TruncatedPoissonLikelihood(self.twf.a_h,self.twf.a_lb,self.twf.a_ub, self.z, self.fm, self.a_buffer1, self.a_buffer2, self.z1_buffer_real, self.K, self.No, self.Np, self.M, self.Nx, self.Ny)
   self.R = znn.SpatialSmoothnessCriterion(self.O_tmp,self.dR_dO,self.rescale_regul_amplitude*self.twf.nu)
   -- self.P_optim = self.P_optim(opfunc, x, config, state)

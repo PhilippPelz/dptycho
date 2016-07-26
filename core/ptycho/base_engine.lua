@@ -674,6 +674,17 @@ function engine:generate_data(filename,poisson_noise)
 
   if poisson_noise then
     u.printf('poisson noise  : %g',poisson_noise)
+
+    local O_mean = self.O_buffer_real:absZ(self.O):mean()
+    local P_norm2 = self.P_buffer_real:normZ(self.P):sum()
+    u.printf('O mean: %g',O_mean)
+    u.printf('P_norm2: %g',P_norm2)
+    local factor = poisson_noise/P_norm2/O_mean
+    u.printf('factor: %g',factor)
+    self.P:mul(factor)
+    self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
+    local P_norm2 = self.P_buffer_real:normZ(self.P):sum()
+    u.printf('P_norm2: %g',P_norm2)
   end
 
   for _, params1 in ipairs(self.batch_params) do
@@ -684,19 +695,13 @@ function engine:generate_data(filename,poisson_noise)
       local k_full = k + batch_start1 - 1
       print(k_full)
       for o = 1,self.No do
-        -- plt:plotcompare({self.z[k][1]:re():float(),self.z[k][1]:im():float()},'self.z[k]')
-        -- if first then
-        --   plt:plot(self.z[k][o][1]:abs():log():float(),'self.z[k][o][1]')
-        -- end
-
-        local abs = self.z[k][o]:fftBatched():sum(1)
-
+        self.z[k][o]:fftBatched()
+        -- self.z[k][o]:mul(1/self.z[k][o]:nElement())
         if first then
-          plt:plot(self.z[k][o][1]:abs():log():float(),'self.z[k][o][1] fft')
+          plt:plot(self.z[k][o][1]:abs():float(),'self.z[k][o][1] fft')
         end
-        abs = abs[1]:abs()
-        abs:pow(2)
-        a[k_full]:add(abs)
+        self.P_buffer_real:normZ(self.z[k][o]:sum(1))
+        a[k_full]:add(self.P_buffer_real:sqrt())
       end
 
       if self.bg_solution then
@@ -707,14 +712,9 @@ function engine:generate_data(filename,poisson_noise)
       end
 
       if poisson_noise then
-
-        local I_total = a[k_full]:sum()
-        -- u.printf('%g',I_total)
-
-        local a_h = a[k_full]:mul(poisson_noise/I_total):float()
+        local a_h = a[k_full]:float()
 
         local a_h_noisy = u.stats.poisson(a_h)
-
         -- u.printf('%g',a_h_noisy:sum())
         a[k_full]:copy(a_h_noisy)
       end
@@ -968,20 +968,21 @@ function engine:P_F_without_background()
     end
     local k_all = batch_start+k-1
     -- sum over probe and object modes - 1x1xMxM
-    abs = abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
+    abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
+    -- plt:plot(abs[1][1]:float(),'abs')
     abs:sqrt()
-
-    if self.plots < 10 and k % 3 == 0 then
-      local title = self.i..'_abs_'..self.plots
-      -- pprint(abs[1][1])
-      local ab = abs[1][1]:clone():fftshift():float():log()
-      local ak = self.a[k]:clone():fftshift():float():log()
-      plt:plotcompare({ab,ak},{'abs_model','abs'},title,self.save_path ..title,self.show_plots)
-      -- f:write('/ab_'..plots,ab)
-      -- f:write('/ak_'..plots,ak)
-
-      self.plots = self.plots + 1
-    end
+    -- plt:plot(abs[1][1]:float(),'abs')
+    -- if self.plots < 10 and k % 100 == 0 then
+    --   local title = self.i..'_abs_'..self.plots
+    --   -- pprint(abs[1][1])
+    --   local ab = abs[1][1]:clone():fftshift():float():log()
+    --   local ak = self.a[k]:clone():fftshift():float():log()
+    --   plt:plotcompare({ab,ak},{'abs_model','abs'},title,self.save_path ..title,self.show_plots)
+    --   -- f:write('/ab_'..plots,ab)
+    --   -- f:write('/ak_'..plots,ak)
+    --
+    --   self.plots = self.plots + 1
+    -- end
 
     fdev[1][1]:add(abs[1][1],-1,self.a[k_all])
     -- plt:plot(fdev[1][1]:float():log(),'fdev')
@@ -1072,8 +1073,11 @@ function engine:overlap_error(z_in,z_out)
   for k = 1, self.K, self.batch_size do
     self:maybe_copy_new_batch_P_Q(k)
     self:maybe_copy_new_batch_z(k)
-    res = res + result:add(z_in,-1,z_out):normall(2)
-    res_denom = res_denom + z_out:normall(2)
+    local ndiff = result:add(z_in,-1,z_out):normall(2)
+    res = res + ndiff
+    local na = z_out:normall(2)
+    res_denom = res_denom + na
+    -- u.printf('z_out:normall: %g, ||z_in - z_out||_2 = %g',na,ndiff)
   end
   return res/res_denom
 end

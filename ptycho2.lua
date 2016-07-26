@@ -56,28 +56,28 @@ par.plot_start = 1
 par.show_plots = true
 par.beta = 0.9
 par.fourier_relax_factor = 5e-2
-par.position_refinement_start = 50
-par.position_refinement_every = 3
+par.position_refinement_start = 15
+par.position_refinement_every = 5
 par.position_refinement_max_disp = 2
 par.fm_support_radius = function(it) return nil end
 par.fm_mask_radius = function(it) return nil end
 
-par.probe_update_start = 3
-par.probe_support = 0.5
+par.probe_update_start = 5
+par.probe_support = 0.4
 par.probe_regularization_amplitude = function(it) return nil end
-par.probe_inertia = 1e-9
+par.probe_inertia = 1e-3
 par.probe_lowpass_fwhm = function(it) return nil end
 
 par.object_highpass_fwhm = function(it) return nil end
 par.object_inertia = 1e-5
 
-par.P_Q_iterations = 10
+par.P_Q_iterations = 5
 par.copy_probe = false
 par.copy_object = false
 par.margin = 0
 par.background_correction_start = 1e5
 
-par.save_interval = 50
+par.save_interval = 100
 par.save_path = '/tmp/'
 par.save_raw_data = false
 

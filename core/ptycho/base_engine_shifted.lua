@@ -349,13 +349,13 @@ function engine:merge_frames_internal(frames, mul_merge, merge_memory, merge_mem
     -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory')
   end
   -- plt:plot(self.O_denom[1][1]:float():log(),'O_denom')
-  plt:plot(merge_memory[1][1]:zfloat(),'merge_memory')
+  -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory')
   if do_normalize_merge_memory then
     merge_memory:cmul(self.O_denom)
   end
   -- O_norm = self.O_tmp_PQstore:norm(merge_memory):sum()
   -- u.printf('object norm: %g',O_norm)
-  plt:plot(merge_memory[1][1]:zfloat(),'merge_memory 2')
+  -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory 2')
   u.printram('after merge_frames')
 end
 
@@ -381,7 +381,7 @@ function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
     -- plt:plot(view_exp[1][1]:zfloat(),'view_exp')
     z[ind]:cmul(mul_split_shifted,view_exp)
   end
-  plt:plot(z[1][1][1]:zfloat(),'z[ind]')
+  -- plt:plot(z[1][1][1]:zfloat(),'z[ind]')
   -- plt:plot(z[1][1][1]:zfloat(),'z[1]')
   -- plt:plot(z[2][1][1]:zfloat(),'z[2]')
   -- plt:plot(z[3][1][1]:zfloat(),'z[3]')
@@ -577,8 +577,7 @@ function engine:calculateO_denom()
   local norm_P = self.P_buffer_real[{{1},{1},{},{}}]
   -- plt:plot(self.P_buffer_real[1][1]:float(),'self.P_buffer_real 0')
   -- plt:plot(norm_P[1][1]:float(),'self.P_buffer_real 0')
-  -- 1 x Np x M x M
-  local tmp = self.P_buffer_real
+
   for k,view in ipairs(self.O_denom_views) do
     -- pprint(norm_P_shifted[1])
     -- pprint(norm_P[1])
@@ -589,14 +588,18 @@ function engine:calculateO_denom()
     -- plt:plot(np_exp[1][1]:float(),'np_exp')
     view:add(np_exp)
   end
-
-  local abs_max = tmp:absZ(self.P):max()
-
+  -- 1 x Np x M x M
+  self.P_buffer_real:normZ(self.P):sum(self.P_dim):sqrt()
+  local abs_max = self.P_buffer_real[1][1]:max()
+  -- plt:plot(self.P_buffer_real[1][1]:float(),'self.P_buffer_real')
   local fact = self.O_denom_regul_factor_start-(self.i/self.iterations)*(self.O_denom_regul_factor_start-self.O_denom_regul_factor_end)
   local sigma = abs_max * abs_max * fact
-  plt:plot(self.O_denom[1][1]:float(),'self.O_denom')
+  if sigma == math.huge then sigma = 1e3 end
+  -- u.printf('sigma : %g',sigma)
+  -- u.printf('abs_max : %g',abs_max)
+  -- plt:plot(self.O_denom[1][1]:float(),'self.O_denom')
   self.InvSigma(self.O_denom,sigma)
-  plt:plot(self.O_denom[1][1]:float(),'self.O_denom 2')
+  -- plt:plot(self.O_denom[1][1]:float(),'self.O_denom 2')
   self.O_mask = self.O_denom:lt(1e-3)
   u.printram('after calculateO_denom')
 end
