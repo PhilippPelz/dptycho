@@ -204,6 +204,7 @@ function TWF_engine:mu(it)
 end
 
 function TWF_engine:iterate(steps)
+  engine:before_iterate()
   u.printf('%-10s%-15s%-15s%-13s%-15s%-15s%-15s%-15s','iteration','L','R','R (%)','||dL/dO||','||dL/dP||','mu', 'e_img')
   for i = 1, steps do
     self:update_iteration_dependent_parameters(i)

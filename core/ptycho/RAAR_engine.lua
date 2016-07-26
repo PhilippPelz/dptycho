@@ -42,6 +42,7 @@ function engine:RAAR_update()
 end
 
 function engine:iterate(steps)
+  engine:before_iterate()
   local mod_error, overlap_error, image_error
   printMinMax(self.solution,'solution      ')
   for i=1,steps do

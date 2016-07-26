@@ -107,197 +107,7 @@ def plot3d(arr,title,vmin = 0,vmax = 0.7):
     mlab.colorbar(title=title, orientation='vertical', nb_labels=7)
     mlab.show()
 
-if matplotlib.get_backend().lower().startswith('qt4'):
-    mpl_backend = 'qt'
-    from PyQt4 import QtGui
-    gui_yield_call = QtGui.qApp.processEvents
-elif matplotlib.get_backend().lower().startswith('wx'):
-    mpl_backend = 'wx'
-    import wx
-    gui_yield_call = wx.Yield
-elif matplotlib.get_backend().lower().startswith('gtk'):
-    mpl_backend = 'gtk'
-    import gtk
-    def gui_yield_call():
-        gtk.gdk.threads_enter()
-        while gtk.events_pending():
-            gtk.main_iteration(True)
-        gtk.gdk.flush()
-        gtk.gdk.threads_leave()
-else:
-    mpl_backend = None
-if mpl_backend is not None:
-    class _Pause(threading.Thread):
-        def __init__(self, timeout, message):
-            self.message = message
-            self.timeout = timeout
-            self.ct = True
-            threading.Thread.__init__(self)
-        def run(self):
-            sys.stdout.flush()
-            if self.timeout < 0:
-                raw_input(self.message)
-            else:
-                if self.message is not None:
-                    print self.message
-                time.sleep(self.timeout)
-            self.ct = False
-
-    def pause(timeout=-1, message=None):
-        """\
-        Pause the execution of a script while leaving matplotlib figures
-        responsive.
-        *Gui aware*
-
-        Parameters
-        ----------
-        timeout : float, optional
-            By default, execution is resumed only after hitting return.
-            If timeout >= 0, the execution is resumed after timeout seconds.
-
-        message : str, optional
-            Message to diplay on terminal while pausing
-
-        """
-        if message is None:
-            if timeout < 0:
-                message = 'Paused. Hit return to continue.'
-        h = _Pause(timeout, message)
-        h.start()
-        while h.ct:
-            gui_yield_call()
-            time.sleep(.01)
-
-else:
-    def pause(timeout=-1, message=None):
-        """\
-        Pause the execution of a script while leaving matplotlib figures
-        responsive.
-        **Not** *Gui aware*
-
-        Parameters
-        ----------
-        timeout : float, optional
-            By default, execution is resumed only after hitting return.
-            If timeout >= 0, the execution is resumed after timeout seconds.
-
-        message : str, optional
-            Message to diplay on terminal while pausing
-
-        """
-        if timeout < 0:
-            if message is None:
-                message = 'Paused. Hit return to continue.'
-            raw_input(message)
-        else:
-            if message is not None:
-                print message
-            time.sleep(timeout)
-
-
-if matplotlib.get_backend().lower().startswith('qt4'):
-    mpl_backend = 'qt'
-    from PyQt4 import QtGui
-    gui_yield_call = QtGui.qApp.processEvents
-elif matplotlib.get_backend().lower().startswith('wx'):
-    mpl_backend = 'wx'
-    import wx
-    gui_yield_call = wx.Yield
-elif matplotlib.get_backend().lower().startswith('gtk'):
-    mpl_backend = 'gtk'
-    import gtk
-    def gui_yield_call():
-        gtk.gdk.threads_enter()
-        while gtk.events_pending():
-            gtk.main_iteration(True)
-        gtk.gdk.flush()
-        gtk.gdk.threads_leave()
-else:
-    mpl_backend = None
-if mpl_backend is not None:
-    class _Pause(threading.Thread):
-        def __init__(self, timeout, message):
-            self.message = message
-            self.timeout = timeout
-            self.ct = True
-            threading.Thread.__init__(self)
-        def run(self):
-            sys.stdout.flush()
-            if self.timeout < 0:
-                raw_input(self.message)
-            else:
-                if self.message is not None:
-                    print self.message
-                time.sleep(self.timeout)
-            self.ct = False
-
-    def pause(timeout=-1, message=None):
-        """\
-        Pause the execution of a script while leaving matplotlib figures
-        responsive.
-        *Gui aware*
-
-        Parameters
-        ----------
-        timeout : float, optional
-            By default, execution is resumed only after hitting return.
-            If timeout >= 0, the execution is resumed after timeout seconds.
-
-        message : str, optional
-            Message to diplay on terminal while pausing
-
-        """
-        if message is None:
-            if timeout < 0:
-                message = 'Paused. Hit return to continue.'
-        h = _Pause(timeout, message)
-        h.start()
-        while h.ct:
-            gui_yield_call()
-            time.sleep(.01)
-
-else:
-    def pause(timeout=-1, message=None):
-        """\
-        Pause the execution of a script while leaving matplotlib figures
-        responsive.
-        **Not** *Gui aware*
-
-        Parameters
-        ----------
-        timeout : float, optional
-            By default, execution is resumed only after hitting return.
-            If timeout >= 0, the execution is resumed after timeout seconds.
-
-        message : str, optional
-            Message to diplay on terminal while pausing
-
-        """
-        if timeout < 0:
-            if message is None:
-                message = 'Paused. Hit return to continue.'
-            raw_input(message)
-        else:
-            if message is not None:
-                print message
-            time.sleep(timeout)
-
-def test_cx_plot(ob):
-    ob = float2_to_complex(ob)
-    fig, ax = plt.subplots()
-    ax.imshow(ob[0,0,:,:].real)
-    plt.show()
-
-def float2_to_complex(x):
-    #print x.min(), x.max()
-    y = np.frombuffer(np.getbuffer(x),dtype=np.complex64,count=np.prod(x.shape)/2)
-    #print tuple(np.array(x.shape)[:-1])
-    #print y.min(), y.max()
-    # print 'float2_to_complex'
-    y = np.reshape(y,tuple(np.array(x.shape)[:-1]))
-    # print y.shape
-    return y
-
+# http://matplotlib.org/users/navigation_toolbar.html
 class ReconPlot():
 
     def __init__(self,data, interactive = True, suptitle='Image', savePath=None, title=['Abs','Phase'], interp='nearest'):
@@ -305,6 +115,7 @@ class ReconPlot():
         #plt.rc('font', family='serif')
         self.interp = interp
         self.interactive = interactive
+        self.suptitle = suptitle
         obre,obim, prre,prim, bg, pos, err_mod, err_Q = data
 
         obre = obre[:,0,:,:]
@@ -318,6 +129,7 @@ class ReconPlot():
         Np = prre.shape[0]
 
         self.fig = plt.figure()
+        self.fig.suptitle(self.suptitle)
 
         probe_spaces_right_of_ob = 2 * No
         print probe_spaces_right_of_ob
@@ -331,20 +143,24 @@ class ReconPlot():
         self.pr_axes = []
         self.ob_caxes = []
         self.pr_caxes = []
-        self.pos_axes = plt.subplot(gs[0,2])
-        self.bg_axes = plt.subplot(gs[0,3])
+        self.pos_axes = self.fig.add_subplot(gs[0,2])
+        self.pos_axes.set_title('Positions')
+        self.bg_axes = self.fig.add_subplot(gs[0,3])
+        self.bg_axes.set_title('Background')
         self.bg_axes.tick_params(labelbottom='off',labelleft='off',labeltop='off',left='off',bottom='off',top='off',right='off')
-        # probes next to object
+
+
+        # probes next to object ======================================================
         ob_rows = 0
         n_pr = 0
         for i,x in enumerate(obre):
             ob_rows = i
             print [i,0]
             print [i,1]
-            obamp = plt.subplot(gs[i,0])
-            obph = plt.subplot(gs[i,1])
-            obamp.tick_params(labelbottom='off',labelleft='off',labeltop='off',left='off',bottom='off',top='off',right='off')
-            obph.tick_params(labelbottom='off',labelleft='off',labeltop='off',left='off',bottom='off',top='off',right='off')
+            obamp = self.fig.add_subplot(gs[i,0])
+            obph = self.fig.add_subplot(gs[i,1])
+            self.set_tick_params(obamp)
+            self.set_tick_params(obph)
             obamp.set_title('$|O_{%d}|$'%i)
             obph.set_title('$Arg(O_{%d})$'%i)
             div_obamp = make_axes_locatable(obamp)
@@ -354,10 +170,10 @@ class ReconPlot():
             if i > 0:
                 print [i,2]
                 print [i,3]
-                pr1 = plt.subplot(gs[i,2])
-                pr2 = plt.subplot(gs[i,3])
-                pr1.tick_params(labelbottom='off',labelleft='off',labeltop='off',left='off',bottom='off',top='off',right='off')
-                pr2.tick_params(labelbottom='off',labelleft='off',labeltop='off',left='off',bottom='off',top='off',right='off')
+                pr1 = self.fig.add_subplot(gs[i,2])
+                pr2 = self.fig.add_subplot(gs[i,3])
+                self.set_tick_params(pr1)
+                self.set_tick_params(pr2)
                 pr1.set_title('$\Psi_{%d}$'%n_pr)
                 n_pr +=1
                 pr2.set_title('$\Psi_{%d}$'%n_pr)
@@ -370,30 +186,35 @@ class ReconPlot():
                 self.pr_caxes.append(div_probe2)
             self.ob_axes.append([obamp,obph])
             self.ob_caxes.append([cax1,cax2])
-        # print 'wp1'
-        # probes next to errors
+
+
+        # probes next to errors ======================================================
         ob_rows += 1
         print [ob_rows,2]
         print [ob_rows,3]
-        self.err_axes = plt.subplot(gs[ob_rows,:2])
-        pr1 = plt.subplot(gs[ob_rows,2])
-        pr2 = plt.subplot(gs[ob_rows,3])
+        self.err_axes = self.fig.add_subplot(gs[ob_rows,:2])
+        self.err_axes.set_yscale("log", nonposy='clip')
+
+        pr1 = self.fig.add_subplot(gs[ob_rows,2])
+        pr2 = self.fig.add_subplot(gs[ob_rows,3])
         pr1.set_title('$\Psi_{%d}$'%n_pr)
         n_pr +=1
         pr2.set_title('$\Psi_{%d}$'%n_pr)
         n_pr +=1
-        pr1.tick_params(labelbottom='off',labelleft='off',labeltop='off',left='off',bottom='off',top='off',right='off')
-        pr2.tick_params(labelbottom='off',labelleft='off',labeltop='off',left='off',bottom='off',top='off',right='off')
+
+        self.set_tick_params(pr1)
+        self.set_tick_params(pr2)
         self.pr_axes.append(pr1)
         self.pr_axes.append(pr2)
-        # print 'wp2'
-        #probes below everything
+
+
+        #probes below everything ======================================================
         col = 0
         for j,pr in enumerate(prre):
             if j >= len(self.pr_axes):
                 if col == 0: ob_rows += 1
                 print [ob_rows,col]
-                pr1 = plt.subplot(gs[ob_rows,col])
+                pr1 = self.fig.add_subplot(gs[ob_rows,col])
                 pr1.tick_params(labelbottom='off',labelleft='off',labeltop='off',left='off',bottom='off',top='off',right='off')
                 pr1.set_title('$\Psi_{%d}$'%n_pr)
                 n_pr +=1
@@ -402,7 +223,7 @@ class ReconPlot():
 
         # print 'wp3'
         if savePath is not None:
-            fig.savefig(savePath + '.png', dpi=600)
+            self.fig.savefig(savePath + '.png', dpi=600)
 
         self.ob_imaxes = None
         self.pr_imaxes = None
@@ -411,6 +232,9 @@ class ReconPlot():
         self.im_pos = None
         self.has_data = False
         print 'wp4'
+
+    def set_tick_params(self,ax):
+        ax.tick_params(labelbottom='off',labelleft='off',labeltop='off',left='off',bottom='off',top='off',right='off')
 
     def update(self,data, cmap=['hot','hsv']):
         obamp,obph, prre,prim, bg, pos, err_mod, err_Q = data
@@ -421,11 +245,16 @@ class ReconPlot():
         prim = prim[0,...]
         pr = prre + 1j*prim
 
+        ints = np.sum(pr**2,(1,2))
+        ints_percent = ints/ints.sum()
+
         #print pr.min(), pr.max()
         if self.ob_imaxes is None:
             self.ob_imaxes = []
             self.ob_cbars = []
             for i,(oa,op) in enumerate(zip(obamp,obph)):
+                print oa.shape
+                print op.shape
                 imax1 = self.ob_axes[i][0].imshow(oa, interpolation=self.interp, cmap=plt.cm.get_cmap(cmap[0]))
                 imax2 = self.ob_axes[i][1].imshow(op, interpolation=self.interp, cmap=plt.cm.get_cmap(cmap[1]))
                 cbar1 = plt.colorbar(imax1, cax=self.ob_caxes[i][0])
@@ -442,11 +271,13 @@ class ReconPlot():
             self.pr_imaxes = []
             for i,p in enumerate(pr):
                 iprobe = self.pr_axes[i].imshow(self.imsave(p), interpolation=self.interp)
+                self.pr_axes[i].set_title('$\Psi_{%d} - %-5.2g$ percent'%(i,ints_percent[i]*100))
                 self.pr_imaxes.append(iprobe)
         else:
             for i,p in enumerate(pr):
                 pra = self.pr_imaxes[i]
                 pra.set_data(self.imsave(p))
+                self.pr_axes[i].set_title('$\Psi_{%d}$ -- $||\Psi_{%d}||^2 = %-5.2g$ -- $\frac{||\Psi_{%d}||^2}{\sum_K ||\Psi_{K}||^2} = %-5.2g$'%(i,i,ints[i],i,ints_percent[i]))
 
         if self.im_errors is not None:
             self.im_errors.remove()
@@ -454,14 +285,15 @@ class ReconPlot():
             self.im_errors2.remove()
 
         x = np.linspace(1, err_mod.size, err_mod.size)
-        self.im_errors = self.err_axes.scatter(x,err_mod,c='r', label=r'$||[I-P_F]z||$')
-        self.im_errors2 = self.err_axes.scatter(x,err_Q,c='b', label=r'$||[I-P_Q]z||$')
+        self.im_errors = self.err_axes.plot(x,err_mod,c='r', label=r'$\frac{||[I-P_F]z||}{||a||}$')
+        self.im_errors2 = self.err_axes.plot(x,err_Q,c='b', label=r'$\frac{||[I-P_Q]z||}{||a||}$')
         #r'$\frac{||[I-P_Q]z||}{||a||}$'
         #
         #
         if self.im_pos is not None:
             self.im_pos.remove()
 
+        self.bg_pos = self.pos_axes.imshow(op, interpolation=self.interp)
         self.im_pos = self.pos_axes.scatter(pos[0],pos[1],c='r')
 
         self.legend = self.err_axes.legend()
@@ -474,7 +306,6 @@ class ReconPlot():
 
     def start_plotting(self,data):
         self.stop = False
-
         while True:
 #            No = 2
 #            Np = 8
@@ -591,14 +422,6 @@ class ReconPlot():
 
         return rgb
 
-    def draw(self):
-        if self.interactive:
-            plt.draw()
-            time.sleep(0.1)
-        else:
-            #print 'show'
-            plt.show()
-        self.has_data = False
 
     def imsave(self,a, filename=None, vmin=None, vmax=None, cmap=None):
         """
@@ -684,7 +507,31 @@ class ReconPlot():
         if filename is not None:
             im.save(filename)
         return im
+    def create_new_window(self):
+        win = gtk.Window()
+        win.connect("destroy", lambda x: gtk.main_quit())
+        win.set_default_size(1280,1024)
+        win.set_title(self.suptitle)
+        vbox = gtk.VBox()
+        win.add(vbox)
 
+        canvas = FigureCanvas(self.fig)  # a gtk.DrawingArea
+        vbox.pack_start(canvas)
+        toolbar = NaviToolbar(canvas, win)
+        vbox.pack_start(toolbar, False, False)
+        return win
+
+    def draw(self):
+        if self.interactive:
+            plt.draw()
+            time.sleep(0.1)
+        else:
+#         print 'show'
+            win = self.create_new_window()
+            win.show_all()
+            gtk.main()
+#             self.fig.show()
+        self.has_data = False
 
 def run():
     No = 2

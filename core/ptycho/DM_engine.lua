@@ -8,8 +8,11 @@ local engine, super = classic.class(...,base_engine)
 function engine:_init(par)
   super._init(self,par)
   self:update_views()
+  print('here')
   self:calculateO_denom()
+  print('here')
   self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
+  print('here')
 end
 
 function engine:DM_update()
@@ -68,6 +71,7 @@ function engine:DM_update_with_background()
 end
 
 function engine:iterate(steps)
+  self:before_iterate()
   self.iterations = steps
   self:initialize_plotting()
   local mod_error, overlap_error, image_error, probe_error, mod_updates = -1,-1,nil, nil, 0
@@ -76,11 +80,7 @@ function engine:iterate(steps)
   print('----------------------------------------------------------------------------------------------')
   for i=1,steps do
     self:update_iteration_dependent_parameters(i)
-    plt:plot(self.P[1][1]:zfloat(),'P 0')
-    plt:plot(self.O[1][1]:zfloat(),'O 0')
     self:P_Q()
-    plt:plot(self.P[1][1]:zfloat(),'P 1')
-    plt:plot(self.O[1][1]:zfloat(),'O 1')
     self:maybe_refine_positions()
     overlap_error = self:overlap_error(self.z,self.P_Qz)
     mod_error, mod_updates = self:DM_update()
