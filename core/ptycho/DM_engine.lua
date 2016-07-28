@@ -1,19 +1,13 @@
 local classic = require 'classic'
-local base_engine = require "dptycho.core.ptycho.base_engine_shifted"
+local base_engine = require "dptycho.core.ptycho.base_engine"
 local u = require 'dptycho.util'
 local plot = require 'dptycho.io.plot'
 local plt = plot()
 local engine, super = classic.class(...,base_engine)
 
 function engine:_init(par)
-  u.printf('========================== DM  engine ==========================')
   super._init(self,par)
   self:update_views()
-  print('here')
-  self:calculateO_denom()
-  print('here')
-  self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
-  print('here')
 end
 
 function engine:DM_update()
@@ -75,7 +69,7 @@ function engine:iterate(steps)
   self:before_iterate()
   self.iterations = steps
   self:initialize_plotting()
-  local mod_error, overlap_error, image_error, probe_error, mod_updates = -1,-1,nil, nil, 0
+  local mod_error, overlap_error, relative_error, probe_error, mod_updates = -1,-1,nil, nil, 0
   local probe_change_0, last_probe_change, probe_change = nil, 1e10, 0
   u.printf('%-10s%-15s%-15s%-15s%-15s%-15s','iteration','e_mod','e_overlap','e_image','e_probe','modulus updates %')
   print('----------------------------------------------------------------------------------------------')
@@ -83,21 +77,21 @@ function engine:iterate(steps)
     self:update_iteration_dependent_parameters(i)
     self:P_Q()
     self:maybe_refine_positions()
-    overlap_error = self:overlap_error(self.z,self.P_Qz)
-    mod_error, mod_updates = self:DM_update()
+    self.overlap_errors[i] = self:overlap_error(self.z,self.P_Qz)
+    self.mod_errors[i], mod_updates = self:DM_update()
 
-    image_error = self:image_error()
+    self.im_errors[i] = self:relative_error()
     probe_error = self:probe_error()
 
-    u.printf('%-10d%-15g%-15g%-15g%-15g%-15g',i,mod_error or -1,overlap_error or -1 ,image_error or -1, probe_error or -1, mod_updates/self.K*100.0)
+    u.printf('%-10d%-15g%-15g%-15g%-15g%-15g',i,self.mod_errors[i] or -1,self.overlap_errors[i] or -1 ,self.im_errors[i] or -1, probe_error or -1, mod_updates/self.K*100.0)
 
     self:maybe_plot()
     self:maybe_save_data()
 
     collectgarbage()
   end
-  self:save_data(self.save_path .. 'ptycho_' .. (steps+1))
-  -- plt:shutdown_reconstruction_plot()
+  self:save_data(self.save_path .. self.run_label .. '_DM_' .. (steps+1))
+  plt:shutdown_reconstruction_plot()
   -- plt:plot(self.O[1]:zfloat(),'object - it '..steps)
   -- plt:plot(self.P[1]:zfloat(),'new probe')
 end

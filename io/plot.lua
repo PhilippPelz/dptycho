@@ -21,17 +21,18 @@ c.init_reconstruction_plot = argcheck{
             name = "init_reconstruction_plot",
             {name="self", type='table'},
             {name="data", type='table'},
-            {name="save_file_path", default='~/', type='string'},
+            {name="super_title", default = 'Reconstruction', type='string'},
             {name="error_labels", default={'$\frac{||[I-P_F]z||}{||a||}$', '$\frac{||[I-P_Q]z||}{||a||}$'}, type='table'},
             call =
-                function (self,data,save_file_path,error_labels)
+                function (self,data,super_title,error_labels)
                   -- py.exec(self.plotcode)
                   py.exec(
 [=[
 #test_cx_plot(data[0])
-p = ReconPlot(data, interactive = False, suptitle=sup_title,save_file_path, interp='nearest', error_labels)
+global p
+p = ReconPlot(data, interactive = False, suptitle=sup_title, interp='nearest', error_labels=error_labels)
 ]=]
-                  ,{data = data,save_file_path=save_file_path,error_labels=error_labels})
+                  ,{data=data,sup_title=super_title ,error_labels=error_labels})
                 end
             }
 
@@ -40,11 +41,11 @@ c.update_reconstruction_plot = argcheck{
             name = "update_reconstruction_plot",
             {name="self", type='table'},
             {name="data", type='table'},
+            {name="save_file_path", default='~/', type='string'},
             call =
-                function (self, data)
-                  print('update')
-                  py.exec('p.update(data)',{data = data})
-                  py.exec('p.draw()')
+                function (self, data, save_file_path)
+                  py.eval('p.update(data)',{data = data})
+                  py.eval('p.draw(save_file_path)',{save_file_path=save_file_path})
                 end
             }
 

@@ -13,7 +13,7 @@ local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 
 local path = '/home/philipp/drop/Public/'
-local file = 'moon.h5'
+local file = 'moon2.h5'
 
 local ptycho = require 'dptycho.core.ptycho'
 
@@ -35,7 +35,7 @@ local o_r = f:read('/or'):all():cuda()
 local o_i = f:read('/oi'):all():cuda()
 local pr = f:read('/pr'):all():cuda()
 local pi = f:read('/pi'):all():cuda()
-local probe = torch.ZCudaTensor.new(pr:size()):copyIm(pi):copyRe(pr):mul(1e6)
+local probe = torch.ZCudaTensor.new(pr:size()):copyIm(pi):copyRe(pr)
 local object_solution = torch.ZCudaTensor.new(o_r:size()):copyIm(o_i):copyRe(o_r)
 
 o_r = nil
@@ -62,7 +62,7 @@ par.position_refinement_max_disp = 2
 par.fm_support_radius = function(it) return nil end
 par.fm_mask_radius = function(it) return nil end
 
-par.probe_update_start = 20
+par.probe_update_start = 250
 par.probe_support = 0.5
 par.probe_regularization_amplitude = function(it) return nil end
 par.probe_inertia = 1e-9
@@ -77,12 +77,13 @@ par.copy_object = false
 par.margin = 0
 par.background_correction_start = 1e5
 
-par.save_interval = 50
+par.save_interval = 250
 par.save_path = '/tmp/'
 par.save_raw_data = false
+par.run_label = 'ptycho2'
 
-par.O_denom_regul_factor_start = 1e-10
-par.O_denom_regul_factor_end = 1e-16
+par.O_denom_regul_factor_start = 1e-6
+par.O_denom_regul_factor_end = 1e-12
 
 par.pos = pos
 par.dpos = dpos

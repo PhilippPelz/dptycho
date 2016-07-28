@@ -42,6 +42,7 @@ local _DEFAULT_PARAMS = {
   save_interval = 5,
   save_path = '/tmp/',
   save_raw_data = false,
+  run_label = 'ptycho',
 
   O_denom_regul_factor_start = 1e-6,
   O_denom_regul_factor_end = 1e-9,

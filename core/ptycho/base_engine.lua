@@ -26,7 +26,7 @@ require 'hdf5'
 -- P_F
 -- refine_probe
 -- overlap_error
--- image_error
+-- relative_error
 -- probe_error
 -- mustHave("iterate")
 
@@ -57,7 +57,7 @@ function engine:_init(par)
   local y = x:clone():t()
   self.r2 = (x:pow(2) + y:pow(2))
 
-  self.has_solution = par.object_solution and true
+  self.has_solution = par.object_solution and par.probe_solution
 
   --expanded views of a and fm
   self.a_exp = self.a:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
@@ -142,8 +142,7 @@ function engine:_init(par)
   self.object_inertia = par.object_inertia * self.K
   self.probe_inertia = par.probe_inertia * self.Np * self.No * self.K
 
-  self.i = 0
-  self.j = 0
+  self.i = 1
   self.iterations = 1
 
   if not par.probe then
@@ -152,7 +151,7 @@ function engine:_init(par)
   end
 
   self.norm_a = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum()
-  
+
   if self.probe_support then
     local probe_size = self.P:size():totable()
     self.support = znn.SupportMask(probe_size,probe_size[#probe_size]*self.probe_support)
@@ -164,37 +163,18 @@ function engine:_init(par)
   self.rescale_regul_amplitude = self.total_measurements / (8*self.O:nElement()*expected_obj_var)
 -- reg_del2_amplitude *= reg_rescale
 
-  print(   '----------------------------------------------------')
-  u.printf('                                   K =  %d',self.K)
-  u.printf('                                   N = (%d,%d)',self.Nx,self.Ny)
-  u.printf('                                   M =  %d',self.M)
-  u.printf('power threshold is                     : %g',self.power_threshold)
-  u.printf('total measurements                     : %g',self.total_measurements)
-  u.printf('# unknowns object                      : %2.3g',self.O:nElement())
-  u.printf('# unknowns probe                       : %2.3g',self.P:nElement())
-  u.printf('# unknowns total                       : %2.3g',self.O:nElement() + self.P:nElement())
-  u.printf('total measurements/image_pixels        : %g',
-  self.total_measurements/self.O:nElement())
-  u.printf('nonzero measurements/image_pixels      : %g',
-  self.total_nonzero_measurements/self.O:nElement())
-  u.printf('nonzero measurements/# unknowns        : %g',
-  self.total_nonzero_measurements/(self.O:nElement() + self.P:nElement()))
-  u.printf('total power                            : %g',self.total_power)
-  u.printf('maximum power                          : %g',self.max_power)
-  u.printf('rescale_regul_amplitude                : %g',self.rescale_regul_amplitude)
-  print(   '----------------------------------------------------')
+
   -- u.printMem()
   u.printram('after init')
 
   self.par = nil
-  self:initialize_plotting()
   self:initialize_views()
   self:update_views()
 
   collectgarbage()
 end
 
-function engine:before_iterate()
+function engine:maybe_init_probe_object()
   if self.copy_probe then
     -- pprint(self.P)
     -- pprint(self.probe_solution)
@@ -205,11 +185,45 @@ function engine:before_iterate()
   end
 end
 
+function engine:print_report()
+  print(   '----------------------------------------------------')
+  u.printf('K (number of diff. patterns)           : %d',self.K)
+  u.printf('N (object dimensions)                  : %d x %d',self.Nx,self.Ny)
+  u.printf('M (probe size)                         : %d',self.M)
+  print(   '----------------------------------------------------')
+  u.printf('power threshold is                     : %g',self.power_threshold)
+  u.printf('total measurements                     : %g',self.total_measurements)
+  u.printf('# unknowns object                      : %2.3g',self.O:nElement())
+  u.printf('# unknowns probe                       : %2.3g',self.P:nElement())
+  u.printf('# unknowns total                       : %2.3g',self.O:nElement() + self.P:nElement())
+  u.printf('total measurements/image_pixels        : %g',
+  self.total_measurements/self.valid_measurements)
+  u.printf('nonzero measurements/image_pixels      : %g',
+  self.total_nonzero_measurements/self.valid_measurements)
+  u.printf('nonzero measurements/# unknowns        : %g',
+  self.total_nonzero_measurements/(self.valid_measurements + self.P:nElement()))
+  u.printf('total power                            : %g',self.total_power)
+  u.printf('maximum power                          : %g',self.max_power)
+  u.printf('rescale_regul_amplitude                : %g',self.rescale_regul_amplitude)
+  print(   '----------------------------------------------------')
+end
+
+function engine:before_iterate()
+  self:maybe_init_probe_object()
+  self.valid_measurements = self:calculate_pixels_with_sufficient_measurements()
+  self:calculateO_denom()
+  self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
+  self:print_report()
+end
+
 function engine:initialize_views()
   self.O_views = {}
   self.O_tmp_PF_views = {}
   self.O_tmp_PQ_views = {}
   self.O_denom_views = {}
+  if self.has_solution then
+    self.O_solution_views = {}
+  end
 end
 
 function engine:update_views()
@@ -220,6 +234,9 @@ function engine:update_views()
     self.O_tmp_PF_views[i] = self.O_tmp_PFstore[slice]
     self.O_tmp_PQ_views[i] = self.O_tmp_PQstore[slice]
     self.O_denom_views[i] = self.O_denom[slice]
+    if self.has_solution then
+      self.O_solution_views[i] = self.object_solution[slice]
+    end
   end
 end
 
@@ -255,6 +272,13 @@ end
 function engine:maybe_copy_new_batch_z(k)
   u.printram('before maybe_copy_new_batch_z')
   self:maybe_copy_new_batch(self.z,self.z_h,'z',k)
+  -- collectgarbage()
+  -- u.printram('after maybe_copy_new_batch_z')
+end
+
+function engine:maybe_copy_new_batch_z1(k)
+  u.printram('before maybe_copy_new_batch_z')
+  self:maybe_copy_new_batch(self.z1,self.z1_h,'z1',k)
   -- collectgarbage()
   -- u.printram('after maybe_copy_new_batch_z')
 end
@@ -308,10 +332,15 @@ end
 function engine:prepare_plot_data()
   -- self.O_hZ:copy(self.O)
   -- self.P_hZ:copy(self.P)
-  self.O_buffer:cmul(self.O,self.O_mask)
+  if self.O_mask then
+    self.O_buffer:cmul(self.O,self.O_mask)
+  else
+    self.O_buffer:copy(self.O)
+  end
+
   self.P_hZ:copy(self.P)
   self.O_hZ:copy(self.O_buffer)
-  self.plot_pos:add(self.pos:float(),self.dpos)
+  self.plot_pos:add(self.pos:float(),self.dpos):add(self.M/2)
   if self.bg then
     self.bg_h:copy(self.bg)
   end
@@ -327,11 +356,11 @@ function engine:prepare_plot_data()
 end
 
 function engine:get_errors()
-  return {self.mod_errors, self.overlap_errors}
+  return {self.mod_errors:narrow(1,1,self.i), self.overlap_errors:narrow(1,1,self.i),self.im_errors:narrow(1,1,self.i),self.L_error:narrow(1,1,self.i)}
 end
 
 function engine:get_error_labels()
-  return {'$\frac{||[I-P_F]z||}{||a||}$','$\frac{||[I-P_Q]z||}{||a||}$'}
+  return {'RFE','ROE','RMSE','L'}
 end
 
 function engine:maybe_plot()
@@ -349,7 +378,8 @@ function engine:maybe_plot()
     -- end
     -- plt:plot(self.bg:float(),'bg')
     self:prepare_plot_data()
-    plt:update_reconstruction_plot(self.plot_data)
+    local title = self.run_label .. '_' .. self.i
+    plt:update_reconstruction_plot(self.plot_data,self.save_path..title)
   end
 end
 
@@ -374,10 +404,10 @@ function engine:initialize_plotting()
   -- ps[#ps+1] = 2
   -- self.O_h = torch.FloatTensor(O_hZ_store_real,1,torch.LongStorage(os))
   -- self.P_h = torch.FloatTensor(P_hZ_store_real,1,torch.LongStorage(ps))
-  self.mod_errors = torch.FloatTensor(self.iterations)
-  self.overlap_errors = torch.FloatTensor(self.iterations)
-  self.image_error = torch.FloatTensor(self.iterations)
-  self.L_error = torch.FloatTensor(self.iterations)
+  self.mod_errors = torch.FloatTensor(self.iterations):fill(1)
+  self.overlap_errors = torch.FloatTensor(self.iterations):fill(1)
+  self.im_errors = torch.FloatTensor(self.iterations):fill(1)
+  self.L_error = torch.FloatTensor(self.iterations):fill(1)
   self.plot_pos = self.dpos:clone()
 
   self:prepare_plot_data()
@@ -385,7 +415,7 @@ function engine:initialize_plotting()
   -- print(self.P_h:max(),self.P_h:min())
   -- print(self.O_h:max(),self.O_h:min())
 
-  plt:init_reconstruction_plot(self.plot_data,self:get_error_labels())
+  plt:init_reconstruction_plot(self.plot_data,'Reconstruction',self:get_error_labels())
   -- print('here')
   u.printram('after initialize_plotting')
 end
@@ -394,7 +424,6 @@ function engine:allocate_probe(Np,M)
   if not self.P then
     self.P = torch.ZCudaTensor.new(1,Np,M,M)
   elseif not self.P:dim() == 4 then
-    print('allocateBuffers 1')
     local tmp = self.P
     self.P = torch.ZCudaTensor.new(1,Np,M,M)
     self.P[1][1]:copy(tmp)
@@ -480,15 +509,19 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   self.z1 = self.P_Qz
   self.z2 = self.P_Fz
 
-
   if self.batches > 1 then
     self.z_h = torch.ZFloatTensor.new(torch.LongStorage{self.K,No,Np,M,M})
+    if self.has_solution then
+      -- allocate for relative error calculation
+      self.z1_h = torch.ZFloatTensor.new(torch.LongStorage{self.K,No,Np,M,M})
+    end
     self.P_Qz_h = torch.ZFloatTensor.new(torch.LongStorage{self.K,No,Np,M,M})
     self.P_Fz_h = torch.ZFloatTensor.new(torch.LongStorage{self.K,No,Np,M,M})
   end
 
   self.old_batch_params = {}
   self.old_batch_params['z'] = self.batch_params[1]
+  self.old_batch_params['z1'] = self.batch_params[1]
   self.old_batch_params['P_Qz'] = self.batch_params[1]
   self.old_batch_params['P_Fz'] = self.batch_params[1]
 
@@ -686,6 +719,8 @@ function engine:generate_data(filename,poisson_noise,save_data)
   local a = self.a_buffer1
   a:zero()
 
+  self:maybe_init_probe_object()
+
   if poisson_noise then
     local P_norm = self.P:normall(2)^2
     u.printf('poisson noise                 : %g',poisson_noise)
@@ -700,6 +735,8 @@ function engine:generate_data(filename,poisson_noise,save_data)
 
   self:update_views()
   self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
+
+  plt:plot(self.P[1][1]:re():float(),'P')
 
   for _, params1 in ipairs(self.batch_params) do
     local batch_start1, batch_end1, batch_size1 = table.unpack(params1)
@@ -769,14 +806,26 @@ function engine:generate_data(filename,poisson_noise,save_data)
   u.printf('max counts in pattern    : %g',I_max)
   u.printf('mean counts              : %g',I_mean)
 
-  -- plt:plot(self.P[1][1]:re():float(),'P')
-  -- plt:plot(self.O[1][1]:re():float(),'O')
+  plt:plot(self.P[1][1]:re():float(),'P')
+  plt:plot(self.O[1][1]:re():float(),'O')
   if save_data then
     self:save_data(filename)
   end
 end
 
 -- recalculate (Q*Q)^-1
+function engine:calculate_pixels_with_sufficient_measurements()
+  self.O_denom:fill(0)
+  local gt = self.P_buffer_real:normZ(self.P):div(self.P_buffer_real:max()):gt(1e-2)
+  local norm_P = gt[{{1},{1},{},{}}]
+  norm_P = norm_P:expandAs(self.O_denom_views[1])
+  for _, view in ipairs(self.O_denom_views) do
+    view:add(norm_P)
+  end
+  self.O_mask = self.O_denom:ge(4)
+  return self.O_mask:sum()
+end
+
 function engine:calculateO_denom()
   self.O_denom:fill(self.object_inertia*self.K)
   local norm_P =  self.P_tmp2_real_PQstore:normZ(self.P):sum(self.P_dim)
@@ -794,7 +843,8 @@ function engine:calculateO_denom()
   -- print('sigma = '..sigma)
   -- plt:plot(self.O_denom[1][1]:float():log(),'calculateO_denom  self.O_denom')
   self.InvSigma(self.O_denom,sigma)
-  self.O_mask = self.O_denom:lt(1e-3)
+  -- self.O_denom:div(2)
+  -- self.O_mask = self.O_denom:lt(1e-3)
   -- plt:plot(self.O_denom[1][1]:float():log(),'O_denom')
   -- plt:plot(self.O_mask[1]:float(),'O_mask')
 end
@@ -830,7 +880,6 @@ end
 function engine:P_Q()
   if self.update_probe then
     for _ = 1,self.P_Q_iterations do
-      self.j = _
       self:merge_frames(self.P,self.O,self.O_views)
       probe_change = self:refine_probe()
       -- or probe_change > 0.97 * last_probe_change
@@ -995,7 +1044,12 @@ function engine:P_F_without_background()
       -- plt:plot(z[k][o][1]:zfloat(),'z[k][o]')
       -- plt:plot(self.P[1][1]:zfloat(),'P')
       -- plt:plot(self.O[1][1]:zfloat(),'O')
-      z[k][o]:fftBatched()
+      -- local before = z[k][o]:normall(2)^2
+      z[k][o]:fftBatched():div(math.sqrt(z[k][o][1]:nElement()))
+      -- local after = z[k][o]:normall(2)^2
+      -- u.printf('||z2||^2 = %g',after)
+      -- u.printf('||z1||^2 = %g',before)
+      -- u.printf('||z2||^2/||z1||^2 = %g',after/before)
 
     end
     local k_all = batch_start+k-1
@@ -1016,7 +1070,9 @@ function engine:P_F_without_background()
     -- end
 
     fdev[1][1]:add(abs[1][1],-1,self.a[k_all])
-    -- plt:plot(fdev[1][1]:float():log(),'fdev')
+    if self.do_plot then
+      plt:plot(fdev[1][1]:float(),'fdev')
+    end
     da:abs(fdev):pow(2)
     da:cmul(self.fm[k_all])
     err_fmag = da:sum()
@@ -1030,12 +1086,18 @@ function engine:P_F_without_background()
       else
         self.fm_support = self.fm_exp[k_all]
       end
+      -- u.printf('||z||^2/||a||^2 = %f',z[k][1][1]:normall(2)^2/self.a[k_all]:norm()^2)
+      -- plt:plot(self.P[1][1]:zfloat(),'P')
+      -- plt:plotcompare({z[k][1][1]:zfloat():abs(),self.a[k_all]:float()},{'z','a'})
+
       self.P_Mod(z[k],abs:expandAs(z[k]),self.a_exp[k_all])
+      -- self.P_Mod_renorm(z[k],self.fm_exp[k_all],fdev,self.a_exp[k_all],af,renorm)
 
       if self.fm_mask_radius(self.i) then
         z[k]:maskedFill(self.fm_mask,zt.tocomplex(0))
       end
 
+      z[k]:mul(math.sqrt(z[k][1][1]:nElement()))
       -- plt:plot(z[ind][1][1]:abs():float():log(),'z_out[k][1] after')
       self.mod_updates = self.mod_updates + 1
     end
@@ -1061,7 +1123,8 @@ function engine:maybe_refine_positions()
   end
 end
 
-engine:mustHave("refine_positions")
+function engine:refine_positions()
+end
 
 function engine:refine_probe()
   local new_P = self.P_tmp1_PQstore
@@ -1110,19 +1173,31 @@ function engine:overlap_error(z_in,z_out)
   return res/res_denom
 end
 
-function engine:image_error()
+-- we assume that self.z has actually the current z if this is called
+function engine:relative_error()
   local norm = self.O_buffer_real
   local O_res = self.O_buffer
+
+  local z_solution = self.z1
+  self:update_frames(z_solution,self.probe_solution,self.O_solution_views,self.maybe_copy_new_batch_z1)
+
   if self.object_solution then
-    local c = self.O[1]:dot(self.object_solution)
+    local c = z_solution:dot(self.z)
     -- print(c)
     local phase_diff = c/zt.abs(c)
-    -- print('phase difference: ',phase_diff)
-    O_res:mul(self.O,phase_diff)
-
-    local O_res_norm2 = O_res:add(-1,self.object_solution):cmul(self.O_mask):normall(2)
-    local norm1 = O_res_norm2/self.object_solution:normall(2)
-    return norm1
+    -- u.printf('phase difference: %g + %g i',zt.arg(phase_diff),zt.imag(phase_diff))
+    self.z2:mul(self.z,phase_diff)
+    -- O_res:mul(self.O,-1)
+    self.z2:add(-1,z_solution)
+    -- if self.do_plot then
+    --   plt:plotcompare({self.object_solution[1][1]:zfloat():re(),O_res[1][1]:zfloat():re()},{'sol re','rec re'})
+    --   plt:plotcompare({self.object_solution[1][1]:zfloat():im(),O_res[1][1]:zfloat():im()},{'sol im','rec im'})
+    --   plt:plotcompare({self.object_solution[1][1]:zfloat():abs(),O_res[1][1]:zfloat():abs()},{'sol abs','rec abs'})
+    --   plt:plotcompare({self.object_solution[1][1]:zfloat():arg(),O_res[1][1]:zfloat():arg()},{'sol arg','rec arg'})
+    -- end
+    -- plt:plotReIm(O_res[1][1]:zfloat(),'image error')
+    -- plt:plotReIm(self.object_solution[1][1]:zfloat(),'self.object_solution')
+    return self.z2:normall(2)/z_solution:normall(2)
   end
 end
 

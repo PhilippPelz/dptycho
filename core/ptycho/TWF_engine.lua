@@ -1,5 +1,5 @@
 local classic = require 'classic'
-local base_engine = require "dptycho.core.ptycho.base_engine_shifted"
+local base_engine = require "dptycho.core.ptycho.base_engine"
 local u = require 'dptycho.util'
 local plot = require 'dptycho.io.plot'
 local znn = require 'dptycho.znn'
@@ -204,7 +204,7 @@ function TWF_engine:mu(it)
 end
 
 function TWF_engine:iterate(steps)
-  engine:before_iterate()
+  self:before_iterate()
   self.iterations = steps
   self:initialize_plotting()
   u.printf('%-10s%-15s%-15s%-13s%-15s%-15s%-15s%-15s','iteration','L','R','R (%)','||dL/dO||','||dL/dP||','mu', 'e_img')
@@ -233,7 +233,7 @@ function TWF_engine:iterate(steps)
       self:calculateO_denom()
     end
 
-    u.printf('%-10d%-15g%-15g%-10.2g%%%-15g%-15g%-15g',i,L,R,100.0*R/(L+R),self.dL_dO:normall(1),self.dL_dP:normall(1),self:mu(i),self:image_error())
+    u.printf('%-10d%-15g%-15g%-10.2g%%%-15g%-15g%-15g',i,L,R,100.0*R/(L+R),self.dL_dO:normall(1),self.dL_dP:normall(1),self:mu(i),self:relative_error())
 
     self:maybe_plot()
     self:maybe_save_data()
@@ -243,6 +243,8 @@ function TWF_engine:iterate(steps)
     -- z = z - muf(t) * grad;             % Gradient update
 
   end
+  self:save_data(self.save_path .. self.run_label .. '_TWF_' .. (steps+1))
+  plt:shutdown_reconstruction_plot()
   collectgarbage()
 end
 

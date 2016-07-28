@@ -131,5 +131,5 @@ par.fmask = fmask
 par.probe = nil
 
 local ngin = ptycho.TWF_engine(par)
-ngin:generate_data('/home/philipp/drop/Public/moon_poisson_1e7',1e7)
+ngin:generate_data('/home/philipp/drop/Public/moon2',nil, true)
 -- ngin:iterate(250)

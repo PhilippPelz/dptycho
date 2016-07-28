@@ -1,15 +1,25 @@
-import matplotlib.pyplot as plt
-import numpy as np
 import matplotlib
+matplotlib.use('GTKAgg')
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+from matplotlib.figure import Figure as MPLFigure
+from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanvas
+from matplotlib.backends.backend_gtkagg import NavigationToolbar2GTKAgg as NaviToolbar
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 import numpy as np
 import time
 import sys
 import threading
-import matplotlib.gridspec as gridspec
-from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 import math
 from PIL import Image
 from mayavi import mlab
+import gtk
+import sys
+import os
+import warnings
+warnings.filterwarnings("ignore")
 plt.style.use('ggplot')
 
 def load_image(filename):
@@ -110,20 +120,22 @@ def plot3d(arr,title,vmin = 0,vmax = 0.7):
 # http://matplotlib.org/users/navigation_toolbar.html
 class ReconPlot():
 
-    def __init__(self,data, interactive = True, suptitle='Image', savePath=None, title=['Abs','Phase'], interp='nearest'):
+    def __init__(self,data, interactive = True, suptitle='Image', interp='nearest', error_labels = [r'$\frac{||[I-P_F]z||}{||a||}$', r'$\frac{||[I-P_Q]z||}{||a||}$']):
         #plt.rc('text', usetex=True)
         #plt.rc('font', family='serif')
         self.interp = interp
         self.interactive = interactive
         self.suptitle = suptitle
-        obre,obim, prre,prim, bg, pos, err_mod, err_Q = data
+        obre,obim, prre,prim, bg, pos, err = data
+
+        self.error_labels = error_labels
 
         obre = obre[:,0,:,:]
         obim = obim[:,0,:,:]
         prre = prre[0,...]
         prim = prim[0,...]
 
-        x = np.linspace(1, err_mod.size, err_mod.size)
+        x = np.linspace(1, err[0].size, err[0].size)
 
         No = obre.shape[0]
         Np = prre.shape[0]
@@ -132,11 +144,11 @@ class ReconPlot():
         self.fig.suptitle(self.suptitle)
 
         probe_spaces_right_of_ob = 2 * No
-        print probe_spaces_right_of_ob
+        # print probe_spaces_right_of_ob
         extra_rows_for_pr = max(math.ceil((Np - probe_spaces_right_of_ob) / 4 ),0)
-        print extra_rows_for_pr
+        # print extra_rows_for_pr
         nrows = int(No + extra_rows_for_pr + 1)
-        print nrows
+        # print nrows
         gs = gridspec.GridSpec(nrows, 4)
 
         self.ob_axes = []
@@ -155,8 +167,8 @@ class ReconPlot():
         n_pr = 0
         for i,x in enumerate(obre):
             ob_rows = i
-            print [i,0]
-            print [i,1]
+            # print [i,0]
+            # print [i,1]
             obamp = self.fig.add_subplot(gs[i,0])
             obph = self.fig.add_subplot(gs[i,1])
             self.set_tick_params(obamp)
@@ -168,8 +180,8 @@ class ReconPlot():
             cax1 = div_obamp.append_axes("right", size="10%", pad=0.05)
             cax2 = div_obph.append_axes("right", size="10%", pad=0.05)
             if i > 0:
-                print [i,2]
-                print [i,3]
+                # print [i,2]
+                # print [i,3]
                 pr1 = self.fig.add_subplot(gs[i,2])
                 pr2 = self.fig.add_subplot(gs[i,3])
                 self.set_tick_params(pr1)
@@ -190,8 +202,8 @@ class ReconPlot():
 
         # probes next to errors ======================================================
         ob_rows += 1
-        print [ob_rows,2]
-        print [ob_rows,3]
+        # print [ob_rows,2]
+        # print [ob_rows,3]
         self.err_axes = self.fig.add_subplot(gs[ob_rows,:2])
         self.err_axes.set_yscale("log", nonposy='clip')
 
@@ -213,7 +225,7 @@ class ReconPlot():
         for j,pr in enumerate(prre):
             if j >= len(self.pr_axes):
                 if col == 0: ob_rows += 1
-                print [ob_rows,col]
+                # print [ob_rows,col]
                 pr1 = self.fig.add_subplot(gs[ob_rows,col])
                 pr1.tick_params(labelbottom='off',labelleft='off',labeltop='off',left='off',bottom='off',top='off',right='off')
                 pr1.set_title('$\Psi_{%d}$'%n_pr)
@@ -221,23 +233,20 @@ class ReconPlot():
                 col = (col + 1) % 4
                 self.pr_axes.append(pr1)
 
-        # print 'wp3'
-        if savePath is not None:
-            self.fig.savefig(savePath + '.png', dpi=600)
-
         self.ob_imaxes = None
         self.pr_imaxes = None
         self.im_errors = None
         self.im_errors2 = None
         self.im_pos = None
         self.has_data = False
-        print 'wp4'
+        self.legend = None
+        # print 'wp4'
 
     def set_tick_params(self,ax):
         ax.tick_params(labelbottom='off',labelleft='off',labeltop='off',left='off',bottom='off',top='off',right='off')
 
     def update(self,data, cmap=['hot','hsv']):
-        obamp,obph, prre,prim, bg, pos, err_mod, err_Q = data
+        obamp,obph, prre,prim, bg, pos, errors = data
 
         obamp = obamp[:,0,:,:]
         obph = obph[:,0,:,:]
@@ -245,7 +254,7 @@ class ReconPlot():
         prim = prim[0,...]
         pr = prre + 1j*prim
 
-        ints = np.sum(pr**2,(1,2))
+        ints = np.sum(np.real(pr*pr.conj()),(1,2))
         ints_percent = ints/ints.sum()
 
         #print pr.min(), pr.max()
@@ -253,8 +262,8 @@ class ReconPlot():
             self.ob_imaxes = []
             self.ob_cbars = []
             for i,(oa,op) in enumerate(zip(obamp,obph)):
-                print oa.shape
-                print op.shape
+                # print oa.shape
+                # print op.shape
                 imax1 = self.ob_axes[i][0].imshow(oa, interpolation=self.interp, cmap=plt.cm.get_cmap(cmap[0]))
                 imax2 = self.ob_axes[i][1].imshow(op, interpolation=self.interp, cmap=plt.cm.get_cmap(cmap[1]))
                 cbar1 = plt.colorbar(imax1, cax=self.ob_caxes[i][0])
@@ -271,33 +280,31 @@ class ReconPlot():
             self.pr_imaxes = []
             for i,p in enumerate(pr):
                 iprobe = self.pr_axes[i].imshow(self.imsave(p), interpolation=self.interp)
-                self.pr_axes[i].set_title('$\Psi_{%d} - %-5.2g$ percent'%(i,ints_percent[i]*100))
+                self.pr_axes[i].set_title(r'$\Psi_{%d} - %-5.2g$ percent'%(i,ints_percent[i]*100))
                 self.pr_imaxes.append(iprobe)
         else:
             for i,p in enumerate(pr):
                 pra = self.pr_imaxes[i]
                 pra.set_data(self.imsave(p))
-                self.pr_axes[i].set_title('$\Psi_{%d}$ -- $||\Psi_{%d}||^2 = %-5.2g$ -- $\frac{||\Psi_{%d}||^2}{\sum_K ||\Psi_{K}||^2} = %-5.2g$'%(i,i,ints[i],i,ints_percent[i]))
+                self.pr_axes[i].set_title(r'$\Psi_{%d}$ - %-5.2g$ percent'%(i,ints_percent[i]*100))
 
         if self.im_errors is not None:
-            self.im_errors.remove()
+            del self.im_errors[:]
         if self.im_errors2 is not None:
-            self.im_errors2.remove()
+            del self.im_errors2[:]
 
-        x = np.linspace(1, err_mod.size, err_mod.size)
-        self.im_errors = self.err_axes.plot(x,err_mod,c='r', label=r'$\frac{||[I-P_F]z||}{||a||}$')
-        self.im_errors2 = self.err_axes.plot(x,err_Q,c='b', label=r'$\frac{||[I-P_Q]z||}{||a||}$')
-        #r'$\frac{||[I-P_Q]z||}{||a||}$'
-        #
-        #
+        x = np.linspace(1, errors[0].size, errors[0].size)
+        for i,err in enumerate(errors):
+            self.im_errors = self.err_axes.plot(x,err, label=self.error_labels[i])
+
         if self.im_pos is not None:
             self.im_pos.remove()
 
         self.bg_pos = self.pos_axes.imshow(op, interpolation=self.interp)
-        self.im_pos = self.pos_axes.scatter(pos[0],pos[1],c='r')
+        self.im_pos = self.pos_axes.scatter(pos[:,0],pos[:,1],c='r',s=5,marker='+')
 
-        self.legend = self.err_axes.legend()
-
+        if self.legend is None:
+            self.legend = self.err_axes.legend()
 
         self.has_data = True
 
@@ -306,6 +313,7 @@ class ReconPlot():
 
     def start_plotting(self,data):
         self.stop = False
+
         while True:
 #            No = 2
 #            Np = 8
@@ -516,12 +524,12 @@ class ReconPlot():
         win.add(vbox)
 
         canvas = FigureCanvas(self.fig)  # a gtk.DrawingArea
-        vbox.pack_start(canvas)
         toolbar = NaviToolbar(canvas, win)
         vbox.pack_start(toolbar, False, False)
+        vbox.pack_start(canvas)
         return win
 
-    def draw(self):
+    def draw(self,savePath):
         if self.interactive:
             plt.draw()
             time.sleep(0.1)
@@ -529,6 +537,8 @@ class ReconPlot():
 #         print 'show'
             win = self.create_new_window()
             win.show_all()
+            if savePath is not None:
+                self.fig.savefig(savePath + '.png', dpi=600)
             gtk.main()
 #             self.fig.show()
         self.has_data = False

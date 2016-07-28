@@ -43,7 +43,7 @@ end
 
 function engine:iterate(steps)
   engine:before_iterate()
-  local mod_error, overlap_error, image_error
+  local mod_error, overlap_error, relative_error
   printMinMax(self.solution,'solution      ')
   for i=1,steps do
     mod_error, overlap_error = self:RAAR_update()
@@ -69,9 +69,9 @@ function engine:iterate(steps)
         plt:plot(self.P[1]:zfloat(),'new probe')
       end
     end
-    image_error = self:image_error()
+    relative_error = self:relative_error()
 
-    u.printf('iteration %03d: e_mod = %g    e_overlap = %g    e_image = %g',i,mod_error,overlap_error,image_error)
+    u.printf('iteration %03d: e_mod = %g    e_overlap = %g    e_image = %g',i,mod_error,overlap_error,relative_error)
     print('--------------------------------------------------------------------------------')
   end
 end

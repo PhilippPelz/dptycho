@@ -492,7 +492,6 @@ end
 -- buffers:
 --  3 x sizeof(z[k]) el C
 --  2 x sizeof(P) el C
---  1 x sizeof(P) el R
 function engine:refine_probe()
   -- print('refine_probe')
   local new_P = self.P_tmp1_PQstore
@@ -500,7 +499,6 @@ function engine:refine_probe()
   local oview_conj_shifted = self.zk_tmp2_PQstore
 
   local dP = self.P_tmp3_PQstore
-  local dP_abs = self.P_tmp3_real_PQstore
 
   local new_P_denom = self.P_tmp1_real_PQstore
   local denom_shifted = self.P_tmp2_real_PQstore
@@ -529,8 +527,8 @@ function engine:refine_probe()
     new_P:add(oview_conj_shifted:sum(self.O_dim))
   end
   new_P:cdiv(new_P_denom)
-  local probe_change = dP_abs:normZ(dP:add(new_P,-1,self.P)):sum()
-  local P_norm = dP_abs:normZ(self.P):sum()
+  local probe_change = dP:add(new_P,-1,self.P):normall(2)^2
+  local P_norm = self.P:normall(2)^2
   -- u.printf('total current: %g, max_pow/total_current = %g',P_norm,self.max_power/P_norm)
   -- new_P:mul(self.max_power/P_norm)
   -- local regul = self:TV_regularize(new_P,self.probe_regularization_amplitude(self.i),dP,dP_abs,new_P_denom,self.P)
@@ -576,7 +574,7 @@ function engine:calculateO_denom()
   -- 1 x 1 x M x M
   self.P_buffer_real:normZ(self.P):sum(self.P_dim)
   local norm_P = self.P_buffer_real[{{1},{1},{},{}}]
-  -- plt:plot(self.P_buffer_real[1][1]:float(),'self.P_buffer_real 0')
+  -- plt:plot(self.P[1][1]:zfloat(),'self.P 0')
   -- plt:plot(norm_P[1][1]:float(),'self.P_buffer_real 0')
   -- 1 x Np x M x M
   local tmp = self.P_buffer_real
@@ -597,7 +595,7 @@ function engine:calculateO_denom()
   -- plt:plot(self.O_denom[1][1]:float(),'self.O_denom')
   self.InvSigma(self.O_denom,sigma)
   -- plt:plot(self.O_denom[1][1]:float(),'self.O_denom 2')
-  self.O_mask = self.O_denom:lt(1e-3)
+  -- self.O_mask = self.O_denom:lt(1e-3)
   -- plt:plot(self.O_mask[1][1]:float(),'self.O_mask 2')
   u.printram('after calculateO_denom')
 end
@@ -606,11 +604,7 @@ end
 -- buffers:
 --  2 x sizeof(P) el R
 function engine:calculate_pixels_with_sufficient_measurements()
-  if self.object_inertia then
-    self.O_denom:fill(self.object_inertia)
-  else
-    self.O_denom:fill(0)
-  end
+  self.O_denom:fill(0)
   -- 1 x 1 x M x M
   local norm_P_shifted = self.Pk_buffer_real
   -- 1 x 1 x M x M
@@ -631,10 +625,10 @@ function engine:calculate_pixels_with_sufficient_measurements()
     view:add(np_exp)
   end
   -- plt:plot(self.O_denom[1][1]:float(),'self.O_denom')
-  local ge4 = self.O_denom:ge(4)
+  self.O_mask = self.O_denom:ge(4)
   -- plt:plot(ge4[1][1]:float(),'self.O_denom:ge(4)  ')
   u.printram('after calculateO_denom')
-  return ge4:sum()
+  return self.O_mask:sum()
 end
 
 return engine
