@@ -217,9 +217,9 @@ function TWF_engine:iterate(steps)
     -- calculate dL_dO
     self:merge_frames(self.P,self.dL_dO, self.dL_dO_views)
     local R = self.R:updateOutput(self.O)
-    -- self.dR_dO = self.R:updateGradInput(self.O)
+    self.dR_dO = self.R:updateGradInput(self.O)
 
-    -- plt:plot(self.dR_dO[1][1]:zfloat(),'self.dR_dO')
+    plt:plot(self.dR_dO[1][1]:zfloat(),'self.dR_dO')
 
     -- self.dL_dO:add(self.dR_dO)
     self.dL_dO:mul(- self:mu(i))

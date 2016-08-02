@@ -223,11 +223,11 @@ function engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
     mul_merge_repeated:conj(mul_merge:expandAs(self.z[ind]))
     view:add(mul_merge_repeated:cmul(self.z[ind]):sum(self.P_dim))
   end
-  plt:plot(merge_memory[1][1]:zfloat(),'merged')
+  -- plt:plot(merge_memory[1][1]:zfloat(),'merged')
   if do_normalize_merge_memory then
     merge_memory:cmul(self.O_denom)
   end
-  plt:plot(merge_memory[1][1]:zfloat(),'merged 2')
+  -- plt:plot(merge_memory[1][1]:zfloat(),'merged 2')
   -- plt:plot(merge_memory[1][1]:zfloat(),'merged','merged_'..self.i)
 end
 
@@ -249,7 +249,7 @@ function engine:P_Q()
   if self.update_probe then
     for _ = 1,self.P_Q_iterations do
       self:merge_frames(self.P,self.O,self.O_views)
-      probe_change = self:refine_probe()
+      local probe_change = self:refine_probe()
       -- or probe_change > 0.97 * last_probe_change
       if not probe_change_0 then probe_change_0 = probe_change end
       if probe_change < .1 * probe_change_0  then break end
@@ -950,8 +950,8 @@ function engine:calculate_pixels_with_sufficient_measurements()
   for _, view in ipairs(self.O_denom_views) do
     view:add(norm_P)
   end
-  self.O_mask = self.O_denom:ge(4)
-  return self.O_mask:sum()
+  local m = self.O_denom:ge(4)
+  return m:sum()
 end
 
 function engine:calculateO_denom()
@@ -970,13 +970,13 @@ function engine:calculateO_denom()
   local abs_max = tmp:absZ(self.P):max()
   local fact = self.O_denom_regul_factor_start-(self.i/self.iterations)*(self.O_denom_regul_factor_start-self.O_denom_regul_factor_end)
   local sigma =  abs_max * abs_max * fact
-  print('sigma = '..sigma)
-  plt:plot(self.O_denom[1][1]:float(),'calculateO_denom  self.O_denom')
+  -- print('sigma = '..sigma)
+  -- plt:plot(self.O_denom[1][1]:float(),'calculateO_denom  self.O_denom')
   self.InvSigma(self.O_denom,sigma)
   -- self.O_denom:div(2)
-  -- self.O_mask = self.O_denom:lt(1e-3)
-  plt:plot(self.O_denom[1][1]:float(),'O_denom')
-  -- plt:plot(self.O_mask[1]:float(),'O_mask')
+  self.O_mask = self.O_denom:lt(1e-5)
+  -- plt:plot(self.O_denom[1][1]:float(),'O_denom')
+  -- plt:plot(self.O_mask[1][1]:float(),'O_mask')
   u.printram('after calculateO_denom')
 end
 
@@ -1143,7 +1143,7 @@ function engine:P_F_without_background()
     abs = abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
     abs:sqrt()
 
-    if k_all then
+    if k_all < 0 then
       local title = self.i..'_abs_'..self.plots
       -- pprint(abs[1][1])
       local ab = abs[1][1]:clone():fftshift():float():log()
@@ -1156,7 +1156,7 @@ function engine:P_F_without_background()
     end
 
     fdev[1][1]:add(abs[1][1],-1,self.a[k_all])
-    if k_all < 3 then
+    if k_all < 0 then
       plt:plot(fdev[1][1]:clone():fftshift():float(),'fdev')
     end
     da:abs(fdev):pow(2)
@@ -1176,8 +1176,8 @@ function engine:P_F_without_background()
       -- plt:plot(self.P[1][1]:zfloat(),'P')
       -- plt:plotcompare({z[k][1][1]:zfloat():abs(),self.a[k_all]:float()},{'z','a'})
 
-      self.P_Mod(z[k],abs:expandAs(z[k]),self.a_exp[k_all])
-      -- self.P_Mod_renorm(z[k],self.fm_exp[k_all],fdev,self.a_exp[k_all],af,renorm)
+      -- self.P_Mod(z[k],abs:expandAs(z[k]),self.a_exp[k_all])
+      self.P_Mod_renorm(z[k],self.fm_exp[k_all],fdev[1][1]:repeatTensor(self.No,self.Np,1,1),self.a_exp[k_all],abs[1][1]:repeatTensor(self.No,self.Np,1,1),renorm)
 
       if self.fm_mask_radius(self.i) then
         z[k]:maskedFill(self.fm_mask,zt.tocomplex(0))
@@ -1300,7 +1300,7 @@ function engine:image_error()
     -- end
     O_res:add(-1,self.object_solution):cmul(self.O_mask)
     if true then
-      plt:plotReIm(O_res[1][1]:zfloat(),'error 1')
+      -- plt:plotReIm(O_res[1][1]:zfloat(),'error 1')
     end
     local O_res_norm = O_res:normall(2)
     local norm1 = O_res_norm/O_res:copy(self.object_solution):cmul(self.O_mask):normall(2)

@@ -13,7 +13,7 @@ local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 
 local path = '/home/philipp/drop/Public/'
-local file = 'moon_subpix.h5'
+local file = 'moon6.h5'
 
 local ptycho = require 'dptycho.core.ptycho'
 
@@ -21,106 +21,82 @@ local par = {}
 par.i = 50
 par.DM_smooth_amplitude = 1
 par.probe_change_start = 1
+
 local f = hdf5.open(path..file,'r')
 
-
-
-local pos = f:read('/scan_info/positions_int'):all():int()
-
--- dpos[{1,1}] = 5
-
-local M = 128
 local a = f:read('/data_unshift'):all():cuda()
--- local a = torch.CudaTensor(pos:size(1),M,M)
 local fmask = a:clone():fill(1)
--- print(dpos)
-
-local dpos_solution = pos:clone():float():zero()
--- local dpos_solution = f:read('/scan_info/dpos'):all():float()
+local pos = f:read('/scan_info/positions_int'):all():int():add(1)
 local dpos = pos:clone():float():zero()
--- local dpos = f:read('/scan_info/positions'):all():float():add(-1,pos:float())
--- local dpos_solution  = dpos:clone()
-
--- dpos:add(-1,pos:float())
--- dpos:zero()
--- local errpos = stats.truncnorm({pos:size(1),pos:size(2)},-5,5,0,3)
--- print(errpos:max(),errpos:min())
--- dpos:add(errpos:float())
-
+-- local dpos = f:read('/scan_info/dpos'):all():float()
 -- print(dpos)
--- dpos:zero()
--- local pos = f:read('/positions_int'):all():int()
--- local dx_spec = f:read('/scan_info/dx_spec')
--- local w = f:read('/fmask'):all():cuda()
--- local o_r = f:read('/or'):all():cuda()
--- local o_i = f:read('/oi'):all():cuda()
--- local bg_r = f:read('/bg_r'):all():cuda()
--- local bg_i = f:read('/bg_i'):all():cuda()
--- local bg_r = f:read('/bgr'):all()
--- local bg = bg_r:pow(2):add(bg_i:pow(2)):mul(1e5)
--- plt:plot(bg_r:pow(2):add(bg_i:pow(2)))
-local o_r = f:read('/o_r'):all():cuda()
-local o_i = f:read('/o_i'):all():cuda()
-local pr = f:read('/pr'):all():cuda()
-local pi = f:read('/pi'):all():cuda()
+dpos:zero()
+local dpos_solution  = dpos:clone()
+local o_r = f:read('/or'):all():cuda()--:view(torch.LongStorage{1,1,962,962})
+local o_i = f:read('/oi'):all():cuda()--:view(torch.LongStorage{1,1,962,962})
+-- local f1 = hdf5.open('probe2.h5','r')
+local pr = f:read('/pr'):all():cuda()--:view(torch.LongStorage{1,1,512,512})
+local pi = f:read('/pi'):all():cuda()--:view(torch.LongStorage{1,1,512,512})
 local probe = torch.ZCudaTensor.new(pr:size()):copyIm(pi):copyRe(pr)
 local object_solution = torch.ZCudaTensor.new(o_r:size()):copyIm(o_i):copyRe(o_r)
--- local bgc = torch.ZCudaTensor.new(bg_r:size()):copyIm(bg_i):copyRe(bg_r)
--- bgc:fftshift()
--- local dpos = pos:clone():float():zero()
--- plt:plot(bgc:zfloat(),'bgc')
--- plt:plot(probe:zfloat())
--- plt:plot(object_solution:zfloat())
-
+-- plt:plotReIm(probe[1][1]:zfloat())
+plt:plot(probe[1][1]:zfloat())
+plt:plot(object_solution[1][1]:zfloat())
 o_r = nil
 o_i = nil
 pr = nil
 pi = nil
 collectgarbage()
 
--- frames
-
 DEBUG = false
-
-local nmodes_probe = 1
-local nmodes_object = 1
 
 par = ptycho.params.DEFAULT_PARAMS_TWF()
 
-par.nmodes_probe = 1
-par.nmodes_object = 1
-
-par.plot_every = 1000
+par.Np = 1
+par.No = 1
+par.bg_solution = nil
+par.plot_every = 50
 par.plot_start = 1
-par.fourier_relax_factor = 5e-2
-
-par.position_refinement_start = 5000
+par.show_plots = true
+par.beta = 0.9
+par.fourier_relax_factor = 8e-2
+par.position_refinement_start = 250
 par.position_refinement_every = 3
+par.position_refinement_max_disp = 2
+par.fm_support_radius = function(it) return nil end
+par.fm_mask_radius = function(it) return nil end
 
-par.probe_update_start = 5000
-par.probe_solution = probe
-par.probe_inertia = 1e-9
+par.probe_update_start = 2
+par.probe_support = 0.5
+par.probe_regularization_amplitude = function(it) return nil end
+par.probe_inertia = 1e-10
+par.probe_lowpass_fwhm = function(it) return nil end
 
-par.object_inertia = 1e-5
-par.object_solution = object_solution
+par.object_highpass_fwhm = function(it) return nil end
+par.object_inertia = nil
 
-par.copy_object = false
+par.P_Q_iterations = 10
 par.copy_probe = true
-par.background_correction_start = 5000
+par.copy_object = true
+par.margin = 0
+par.background_correction_start = 1e5
 
-par.save_interval = 2500
+par.save_interval = 250
 par.save_path = '/tmp/'
-par.save_raw_data = false
+par.save_raw_data = true
+par.run_label = 'ptycho2'
+
+par.O_denom_regul_factor_start = 1e-3
+par.O_denom_regul_factor_end = 1e-15
 
 par.pos = pos
 par.dpos = dpos
 par.dpos_solution = dpos_solution
-
+par.object_solution = object_solution
+par.probe_solution = probe
 par.a = a
 par.fmask = fmask
-par.probe = probe
-
-par.twf.nu = 1e-2
-
+par.probe = nil
 local ngin = ptycho.TWF_engine(par)
-ngin:iterate(5000)
+-- ngin:generate_data('/media/philipp/win1/ProgramData/Dropbox/Public/moon9',1e4, true)
+ngin:iterate(250)

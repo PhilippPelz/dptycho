@@ -13,7 +13,7 @@ local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 
 local path = '/home/philipp/drop/Public/'
-local file = 'moon7.h5'
+local file = 'moon6.h5'
 
 local ptycho = require 'dptycho.core.ptycho'
 
@@ -66,7 +66,7 @@ par.position_refinement_max_disp = 2
 par.fm_support_radius = function(it) return nil end
 par.fm_mask_radius = function(it) return nil end
 
-par.probe_update_start = 250
+par.probe_update_start = 2
 par.probe_support = 0.5
 par.probe_regularization_amplitude = function(it) return nil end
 par.probe_inertia = 1e-10
