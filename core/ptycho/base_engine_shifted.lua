@@ -13,6 +13,19 @@ local gnuplot = require "gnuplot"
 
 local engine, super = classic.class(...,base_engine)
 
+-- merge_and_split_pair
+-- split_single
+-- do_frames_overlap
+-- refine_positions
+-- filter_object
+-- merge_frames
+-- merge_frames_internal
+-- update_frames
+-- regularize_probe
+-- filter_probe
+-- refine_probe
+-- calculateO_denom
+-- calculate_pixels_with_sufficient_measurements
 function engine:_init(par)
   super._init(self,par)
 end
@@ -323,6 +336,8 @@ function engine:merge_frames_internal(frames, mul_merge, merge_memory, merge_mem
   -- this is only used with DM_engine
   if self.object_inertia then
     merge_memory:mul(self.object_inertia)
+  else
+    merge_memory:zero()
   end
 
   -- plt:plot(mul_merge[1][1]:zfloat(),'mul_merge')
@@ -341,7 +356,7 @@ function engine:merge_frames_internal(frames, mul_merge, merge_memory, merge_mem
     -- plt:plot(z[ind][1][1]:zfloat(),'z[ind]')
     local mul_merge_shifted_expanded = mul_merge_shifted:expandAs(z[ind])
     -- plt:plot(mul_merge_shifted_expanded[1][1]:zfloat(),'mul_merge_shifted_expanded')
-    product_shifted:cmul(z[ind],mul_merge_shifted_expanded):sum(2)
+    product_shifted:cmul(z[ind],mul_merge_shifted_expanded):sum(self.P_dim)
     -- plt:plot(product_shifted[1][1]:zfloat(),'product_shifted')
     -- pprint(view)
     -- pprint(product_shifted)
@@ -372,7 +387,6 @@ function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
     local ind = self.k_to_batch_index[k]
     -- print(k,ind)
     pos:fill(1):cmul(self.dpos[k])
-    -- mul_split_shifted[1]:shift(mul_split[1],pos)
     for i = 1, self.No do
       mul_split_shifted[i]:shift(mul_split[i],pos)
     end
@@ -564,7 +578,7 @@ end
 --  2 x sizeof(P) el R
 function engine:calculateO_denom()
   if self.object_inertia then
-    self.O_denom:fill(self.object_inertia)
+    self.O_denom:fill(self.object_inertia*self.K)
   else
     self.O_denom:fill(0)
   end
@@ -625,7 +639,7 @@ function engine:calculate_pixels_with_sufficient_measurements()
     view:add(np_exp)
   end
   -- plt:plot(self.O_denom[1][1]:float(),'self.O_denom')
-  self.O_mask = self.O_denom:ge(4)
+  self.O_mask = self.O_denom:ge(2)
   -- plt:plot(ge4[1][1]:float(),'self.O_denom:ge(4)  ')
   u.printram('after calculateO_denom')
   return self.O_mask:sum()

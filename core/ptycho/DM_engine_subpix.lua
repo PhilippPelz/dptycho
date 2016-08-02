@@ -71,7 +71,7 @@ function engine:iterate(steps)
   self:initialize_plotting()
   local mod_error, overlap_error, relative_error, probe_error, mod_updates = -1,-1,nil, nil, 0
   local probe_change_0, last_probe_change, probe_change = nil, 1e10, 0
-  u.printf('%-10s%-15s%-15s%-15s%-15s%-15s','iteration','e_mod','e_overlap','e_rel','e_probe','modulus updates %')
+  u.printf('%-10s%-15s%-15s%-15s%-15s%-15s%-15s','iteration','e_mod','e_over','e_rel','e_img','e_probe','modulus updates %')
   print('----------------------------------------------------------------------------------------------')
   for i=1,steps do
     self:update_iteration_dependent_parameters(i)
@@ -80,10 +80,11 @@ function engine:iterate(steps)
     self.overlap_errors[i] = self:overlap_error(self.z,self.P_Qz)
     self.mod_errors[i], mod_updates = self:DM_update()
 
-    self.im_errors[i] = self:relative_error()
+    self.im_errors[i] = self:image_error()
+    relative_error = self:relative_error()
     probe_error = self:probe_error()
 
-    u.printf('%-10d%-15g%-15g%-15g%-15g%-15g',i,self.mod_errors[i] or -1,self.overlap_errors[i] or -1 ,self.im_errors[i] or -1, probe_error or -1, mod_updates/self.K*100.0)
+    u.printf('%-10d%-15g%-15g%-15g%-15g%-15g%-15g',i,self.mod_errors[i] or -1,self.overlap_errors[i] or -1 ,self.im_errors[i] or -1, relative_error or -1, probe_error or -1, mod_updates/self.K*100.0)
 
     self:maybe_plot()
     self:maybe_save_data()

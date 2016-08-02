@@ -241,6 +241,9 @@ CUDA_TOOLKIT_ROOT_DIR:PATH=/usr/local/cuda-7.5
 //Toolkit target location.
 CUDA_TOOLKIT_TARGET_DIR:PATH=/usr/local/cuda-7.5
 
+//Use the static version of the CUDA runtime library if available
+CUDA_USE_STATIC_CUDA_RUNTIME:BOOL=ON
+
 //Print out the commands run while compiling the CUDA source file.
 //  With the Makefile generator this defaults to VERBOSE variable
 // specified on the command line, but can be forced on with this
@@ -253,6 +256,9 @@ CUDA_VERSION:STRING=7.5
 //"cublas" library
 CUDA_cublas_LIBRARY:FILEPATH=/usr/local/cuda-7.5/lib64/libcublas.so
 
+//static CUDA runtime library
+CUDA_cudart_static_LIBRARY:FILEPATH=/usr/local/cuda-7.5/lib64/libcudart_static.a
+
 //"cufft" library
 CUDA_cufft_LIBRARY:FILEPATH=/usr/local/cuda-7.5/lib64/libcufft.so
 
@@ -261,6 +267,9 @@ CUDA_cupti_LIBRARY:FILEPATH=/usr/local/cuda-7.5/extras/CUPTI/lib64/libcupti.so
 
 //"curand" library
 CUDA_curand_LIBRARY:FILEPATH=/usr/local/cuda-7.5/lib64/libcurand.so
+
+//"cusolver" library
+CUDA_cusolver_LIBRARY:FILEPATH=/usr/local/cuda-7.5/lib64/libcusolver.so
 
 //"cusparse" library
 CUDA_cusparse_LIBRARY:FILEPATH=/usr/local/cuda-7.5/lib64/libcusparse.so
@@ -274,6 +283,9 @@ CUDA_nppi_LIBRARY:FILEPATH=/usr/local/cuda-7.5/lib64/libnppi.so
 //"npps" library
 CUDA_npps_LIBRARY:FILEPATH=/usr/local/cuda-7.5/lib64/libnpps.so
 
+//Path to a library.
+CUDA_rt_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/librt.so
+
 //Value Computed by CMake
 Project_BINARY_DIR:STATIC=/home/philipp/projects/dptycho/build
 
@@ -281,7 +293,7 @@ Project_BINARY_DIR:STATIC=/home/philipp/projects/dptycho/build
 Project_SOURCE_DIR:STATIC=/home/philipp/projects/dptycho
 
 //Dependencies for the target
-THZNN_LIB_DEPENDS:STATIC=general;/usr/local/cuda-7.5/lib64/libcudart.so;general;THC;general;TH;
+THZNN_LIB_DEPENDS:STATIC=general;/usr/local/cuda-7.5/lib64/libcudart_static.a;general;-lpthread;general;dl;general;/usr/lib/x86_64-linux-gnu/librt.so;general;THC;general;TH;
 
 //The directory containing a CMake configuration file for Torch.
 Torch_DIR:PATH=/home/philipp/torch/install/share/cmake/torch
@@ -301,9 +313,9 @@ CMAKE_CACHEFILE_DIR:INTERNAL=/home/philipp/projects/dptycho/build
 //Major version of cmake used to create the current loaded cache
 CMAKE_CACHE_MAJOR_VERSION:INTERNAL=3
 //Minor version of cmake used to create the current loaded cache
-CMAKE_CACHE_MINOR_VERSION:INTERNAL=0
+CMAKE_CACHE_MINOR_VERSION:INTERNAL=5
 //Patch version of cmake used to create the current loaded cache
-CMAKE_CACHE_PATCH_VERSION:INTERNAL=2
+CMAKE_CACHE_PATCH_VERSION:INTERNAL=1
 //ADVANCED property for variable: CMAKE_COLOR_MAKEFILE
 CMAKE_COLOR_MAKEFILE-ADVANCED:INTERNAL=1
 //Path to CMake executable.
@@ -354,8 +366,18 @@ CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
 CMAKE_EXPORT_COMPILE_COMMANDS-ADVANCED:INTERNAL=1
 //Name of generator.
 CMAKE_GENERATOR:INTERNAL=Unix Makefiles
+//Name of generator platform.
+CMAKE_GENERATOR_PLATFORM:INTERNAL=
 //Name of generator toolset.
 CMAKE_GENERATOR_TOOLSET:INTERNAL=
+//Have symbol pthread_create
+CMAKE_HAVE_LIBC_CREATE:INTERNAL=
+//Have library pthreads
+CMAKE_HAVE_PTHREADS_CREATE:INTERNAL=
+//Have library pthread
+CMAKE_HAVE_PTHREAD_CREATE:INTERNAL=1
+//Have include pthread.h
+CMAKE_HAVE_PTHREAD_H:INTERNAL=1
 //Start directory with the top level CMakeLists.txt file for this
 // project
 CMAKE_HOME_DIRECTORY:INTERNAL=/home/philipp/projects/dptycho
@@ -379,6 +401,8 @@ CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
 CMAKE_NM-ADVANCED:INTERNAL=1
 //number of local generators
 CMAKE_NUMBER_OF_LOCAL_GENERATORS:INTERNAL=4
+//number of local generators
+CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=4
 //ADVANCED property for variable: CMAKE_OBJCOPY
 CMAKE_OBJCOPY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_OBJDUMP
@@ -386,7 +410,7 @@ CMAKE_OBJDUMP-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_RANLIB
 CMAKE_RANLIB-ADVANCED:INTERNAL=1
 //Path to CMake installation.
-CMAKE_ROOT:INTERNAL=/usr/share/cmake-3.0
+CMAKE_ROOT:INTERNAL=/usr/share/cmake-3.5
 //ADVANCED property for variable: CMAKE_SHARED_LINKER_FLAGS
 CMAKE_SHARED_LINKER_FLAGS-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_SHARED_LINKER_FLAGS_DEBUG
@@ -426,6 +450,10 @@ CUDA_64_BIT_DEVICE_CODE-ADVANCED:INTERNAL=1
 CUDA_ADDITIONAL_CLEAN_FILES:INTERNAL=/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//THZNN_generated_WSECriterion.cu.o.depend
 //ADVANCED property for variable: CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE
 CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: CUDA_BUILD_CUBIN
+CUDA_BUILD_CUBIN-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: CUDA_BUILD_EMULATION
+CUDA_BUILD_EMULATION-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CUDA_CUDART_LIBRARY
 CUDA_CUDART_LIBRARY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CUDA_CUDA_LIBRARY
@@ -451,6 +479,8 @@ CUDA_PROPAGATE_HOST_FLAGS-ADVANCED:INTERNAL=1
 //This is the value of the last time CUDA_SDK_ROOT_DIR was set
 // successfully.
 CUDA_SDK_ROOT_DIR_INTERNAL:INTERNAL=CUDA_SDK_ROOT_DIR-NOTFOUND
+//ADVANCED property for variable: CUDA_SEPARABLE_COMPILATION
+CUDA_SEPARABLE_COMPILATION-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CUDA_TARGET_CPU_ARCH
 CUDA_TARGET_CPU_ARCH-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CUDA_TOOLKIT_INCLUDE
@@ -463,20 +493,26 @@ CUDA_TOOLKIT_TARGET_DIR-ADVANCED:INTERNAL=1
 //This is the value of the last time CUDA_TOOLKIT_TARGET_DIR was
 // set successfully.
 CUDA_TOOLKIT_TARGET_DIR_INTERNAL:INTERNAL=/usr/local/cuda-7.5
+//ADVANCED property for variable: CUDA_VERBOSE_BUILD
+CUDA_VERBOSE_BUILD-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CUDA_VERSION
 CUDA_VERSION-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CUDA_cublas_LIBRARY
 CUDA_cublas_LIBRARY-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: CUDA_cudart_static_LIBRARY
+CUDA_cudart_static_LIBRARY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CUDA_cufft_LIBRARY
 CUDA_cufft_LIBRARY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CUDA_cupti_LIBRARY
 CUDA_cupti_LIBRARY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CUDA_curand_LIBRARY
 CUDA_curand_LIBRARY-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: CUDA_cusolver_LIBRARY
+CUDA_cusolver_LIBRARY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CUDA_cusparse_LIBRARY
 CUDA_cusparse_LIBRARY-ADVANCED:INTERNAL=1
 //Location of make2cmake.cmake
-CUDA_make2cmake:INTERNAL=/usr/share/cmake-3.0/Modules/FindCUDA/make2cmake.cmake
+CUDA_make2cmake:INTERNAL=/usr/share/cmake-3.5/Modules/FindCUDA/make2cmake.cmake
 //ADVANCED property for variable: CUDA_nppc_LIBRARY
 CUDA_nppc_LIBRARY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CUDA_nppi_LIBRARY
@@ -484,9 +520,11 @@ CUDA_nppi_LIBRARY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CUDA_npps_LIBRARY
 CUDA_npps_LIBRARY-ADVANCED:INTERNAL=1
 //Location of parse_cubin.cmake
-CUDA_parse_cubin:INTERNAL=/usr/share/cmake-3.0/Modules/FindCUDA/parse_cubin.cmake
+CUDA_parse_cubin:INTERNAL=/usr/share/cmake-3.5/Modules/FindCUDA/parse_cubin.cmake
 //Location of run_nvcc.cmake
-CUDA_run_nvcc:INTERNAL=/usr/share/cmake-3.0/Modules/FindCUDA/run_nvcc.cmake
+CUDA_run_nvcc:INTERNAL=/usr/share/cmake-3.5/Modules/FindCUDA/run_nvcc.cmake
 //Details about finding CUDA
 FIND_PACKAGE_MESSAGE_DETAILS_CUDA:INTERNAL=[/usr/local/cuda-7.5][/usr/local/cuda-7.5/bin/nvcc][/usr/local/cuda-7.5/include][/usr/local/cuda-7.5/lib64/libcudart.so][v7.5(4.0)]
+//Details about finding Threads
+FIND_PACKAGE_MESSAGE_DETAILS_Threads:INTERNAL=[TRUE][v()]
 

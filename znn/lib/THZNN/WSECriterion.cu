@@ -234,8 +234,8 @@ struct ModProj_renorm {
   ModProj_renorm(float _renorm) : renorm(_renorm) {}
 	__device__ __forceinline__ void operator()(float* fm, float* fdev, float* a, float* af, ccx* out) {
       //fm = (1-fmask) + fmask*(fmag + fdev*renorm)/(af + 1e-10)
-      // float fac = (1-*fm) + *fm * (*a+*fdev* (renorm)) / (*af + 1e-6f);
-      float fac = (1-*fm) + *fm * (*a) / (*af + 1e-6f);
+      float fac = (1-*fm) + *fm * (*a+*fdev* (renorm)) / (*af + 1e-6f);
+      // float fac = (1-*fm) + *fm * (*a) / (*af + 1e-6f);
 	    *out = *out * fac ;
 	}
 };
@@ -257,7 +257,7 @@ void THNN_ZCudaP_Mod_renorm(THCState *state, THZCudaTensor *self, THCudaTensor *
 struct ModProj {
 	__device__ __forceinline__ void operator()(float* norm, float* abs, ccx* out) {
     if(*out != ccx(0)){
-		    *out = *out * (*abs/ (*norm+1e-6f)) ;
+		    *out = (*out / (*norm+1e-9f)) * *abs;
         // *out = thrust::polar(*abs,thrust::arg(*out));
     }
     else {

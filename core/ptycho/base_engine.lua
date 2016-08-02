@@ -208,6 +208,60 @@ function engine:print_report()
   print(   '----------------------------------------------------')
 end
 
+-- P_Qz, P_Fz free to use
+function engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
+  local do_normalize_merge_memory = true
+  local mul_merge_repeated = self.zk_tmp1_PQstore
+  if self.object_inertia then
+    merge_memory:mul(self.object_inertia)
+  else
+    merge_memory:zero()
+  end
+  for k, view in ipairs(merge_memory_views) do
+    self:maybe_copy_new_batch_z(k)
+    local ind = self.k_to_batch_index[k]
+    mul_merge_repeated:conj(mul_merge:expandAs(self.z[ind]))
+    view:add(mul_merge_repeated:cmul(self.z[ind]):sum(self.P_dim))
+  end
+  plt:plot(merge_memory[1][1]:zfloat(),'merged')
+  if do_normalize_merge_memory then
+    merge_memory:cmul(self.O_denom)
+  end
+  plt:plot(merge_memory[1][1]:zfloat(),'merged 2')
+  -- plt:plot(merge_memory[1][1]:zfloat(),'merged','merged_'..self.i)
+end
+
+-- P_Fz free
+function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
+  for k, view in ipairs(merge_memory_views) do
+    batch_copy_func(self,k)
+    local ind = self.k_to_batch_index[k]
+    z[ind]:cmul(view:expandAs(z[ind]),mul_split:expandAs(z[ind]))
+  end
+end
+
+function engine:P_Q_plain()
+  self:merge_frames(self.P,self.O,self.O_views)
+  self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
+end
+
+function engine:P_Q()
+  if self.update_probe then
+    for _ = 1,self.P_Q_iterations do
+      self:merge_frames(self.P,self.O,self.O_views)
+      probe_change = self:refine_probe()
+      -- or probe_change > 0.97 * last_probe_change
+      if not probe_change_0 then probe_change_0 = probe_change end
+      if probe_change < .1 * probe_change_0  then break end
+      -- last_probe_change = probe_change
+      -- u.printf('            probe change : %g',probe_change)
+    end
+    self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
+  else
+    self:P_Q_plain()
+  end
+end
+
 function engine:before_iterate()
   self:maybe_init_probe_object()
   self.valid_measurements = self:calculate_pixels_with_sufficient_measurements()
@@ -332,6 +386,7 @@ end
 function engine:prepare_plot_data()
   -- self.O_hZ:copy(self.O)
   -- self.P_hZ:copy(self.P)
+  -- if self.O_mask then
   if self.O_mask then
     self.O_buffer:cmul(self.O,self.O_mask)
   else
@@ -347,8 +402,8 @@ function engine:prepare_plot_data()
   self.plot_data = {
     self.O_hZ:abs(),
     self.O_hZ:arg(),
-    self.P_hZ:abs(),
-    self.P_hZ:arg(),
+    self.P_hZ:re(),
+    self.P_hZ:im(),
     self.bg_h,
     self.plot_pos,
     self:get_errors()
@@ -538,42 +593,42 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
   -- buffers in P_Qz_storage
 
-  self.P_tmp1_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{1,Np,M,M})
+  self.P_tmp1_PQstore = torch.ZCudaTensor.new( {1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_PQstore:nElement() + 1
-  self.P_tmp3_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{1,Np,M,M})
+  self.P_tmp3_PQstore = torch.ZCudaTensor.new( {1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_PQstore:nElement() + 1
 
-  self.zk_tmp1_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{No,Np,M,M})
+  self.zk_tmp1_PQstore = torch.ZCudaTensor.new( {No,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_PQstore:nElement() + 1
-  self.zk_tmp2_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{No,Np,M,M})
+  self.zk_tmp2_PQstore = torch.ZCudaTensor.new( {No,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_PQstore:nElement() + 1
 
-  self.O_tmp_PQstore = torch.ZCudaTensor.new(P_Qz_storage,P_Qstorage_offset,{No,1,Nx,Ny})
+  self.O_tmp_PQstore = torch.ZCudaTensor.new( {No,1,Nx,Ny})
   P_Qstorage_offset = P_Qstorage_offset + self.O_tmp_PQstore:nElement()
 
   -- offset for real arrays
   P_Qstorage_offset = P_Qstorage_offset*2 + 1
 
-  self.P_tmp1_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
+  self.P_tmp1_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_real_PQstore:nElement() + 1
-  self.P_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
+  self.P_tmp2_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp2_real_PQstore:nElement() + 1
-  self.P_tmp3_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,Np,M,M})
+  self.P_tmp3_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_real_PQstore:nElement() + 1
-  self.a_tmp_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,1,M,M})
+  self.a_tmp_real_PQstore = torch.CudaTensor( torch.LongStorage{1,1,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.a_tmp_real_PQstore:nElement() + 1
-  self.a_tmp3_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{1,1,M,M})
+  self.a_tmp3_real_PQstore = torch.CudaTensor( torch.LongStorage{1,1,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.a_tmp3_real_PQstore:nElement() + 1
 
-  self.zk_tmp1_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{No,Np,M,M})
+  self.zk_tmp1_real_PQstore = torch.CudaTensor( torch.LongStorage{No,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_real_PQstore:nElement() + 1
-  self.zk_tmp2_real_PQstore = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{No,Np,M,M})
+  self.zk_tmp2_real_PQstore = torch.CudaTensor( torch.LongStorage{No,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_real_PQstore:nElement() + 1
 
   if P_Qstorage_offset + self.K*M*M + 1 > self.P_Qz:nElement() * 2 then
     self.d = torch.CudaTensor(torch.LongStorage{self.K,M,M})
   else
-    self.d = torch.CudaTensor(P_Qz_storage_real,P_Qstorage_offset,torch.LongStorage{self.K,M,M})
+    self.d = torch.CudaTensor( torch.LongStorage{self.K,M,M})
     P_Qstorage_offset = P_Qstorage_offset + self.d:nElement() + 1
   end
 
@@ -581,35 +636,108 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
   -- buffers in P_Fz_storage
 
-  self.P_tmp1_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
+  self.P_tmp1_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_PFstore:nElement() + 1
-  self.P_tmp2_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
+  self.P_tmp2_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.P_tmp2_PFstore:nElement() + 1
-  self.P_tmp3_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{1,Np,M,M})
+  self.P_tmp3_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.P_tmp3_PFstore:nElement() + 1
 
-  self.zk_tmp1_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
+  self.zk_tmp1_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp1_PFstore:nElement() + 1
-  self.zk_tmp2_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
+  self.zk_tmp2_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp2_PFstore:nElement() + 1
-  self.zk_tmp5_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
+  self.zk_tmp5_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp5_PFstore:nElement() + 1
-  self.zk_tmp6_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
+  self.zk_tmp6_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp6_PFstore:nElement() + 1
-  self.zk_tmp7_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
+  self.zk_tmp7_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp7_PFstore:nElement() + 1
-  self.zk_tmp8_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,Np,M,M})
+  self.zk_tmp8_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp8_PFstore:nElement() + 1
 
-  self.O_tmp_PFstore = torch.ZCudaTensor.new(P_Fz_storage,P_Fstorage_offset,{No,1,Nx,Ny})
+  self.O_tmp_PFstore = torch.ZCudaTensor.new( {No,1,Nx,Ny})
   P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_PFstore:nElement()
 
   -- offset for real arrays
   P_Fstorage_offset = P_Fstorage_offset*2 + 1
-  self.P_tmp1_real_PFstore = torch.CudaTensor.new(P_Fz_storage_real,P_Fstorage_offset,torch.LongStorage{1,Np,M,M})
+  self.P_tmp1_real_PFstore = torch.CudaTensor.new( torch.LongStorage{1,Np,M,M})
   P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_real_PFstore:nElement() + 1
-  self.O_tmp_real_PFstore = torch.CudaTensor.new(P_Fz_storage_real,P_Fstorage_offset,torch.LongStorage{No,1,Nx,Ny})
+  self.O_tmp_real_PFstore = torch.CudaTensor.new( torch.LongStorage{No,1,Nx,Ny})
   P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_real_PFstore:nElement() + 1
+
+  -- self.P_tmp1_PQstore = torch.ZCudaTensor.new( {1,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_PQstore:nElement() + 1
+  -- self.P_tmp3_PQstore = torch.ZCudaTensor.new( {1,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_PQstore:nElement() + 1
+  --
+  -- self.zk_tmp1_PQstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_PQstore:nElement() + 1
+  -- self.zk_tmp2_PQstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_PQstore:nElement() + 1
+  --
+  -- self.O_tmp_PQstore = torch.ZCudaTensor.new( {No,1,Nx,Ny})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.O_tmp_PQstore:nElement()
+  --
+  -- -- offset for real arrays
+  -- P_Qstorage_offset = P_Qstorage_offset*2 + 1
+  --
+  -- self.P_tmp1_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_real_PQstore:nElement() + 1
+  -- self.P_tmp2_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp2_real_PQstore:nElement() + 1
+  -- self.P_tmp3_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_real_PQstore:nElement() + 1
+  -- self.a_tmp_real_PQstore = torch.CudaTensor( torch.LongStorage{1,1,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.a_tmp_real_PQstore:nElement() + 1
+  -- self.a_tmp3_real_PQstore = torch.CudaTensor( torch.LongStorage{1,1,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.a_tmp3_real_PQstore:nElement() + 1
+  --
+  -- self.zk_tmp1_real_PQstore = torch.CudaTensor( torch.LongStorage{No,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_real_PQstore:nElement() + 1
+  -- self.zk_tmp2_real_PQstore = torch.CudaTensor( torch.LongStorage{No,Np,M,M})
+  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_real_PQstore:nElement() + 1
+  --
+  -- if P_Qstorage_offset + self.K*M*M + 1 > self.P_Qz:nElement() * 2 then
+  --   self.d = torch.CudaTensor(torch.LongStorage{self.K,M,M})
+  -- else
+  --   self.d = torch.CudaTensor( torch.LongStorage{self.K,M,M})
+  --   P_Qstorage_offset = P_Qstorage_offset + self.d:nElement() + 1
+  -- end
+  --
+  -- self.a_buffer1 = torch.CudaTensor(P_Qz_storage_real,1,torch.LongStorage{self.K,M,M})
+  --
+  -- -- buffers in P_Fz_storage
+  --
+  -- self.P_tmp1_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_PFstore:nElement() + 1
+  -- self.P_tmp2_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp2_PFstore:nElement() + 1
+  -- self.P_tmp3_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp3_PFstore:nElement() + 1
+  --
+  -- self.zk_tmp1_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp1_PFstore:nElement() + 1
+  -- self.zk_tmp2_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp2_PFstore:nElement() + 1
+  -- self.zk_tmp5_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp5_PFstore:nElement() + 1
+  -- self.zk_tmp6_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp6_PFstore:nElement() + 1
+  -- self.zk_tmp7_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp7_PFstore:nElement() + 1
+  -- self.zk_tmp8_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp8_PFstore:nElement() + 1
+  --
+  -- self.O_tmp_PFstore = torch.ZCudaTensor.new( {No,1,Nx,Ny})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_PFstore:nElement()
+  --
+  -- -- offset for real arrays
+  -- P_Fstorage_offset = P_Fstorage_offset*2 + 1
+  -- self.P_tmp1_real_PFstore = torch.CudaTensor.new( torch.LongStorage{1,Np,M,M})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_real_PFstore:nElement() + 1
+  -- self.O_tmp_real_PFstore = torch.CudaTensor.new( torch.LongStorage{No,1,Nx,Ny})
+  -- P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_real_PFstore:nElement() + 1
 
   self.P_buffer = self.P_tmp1_PQstore
   self.P_buffer_real = self.P_tmp1_real_PQstore
@@ -776,18 +904,18 @@ function engine:generate_data(filename,poisson_noise,save_data)
         -- local I_total = a[k_full]:sum()
         -- u.printf('I_total[%d] = %g',k_full,I_total)
         --:mul(poisson_noise/I_total)
-        local a_h = a[k_full]:float()
-        a_h[a_h:lt(0)] = 0
-        local a_h_noisy = u.stats.poisson(a_h)
-
-        -- u.printf('%g',a_h_noisy:sum())
-        a[k_full]:copy(a_h_noisy)
+        -- local a_h = a[k_full]:float()
+        -- a_h[a_h:lt(0)] = 0
+        -- local a_h_noisy = u.stats.poisson(a_h)
+        --
+        -- -- u.printf('%g',a_h_noisy:sum())
+        -- a[k_full]:copy(a_h_noisy)
       end
 
       a[k_full]:sqrt()
 
-      if first then
-        plt:plot(a[k_full]:float():log(),'a')
+      if save_data then
+        -- plt:plot(a[k_full]:float():log(),'a','dp'..k_full,false)
         first = false
       end
     end
@@ -827,71 +955,29 @@ function engine:calculate_pixels_with_sufficient_measurements()
 end
 
 function engine:calculateO_denom()
-  self.O_denom:fill(self.object_inertia*self.K)
+  if self.object_inertia then
+    self.O_denom:fill(self.object_inertia*self.K)
+  else
+    self.O_denom:fill(0)
+  end
+
   local norm_P =  self.P_tmp2_real_PQstore:normZ(self.P):sum(self.P_dim)
   local tmp = self.P_tmp2_real_PQstore
   norm_P = norm_P:expandAs(self.O_denom_views[1])
   for _, view in ipairs(self.O_denom_views) do
     view:add(norm_P)
   end
-  local fact_start, fact_end = 1e-6, 1e-9
-
-  local fact = fact_start-(self.i/self.iterations)*(fact_start-fact_end)
   local abs_max = tmp:absZ(self.P):max()
-  local sigma = abs_max * abs_max * fact
-  -- local sigma = 1e-8
-  -- print('sigma = '..sigma)
-  -- plt:plot(self.O_denom[1][1]:float():log(),'calculateO_denom  self.O_denom')
+  local fact = self.O_denom_regul_factor_start-(self.i/self.iterations)*(self.O_denom_regul_factor_start-self.O_denom_regul_factor_end)
+  local sigma =  abs_max * abs_max * fact
+  print('sigma = '..sigma)
+  plt:plot(self.O_denom[1][1]:float(),'calculateO_denom  self.O_denom')
   self.InvSigma(self.O_denom,sigma)
   -- self.O_denom:div(2)
   -- self.O_mask = self.O_denom:lt(1e-3)
-  -- plt:plot(self.O_denom[1][1]:float():log(),'O_denom')
+  plt:plot(self.O_denom[1][1]:float(),'O_denom')
   -- plt:plot(self.O_mask[1]:float(),'O_mask')
-end
-
--- P_Qz, P_Fz free to use
-function engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
-  local mul_merge_repeated = self.zk_tmp1_PQstore
-  merge_memory:mul(self.object_inertia)
-  for k, view in ipairs(merge_memory_views) do
-    self:maybe_copy_new_batch_z(k)
-    local ind = self.k_to_batch_index[k]
-    mul_merge_repeated:conj(mul_merge:expandAs(self.z[ind]))
-    view:add(mul_merge_repeated:cmul(self.z[ind]):sum(self.P_dim))
-  end
-  merge_memory:cmul(self.O_denom)
-end
-
--- P_Fz free
-function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
-  for k, view in ipairs(merge_memory_views) do
-    batch_copy_func(self,k)
-    local ind = self.k_to_batch_index[k]
-    z[ind]:cmul(view:expandAs(z[ind]),mul_split:expandAs(z[ind]))
-  end
-end
-
-function engine:P_Q_plain()
-  self:merge_frames(self.P,self.O,self.O_views)
-  self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
-end
-
-
-function engine:P_Q()
-  if self.update_probe then
-    for _ = 1,self.P_Q_iterations do
-      self:merge_frames(self.P,self.O,self.O_views)
-      probe_change = self:refine_probe()
-      -- or probe_change > 0.97 * last_probe_change
-      if not probe_change_0 then probe_change_0 = probe_change end
-      if probe_change < .1 * probe_change_0  then break end
-      -- last_probe_change = probe_change
-      -- u.printf('            probe change : %g',probe_change)
-    end
-    self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
-  else
-    self:P_Q_plain()
-  end
+  u.printram('after calculateO_denom')
 end
 
 function engine:P_F_with_background()
@@ -1057,21 +1143,21 @@ function engine:P_F_without_background()
     abs = abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
     abs:sqrt()
 
-    -- if self.plots < 10 and k % 3 == 0 then
-    --   local title = self.i..'_abs_'..self.plots
-    --   -- pprint(abs[1][1])
-    --   local ab = abs[1][1]:clone():fftshift():float():log()
-    --   local ak = self.a[k]:clone():fftshift():float():log()
-    --   plt:plotcompare({ab,ak},{'abs_model','abs'},title,self.save_path ..title,self.show_plots)
-    --   -- f:write('/ab_'..plots,ab)
-    --   -- f:write('/ak_'..plots,ak)
-    --
-    --   self.plots = self.plots + 1
-    -- end
+    if k_all then
+      local title = self.i..'_abs_'..self.plots
+      -- pprint(abs[1][1])
+      local ab = abs[1][1]:clone():fftshift():float():log()
+      local ak = self.a[k]:clone():fftshift():float():log()
+      plt:plotcompare({ab,ak},{'abs_model','abs'},title,self.save_path ..title,self.show_plots)
+      -- f:write('/ab_'..plots,ab)
+      -- f:write('/ak_'..plots,ak)
+
+      self.plots = self.plots + 1
+    end
 
     fdev[1][1]:add(abs[1][1],-1,self.a[k_all])
-    if self.do_plot then
-      plt:plot(fdev[1][1]:float(),'fdev')
+    if k_all < 3 then
+      plt:plot(fdev[1][1]:clone():fftshift():float(),'fdev')
     end
     da:abs(fdev):pow(2)
     da:cmul(self.fm[k_all])
@@ -1096,11 +1182,10 @@ function engine:P_F_without_background()
       if self.fm_mask_radius(self.i) then
         z[k]:maskedFill(self.fm_mask,zt.tocomplex(0))
       end
-
-      z[k]:mul(math.sqrt(z[k][1][1]:nElement()))
       -- plt:plot(z[ind][1][1]:abs():float():log(),'z_out[k][1] after')
       self.mod_updates = self.mod_updates + 1
     end
+    z[k]:mul(math.sqrt(z[k][1][1]:nElement()))
     for o = 1, self.No do
       z[k][o]:ifftBatched()
     end
@@ -1167,8 +1252,8 @@ function engine:overlap_error(z_in,z_out)
   for k = 1, self.K, self.batch_size do
     self:maybe_copy_new_batch_P_Q(k)
     self:maybe_copy_new_batch_z(k)
-    res = res + result:add(z_in,-1,z_out):normall(2)
-    res_denom = res_denom + z_out:normall(2)
+    res = res + result:add(z_in,-1,z_out):normall(2)^2
+    res_denom = res_denom + z_out:normall(2)^2
   end
   return res/res_denom
 end
@@ -1201,25 +1286,38 @@ function engine:relative_error()
   end
 end
 
+function engine:image_error()
+  local O_res = self.O_buffer
+  if self.object_solution then
+    local c = O_res:copy(self.O[1]):cmul(self.O_mask):dot(self.object_solution)
+    local phase_diff = c/zt.abs(c)
+    O_res:mul(self.O,phase_diff)
+    -- if true then
+    --   plt:plotcompare({self.object_solution[1][1]:zfloat():re(),O_res[1][1]:zfloat():re()},{'sol re','rec re'})
+    --   plt:plotcompare({self.object_solution[1][1]:zfloat():im(),O_res[1][1]:zfloat():im()},{'sol im','rec im'})
+    --   plt:plotcompare({self.object_solution[1][1]:zfloat():abs(),O_res[1][1]:zfloat():abs()},{'sol abs','rec abs'})
+    --   plt:plotcompare({self.object_solution[1][1]:zfloat():arg(),O_res[1][1]:zfloat():arg()},{'sol arg','rec arg'})
+    -- end
+    O_res:add(-1,self.object_solution):cmul(self.O_mask)
+    if true then
+      plt:plotReIm(O_res[1][1]:zfloat(),'error 1')
+    end
+    local O_res_norm = O_res:normall(2)
+    local norm1 = O_res_norm/O_res:copy(self.object_solution):cmul(self.O_mask):normall(2)
+    return norm1
+  end
+end
 -- free buffer: P_Fz
 function engine:probe_error()
   local norm = self.P_tmp1_real_PFstore
   local P_corr = self.P_tmp2_PFstore
   if self.probe_solution then
-    -- pprint(self.O[1])
-    -- pprint(self.object_solution)
     local c = self.P[1]:dot(self.probe_solution)
-    -- print(c)
     local phase_diff = c/zt.abs(c)
-    --:cmul(self.O_mask)
-    -- print('phase difference: ',phase_diff)
     P_corr:mul(self.P,phase_diff)
-    norm:normZ(P_corr:add(-1,self.probe_solution))
-    local norm1 = norm:sum()/self.probe_solution:normall(2)
-    P_corr:mul(self.P,phase_diff)
-    norm:normZ(P_corr:add(self.probe_solution))
-    local norm2 = norm:sum()/self.probe_solution:normall(2)
-    return math.min(norm1,norm2)
+    P_corr:add(-1,self.probe_solution)
+    local norm1 = P_corr:normall(2)/self.probe_solution:normall(2)
+    return norm1
   end
 end
 

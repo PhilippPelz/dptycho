@@ -96,9 +96,13 @@ local shift = argcheck{
       -- pprint(shift)
       local shsq = shift:squeeze()
       -- pprint(shsq)
-      local shiftx = shsq[1]
-      local shifty = shsq[2]
-      dst.THNN.BatchedBilinearInterpolation(dst:cdata(),src:cdata(),shiftx,shifty)
+      if shsq:norm() > 0 then
+        local shiftx = shsq[1]
+        local shifty = shsq[2]
+        dst.THNN.BatchedBilinearInterpolation(dst:cdata(),src:cdata(),shiftx,shifty)
+      else
+        dst:copy(src)
+      end
       return dst
    end
 }
@@ -112,9 +116,13 @@ local shiftZ = argcheck{
       -- pprint(shift)
       local shsq = shift:squeeze()
       -- pprint(shsq)
-      local shiftx = shsq[1]
-      local shifty = shsq[2]
-      dst.THNN.BatchedBilinearInterpolation(dst:cdata(),src:cdata(),shiftx,shifty)
+      if shsq:norm() > 0 then
+        local shiftx = shsq[1]
+        local shifty = shsq[2]
+        dst.THNN.BatchedBilinearInterpolation(dst:cdata(),src:cdata(),shiftx,shifty)
+      else
+        dst:copy(src)
+      end
       return dst
    end
 }

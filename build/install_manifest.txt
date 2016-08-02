@@ -6,6 +6,7 @@
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/pca.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/ptycho2.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/2016-05-26.lua
+/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/ptycho_runner.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/2015-11-25.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/TWF_simul.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/main.lua
@@ -30,10 +31,13 @@
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/init.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/params.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/TWF_engine.lua
+/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/TWF_engine_subpix.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/RAAR_engine.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/base_engine_shifted.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/DM_engine.lua
+/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/DM_engine_subpix.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/base_engine.lua
+/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/Runner.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/io/reconstruction_plot.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/io/init.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/io/dataloader.lua

@@ -42,6 +42,7 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
     "/home/philipp/projects/dptycho/pca.lua"
     "/home/philipp/projects/dptycho/ptycho2.lua"
     "/home/philipp/projects/dptycho/2016-05-26.lua"
+    "/home/philipp/projects/dptycho/ptycho_runner.lua"
     "/home/philipp/projects/dptycho/2015-11-25.lua"
     "/home/philipp/projects/dptycho/TWF_simul.lua"
     "/home/philipp/projects/dptycho/main.lua"
@@ -76,10 +77,13 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
     "/home/philipp/projects/dptycho/core/ptycho/init.lua"
     "/home/philipp/projects/dptycho/core/ptycho/params.lua"
     "/home/philipp/projects/dptycho/core/ptycho/TWF_engine.lua"
+    "/home/philipp/projects/dptycho/core/ptycho/TWF_engine_subpix.lua"
     "/home/philipp/projects/dptycho/core/ptycho/RAAR_engine.lua"
     "/home/philipp/projects/dptycho/core/ptycho/base_engine_shifted.lua"
     "/home/philipp/projects/dptycho/core/ptycho/DM_engine.lua"
+    "/home/philipp/projects/dptycho/core/ptycho/DM_engine_subpix.lua"
     "/home/philipp/projects/dptycho/core/ptycho/base_engine.lua"
+    "/home/philipp/projects/dptycho/core/ptycho/Runner.lua"
     )
 endif()
 
@@ -147,7 +151,7 @@ else()
   set(CMAKE_INSTALL_MANIFEST "install_manifest.txt")
 endif()
 
-file(WRITE "/home/philipp/projects/dptycho/build/${CMAKE_INSTALL_MANIFEST}" "")
-foreach(file ${CMAKE_INSTALL_MANIFEST_FILES})
-  file(APPEND "/home/philipp/projects/dptycho/build/${CMAKE_INSTALL_MANIFEST}" "${file}\n")
-endforeach()
+string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
+       "${CMAKE_INSTALL_MANIFEST_FILES}")
+file(WRITE "/home/philipp/projects/dptycho/build/${CMAKE_INSTALL_MANIFEST}"
+     "${CMAKE_INSTALL_MANIFEST_CONTENT}")
