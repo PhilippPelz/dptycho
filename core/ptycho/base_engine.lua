@@ -163,8 +163,9 @@ function engine:_init(par)
   self.rescale_regul_amplitude = self.total_measurements / (8*self.O:nElement()*expected_obj_var)
 -- reg_del2_amplitude *= reg_rescale
 
+  local P_norm = self.P:normall(2)^2
+  self.P:mul(self.max_power/P_norm)
 
-  -- u.printMem()
   u.printram('after init')
 
   self.par = nil
@@ -210,8 +211,12 @@ end
 
 -- P_Qz, P_Fz free to use
 function engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
-  local do_normalize_merge_memory = true
-  local mul_merge_repeated = self.zk_tmp1_PQstore
+  self:merge_frames_internal(self.z, mul_merge, merge_memory, merge_memory_views, nil, nil, true)
+end
+
+function engine:merge_frames_internal(frames, mul_merge, merge_memory, merge_memory_views, product_shifted_buffer, mul_merge_shifted_buffer, do_normalize_merge_memory)
+  local z = frames
+  local mul_merge_repeated = self.zk_buffer_merge_frames
   if self.object_inertia then
     merge_memory:mul(self.object_inertia)
   else
@@ -220,8 +225,8 @@ function engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
   for k, view in ipairs(merge_memory_views) do
     self:maybe_copy_new_batch_z(k)
     local ind = self.k_to_batch_index[k]
-    mul_merge_repeated:conj(mul_merge:expandAs(self.z[ind]))
-    view:add(mul_merge_repeated:cmul(self.z[ind]):sum(self.P_dim))
+    mul_merge_repeated:conj(mul_merge:expandAs(z[ind]))
+    view:add(mul_merge_repeated:cmul(z[ind]):sum(self.P_dim))
   end
   -- plt:plot(merge_memory[1][1]:zfloat(),'merged')
   if do_normalize_merge_memory then
@@ -236,6 +241,8 @@ function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
   for k, view in ipairs(merge_memory_views) do
     batch_copy_func(self,k)
     local ind = self.k_to_batch_index[k]
+    -- pprint(view)
+    -- pprint(mul_split)
     z[ind]:cmul(view:expandAs(z[ind]),mul_split:expandAs(z[ind]))
   end
 end
@@ -384,11 +391,9 @@ function engine:maybe_copy_new_batch(z,z_h,key,k)
 end
 
 function engine:prepare_plot_data()
-  -- self.O_hZ:copy(self.O)
-  -- self.P_hZ:copy(self.P)
-  -- if self.O_mask then
   if self.O_mask then
     self.O_buffer:cmul(self.O,self.O_mask)
+    -- self.O_buffer:copy(self.O)
   else
     self.O_buffer:copy(self.O)
   end
@@ -398,16 +403,17 @@ function engine:prepare_plot_data()
   self.plot_pos:add(self.pos:float(),self.dpos):add(self.M/2)
   if self.bg then
     self.bg_h:copy(self.bg)
+  else
+    self.bg_h = torch.FloatTensor(self.M,self.M)
   end
-  self.plot_data = {
-    self.O_hZ:abs(),
-    self.O_hZ:arg(),
-    self.P_hZ:re(),
-    self.P_hZ:im(),
-    self.bg_h,
-    self.plot_pos,
-    self:get_errors()
-    }
+  self.plot_data = {}
+  self.plot_data[1] = self.O_hZ:abs()
+  self.plot_data[2] = self.O_hZ:arg()
+  self.plot_data[3] = self.P_hZ:re()
+  self.plot_data[4] = self.P_hZ:im()
+  self.plot_data[5] = self.bg_h
+  self.plot_data[6] = self.plot_pos
+  self.plot_data[7] = self:get_errors()
 end
 
 function engine:get_errors()
@@ -416,6 +422,13 @@ end
 
 function engine:get_error_labels()
   return {'RFE','ROE','RMSE','L'}
+end
+
+function engine:allocate_error_history()
+  self.mod_errors = torch.FloatTensor(self.iterations):fill(1)
+  self.overlap_errors = torch.FloatTensor(self.iterations):fill(1)
+  self.im_errors = torch.FloatTensor(self.iterations):fill(1)
+  self.L_error = torch.FloatTensor(self.iterations):fill(1)
 end
 
 function engine:maybe_plot()
@@ -438,6 +451,8 @@ function engine:maybe_plot()
   end
 end
 
+
+
 function engine:initialize_plotting()
   if self.bg then
     self.bg_h = torch.FloatTensor(self.bg:size())
@@ -445,31 +460,10 @@ function engine:initialize_plotting()
 
   self.O_hZ = torch.ZFloatTensor(self.O:size())
   self.P_hZ = torch.ZFloatTensor(self.P:size())
-  -- local O_hZ_store = self.O_hZ:storage()
-  -- local P_hZ_store = self.P_hZ:storage()
-  --
-  -- local z2_pointer = tonumber(self.O_hZ:data())
-  -- local z3_pointer = tonumber(self.P_hZ:data())
-  --
-  -- local O_hZ_store_real = torch.FloatStorage(#O_hZ_store*2,z2_pointer)
-  -- local P_hZ_store_real = torch.FloatStorage(#P_hZ_store*2,z3_pointer)
-  -- local os = self.O:size():totable()
-  -- os[#os+1] = 2
-  -- local ps = self.P:size():totable()
-  -- ps[#ps+1] = 2
-  -- self.O_h = torch.FloatTensor(O_hZ_store_real,1,torch.LongStorage(os))
-  -- self.P_h = torch.FloatTensor(P_hZ_store_real,1,torch.LongStorage(ps))
-  self.mod_errors = torch.FloatTensor(self.iterations):fill(1)
-  self.overlap_errors = torch.FloatTensor(self.iterations):fill(1)
-  self.im_errors = torch.FloatTensor(self.iterations):fill(1)
-  self.L_error = torch.FloatTensor(self.iterations):fill(1)
   self.plot_pos = self.dpos:clone()
-
+  self:allocate_error_history()
   self:prepare_plot_data()
-  -- self.O_h:zero()
-  -- print(self.P_h:max(),self.P_h:min())
-  -- print(self.O_h:max(),self.O_h:min())
-
+  -- pprint(self.plot_data)
   plt:init_reconstruction_plot(self.plot_data,'Reconstruction',self:get_error_labels())
   -- print('here')
   u.printram('after initialize_plotting')
@@ -742,6 +736,7 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   self.P_buffer = self.P_tmp1_PQstore
   self.P_buffer_real = self.P_tmp1_real_PQstore
   self.zk_buffer_update_frames = self.zk_tmp1_PFstore
+  self.zk_buffer_merge_frames = self.zk_tmp1_PQstore
   self.Pk_buffer_real = self.a_tmp_real_PQstore
   self.O_buffer_real = self.O_tmp_real_PFstore
   self.O_buffer = self.O_tmp_PFstore
@@ -961,13 +956,12 @@ function engine:calculateO_denom()
     self.O_denom:fill(0)
   end
 
-  local norm_P =  self.P_tmp2_real_PQstore:normZ(self.P):sum(self.P_dim)
-  local tmp = self.P_tmp2_real_PQstore
+  local norm_P =  self.P_buffer_real:normZ(self.P):sum(self.P_dim)
   norm_P = norm_P:expandAs(self.O_denom_views[1])
   for _, view in ipairs(self.O_denom_views) do
     view:add(norm_P)
   end
-  local abs_max = tmp:absZ(self.P):max()
+  local abs_max = self.P_buffer_real:absZ(self.P):max()
   local fact = self.O_denom_regul_factor_start-(self.i/self.iterations)*(self.O_denom_regul_factor_start-self.O_denom_regul_factor_end)
   local sigma =  abs_max * abs_max * fact
   -- print('sigma = '..sigma)
@@ -1262,7 +1256,6 @@ end
 function engine:relative_error()
   local norm = self.O_buffer_real
   local O_res = self.O_buffer
-
   local z_solution = self.z1
   self:update_frames(z_solution,self.probe_solution,self.O_solution_views,self.maybe_copy_new_batch_z1)
 

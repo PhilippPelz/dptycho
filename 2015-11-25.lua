@@ -38,7 +38,7 @@ pos = pos:int()
 dpos:add(-1,pos:float())
 -- dpos[{1,1}] = 5
 
-local NP = 4
+local NP = 1
 
 o_r = nil
 o_i = nil
@@ -65,18 +65,18 @@ local par = ptycho.params.DEFAULT_PARAMS_TWF()
 par.Np = NP
 par.No = 1
 par.bg_solution = nil
-par.plot_every = 3
+par.plot_every = 10
 par.plot_start = 1
 par.show_plots = true
 par.beta = 0.9
 par.fourier_relax_factor = 15e-2
 par.position_refinement_start = 4
-par.position_refinement_every = 1
+par.position_refinement_every = 3
 par.position_refinement_max_disp = 2
 
 par.probe_update_start = 3
 par.probe_support = 0.4
-par.probe_inertia = 1e-1
+par.probe_inertia = 1e-2
 
 par.object_inertia = 1e-7
 

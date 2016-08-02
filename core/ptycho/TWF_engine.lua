@@ -45,9 +45,7 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     --   self.eta:fill(1)
     -- end
 
-    if self.has_solution then
-      self.object_solution = torch.ZCudaTensor.new(No,1,Nx,Ny)
-    end
+
 
     local free_memory, total_memory = cutorch.getMemoryUsage(cutorch.getDevice())
     local used_memory = total_memory - free_memory
@@ -95,6 +93,10 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     self.z = torch.ZCudaTensor.new(torch.LongStorage{K,No,Np,M,M})
     self.dL_dz = z
     self.z1 = torch.ZCudaTensor.new(torch.LongStorage{K,No,Np,M,M})
+    if self.has_solution then
+      self.object_solution = torch.ZCudaTensor.new(No,1,Nx,Ny)
+      self.z2 = torch.ZCudaTensor.new(torch.LongStorage{K,No,Np,M,M})
+    end
 
     if self.batches > 1 then
       self.z_h = torch.ZFloatTensor.new(torch.LongStorage{self.K,No,Np,M,M})
@@ -130,6 +132,8 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     z1_storage_offset = z1_storage_offset*2 + 1
 
     self.zk_buffer_update_frames = self.z1[1]
+    self.zk_buffer_merge_frames = self.z1[1]
+    self.zk_buffer_2 = self.z1[2]
     self.P_buffer = self.dL_dP
     self.P_buffer_real = self.dL_dP_tmp1_real
     self.O_buffer_real = self.O_denom
@@ -140,6 +144,9 @@ function TWF_engine:initialize_views()
   self.O_views = {}
   self.O_denom_views = {}
   self.dL_dO_views = {}
+  if self.has_solution then
+    self.O_solution_views = {}
+  end
 end
 
 function TWF_engine:update_views()
@@ -148,11 +155,14 @@ function TWF_engine:update_views()
     self.O_views[i] = self.O[slice]
     self.O_denom_views[i] = self.O_denom[slice]
     self.dL_dO_views[i] = self.dL_dO[slice]
+    if self.has_solution then
+      self.O_solution_views[i] = self.object_solution[slice]
+    end
   end
 end
 
 function TWF_engine:calculate_dL_dP(dL_dP)
-  self:refine_probe_internal(dL_dP,self.z1,self.z,self.P_buffer_real)
+  self:refine_probe_internal(dL_dP,self.zk_buffer_merge_frames,self.zk_buffer_2,self.P_buffer_real)
 end
 
 -- buffers:
@@ -163,7 +173,6 @@ function TWF_engine:refine_probe_internal(P_update_buffer, z_buffer1, z_buffer2,
   local new_P = P_update_buffer
   local oview_conj = z_buffer1
   local oview_conj_shifted = z_buffer2
-
   new_P:zero()
 
   local pos = torch.FloatTensor{1,1}
@@ -172,15 +181,12 @@ function TWF_engine:refine_probe_internal(P_update_buffer, z_buffer1, z_buffer2,
     local ind = self.k_to_batch_index[k]
     pos:fill(-1):cmul(self.dpos[k])
     oview_conj:conj(view:expandAs(self.z[ind]))
-
     oview_conj:cmul(self.z[ind])
     for o = 1, self.No do
       oview_conj_shifted[o]:shift(oview_conj[o],pos)
     end
-
     new_P:add(oview_conj_shifted:sum(self.O_dim))
   end
-
   local P_norm = P_real_buffer:normZ(new_P):sum()
   -- u.printf('probe gradient norm: %g',P_norm)
   -- plt:plot(new_P[1][1]:zfloat(),title1,self.save_path ..title1)
@@ -203,41 +209,57 @@ function TWF_engine:mu(it)
   return math.min(1-math.exp(-it/self.twf.tau0),self.twf.mu_max) / self.a:nElement()
 end
 
+function TWF_engine:get_errors()
+  return {self.rel_error:narrow(1,1,self.i), self.L_error:narrow(1,1,self.i),self.R_error:narrow(1,1,self.i)}
+end
+
+function TWF_engine:get_error_labels()
+  return {'NRMSE','R','L'}
+end
+
+function TWF_engine:allocate_error_history()
+  self.rel_error = torch.FloatTensor(self.iterations):fill(1)
+  self.R_error = torch.FloatTensor(self.iterations):fill(1)
+  self.L_error = torch.FloatTensor(self.iterations):fill(1)
+end
+
 function TWF_engine:iterate(steps)
   self:before_iterate()
   self.iterations = steps
   self:initialize_plotting()
-  u.printf('%-10s%-15s%-15s%-13s%-15s%-15s%-15s%-15s','iteration','L','R','R (%)','||dL/dO||','||dL/dP||','mu', 'e_img')
+  local mod_error, overlap_error, relative_error, probe_error, mod_updates, im_error = -1,-1,nil, nil, 0
+  u.printf('%-10s%-15s%-15s%-13s%-15s%-15s%-15s%-15s','iteration','L','R','R (%)','||dL/dO||','||dL/dP||','mu', 'e_rel')
+  print('----------------------------------------------------------------------------------------------------------------------')
   for i = 1, steps do
     self:update_iteration_dependent_parameters(i)
-    self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
-    local L = self.L:updateOutput(self.z,self.a)
+    self.L_error[i] = self.L:updateOutput(self.z,self.a)
     self.dL_dz = self.L:updateGradInput(self.z,self.a)
 
     -- calculate dL_dO
     self:merge_frames(self.P,self.dL_dO, self.dL_dO_views)
-    local R = self.R:updateOutput(self.O)
+    self.R_error[i] = self.R:updateOutput(self.O)
     self.dR_dO = self.R:updateGradInput(self.O)
 
-    plt:plot(self.dR_dO[1][1]:zfloat(),'self.dR_dO')
+    -- plt:plot(self.dR_dO[1][1]:zfloat(),'self.dR_dO')
 
-    -- self.dL_dO:add(self.dR_dO)
+    self.dL_dO:add(self.dR_dO)
     self.dL_dO:mul(- self:mu(i))
     -- plt:plot(self.dL_dO[1][1]:zfloat(),'self.dL_dO')
     self.O:add(self.dL_dO)
-
     if self.update_probe then
       self:calculate_dL_dP(self.dL_dP)
-      plt:plot(self.dL_dP[1][1]:zfloat(),'self.dL_dP')
+      -- plt:plot(self.dL_dP[1][1]:zfloat(),'self.dL_dP')
       self.P:add(- self:mu(i),self.dL_dP)
       self:calculateO_denom()
     end
+    self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
+    self.rel_error[i] = self:relative_error()
 
-    u.printf('%-10d%-15g%-15g%-10.2g%%%-15g%-15g%-15g',i,L,R,100.0*R/(L+R),self.dL_dO:normall(1),self.dL_dP:normall(1),self:mu(i),self:relative_error())
+    local rel = 100.0*self.R_error[i]/(self.L_error[i]+self.R_error[i])
+    u.printf('%-10d%-15g%-15g%-12.2g%% %-15g%-15g%-15g',i,self.L_error[i],self.R_error[i],rel,self.dL_dO:normall(1),self.dL_dP:normall(1),self:mu(i),self.rel_error[i])
 
     self:maybe_plot()
     self:maybe_save_data()
-
 
     -- grad = fun_compute_grad_TPWFP_Real(z, y, Params, A, At, Masks, n1_LR, n2_LR, fmaskpro);
     -- z = z - muf(t) * grad;             % Gradient update

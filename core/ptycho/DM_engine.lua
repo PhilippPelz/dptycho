@@ -80,9 +80,11 @@ function engine:iterate(steps)
     self.overlap_errors[i] = self:overlap_error(self.z,self.P_Qz)
     self.mod_errors[i], mod_updates = self:DM_update()
 
-    self.im_errors[i] = self:image_error()
-    relative_error = self:relative_error()
-    probe_error = self:probe_error()
+    if self.has_solution then
+      self.im_errors[{i}] = self:image_error()
+      relative_error = self:relative_error()
+      probe_error = self:probe_error()
+    end
 
     u.printf('%-10d%-15g%-15g%-15g%-15g%-15g%-15g',i,self.mod_errors[i] or -1,self.overlap_errors[i] or -1 ,self.im_errors[i] or -1, relative_error or -1, probe_error or -1, mod_updates/self.K*100.0)
 

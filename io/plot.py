@@ -126,6 +126,7 @@ class ReconPlot():
         self.interp = interp
         self.interactive = interactive
         self.suptitle = suptitle
+        # print data
         obre,obim, prre,prim, bg, pos, err = data
 
         self.error_labels = error_labels
