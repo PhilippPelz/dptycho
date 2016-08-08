@@ -66,7 +66,7 @@ par.position_refinement_max_disp = 2
 par.fm_support_radius = function(it) return nil end
 par.fm_mask_radius = function(it) return nil end
 
-par.probe_update_start = 2
+par.probe_update_start = 500
 par.probe_support = 0.5
 par.probe_regularization_amplitude = function(it) return nil end
 par.probe_inertia = 1e-10
@@ -77,7 +77,7 @@ par.object_inertia = nil
 
 par.P_Q_iterations = 10
 par.copy_probe = true
-par.copy_object = true
+par.copy_object = false
 par.margin = 0
 par.background_correction_start = 1e5
 
@@ -99,4 +99,4 @@ par.fmask = fmask
 par.probe = nil
 local ngin = ptycho.DM_engine(par)
 -- ngin:generate_data('/media/philipp/win1/ProgramData/Dropbox/Public/moon9',1e4, true)
-ngin:iterate(250)
+ngin:iterate(500)

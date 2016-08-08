@@ -302,16 +302,12 @@ function engine:filter_object()
   print('filtering object')
   -- plt:plot(self.P[1][1]:zfloat(),self.i..' P',self.save_path .. self.i..' P',false)
 
-  for o = 1, self.No do
-    self.O[o]:fftBatched()
-  end
+  self.O:view_3D():fftBatched()
 
   -- plt:plot(self.P[1][1]:zfloat():abs():log(),self.i..' P fft unfiltered ',self.save_path .. self.i..' P filtered ',false)
   self.O:cmul(self.object_highpass)
   -- plt:plot(self.P[1][1]:zfloat():abs():log(),self.i..' P fft filtered ',self.save_path .. self.i..' P filtered ',false)
-  for o = 1, self.No do
-    self.O[o]:ifftBatched()
-  end
+  self.O:view_3D():ifftBatched()
 
   local O_fluence_new = self.O_tmp_PQstore:copy(self.O):normall(2)
   u.printf('O_fluence/O_fluence_new = %g',O_fluence/O_fluence_new)
@@ -490,11 +486,11 @@ function engine:filter_probe()
   local P_fluence = self.P_tmp1_real_PQstore:normZ(self.P):sum()
   print('filtering probe')
   -- plt:plot(self.P[1][1]:zfloat(),self.i..' P',self.save_path .. self.i..' P',false)
-  self.P[1]:fftBatched()
+  self.P:view_3D():fftBatched()
   -- plt:plot(self.P[1][1]:zfloat():abs():log(),self.i..' P fft unfiltered ',self.save_path .. self.i..' P filtered ',false)
   self.P:cmul(self.probe_lowpass)
   -- plt:plot(self.P[1][1]:zfloat():abs():log(),self.i..' P fft filtered ',self.save_path .. self.i..' P filtered ',false)
-  self.P[1]:ifftBatched()
+  self.P:view_3D():ifftBatched()
   local P_fluence_new = self.P_tmp1_real_PQstore:normZ(self.P):sum()
   u.printf('P_fluence/P_fluence_new = %g',P_fluence/P_fluence_new)
   self.P:mul(P_fluence/P_fluence_new)
@@ -559,10 +555,6 @@ function engine:refine_probe()
 
   self.P:copy(new_P)
   if self.probe_support then self.P = self.support:forward(self.P) end
-
-  -- self.P[1]:fftBatched()
-  -- self.P = self.bandwidth_limit:forward(self.P)
-  -- self.P[1]:ifftBatched()
 
   -- plt:plot(self.P[1]:zfloat(),'self.P')
   if self.probe_regularization_amplitude(self.i) then self:regularize_probe() end

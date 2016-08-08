@@ -6,6 +6,8 @@ def truncnorm(shape,a,b,mu,sigma):
         (a - mu) / sigma, (b - mu) / sigma, loc=mu, scale=sigma)
     return T.rvs(shape)
 
+def percentile(a,q):
+    return np.percentile(a,q)
 
 a, b = 3.5, 6
 mu, sigma = 5, 0.7

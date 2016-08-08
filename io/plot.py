@@ -22,9 +22,40 @@ import warnings
 warnings.filterwarnings("ignore")
 plt.style.use('ggplot')
 
+def show_window(figure, title = 'Title'):
+    win = gtk.Window()
+    win.connect("destroy", lambda x: gtk.main_quit())
+    win.set_default_size(1280,1024)
+    win.set_title(title)
+    vbox = gtk.VBox()
+    win.add(vbox)
+
+    canvas = FigureCanvas(figure)  # a gtk.DrawingArea
+    toolbar = NaviToolbar(canvas, win)
+    vbox.pack_start(toolbar, False, False)
+    vbox.pack_start(canvas)
+    win.show_all()
+    gtk.main()
+
 def load_image(filename):
     a = np.array(Image.open(filename))
     cx = rgb2complex(a)
+
+def hist(x,bins,title):
+    f = plt.figure()
+    ax = f.add_subplot(111)
+    # print 'min ' + str(np.min(x))
+    # print 'max ' + str(np.max(x))
+    # print '5th perc ' + str(np.percentile(x,3))
+    # print '97th perc ' +  str(np.percentile(x,97))
+    ax.hist(x, bins=np.logspace(int(np.log10(np.min(x))), int(np.log10(np.max(x))), bins), alpha=0.75)
+    ax.set_xlabel('Value')
+    ax.set_xscale('log')
+    ax.set_ylabel('Counts')
+    ax.set_title(title)
+    # ax.set_xlim([int(np.log10(np.min(x))),np.log10(np.max(x))])
+    ax.set_autoscale_on(True)
+    show_window(f,title)
 
 def rgb2hsv(rgb):
     """
@@ -516,6 +547,7 @@ class ReconPlot():
         if filename is not None:
             im.save(filename)
         return im
+
     def create_new_window(self):
         win = gtk.Window()
         win.connect("destroy", lambda x: gtk.main_quit())

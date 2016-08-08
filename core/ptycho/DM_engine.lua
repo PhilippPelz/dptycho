@@ -67,6 +67,7 @@ end
 
 function engine:iterate(steps)
   self:before_iterate()
+  u.printf('rel error : %g',self:relative_error())
   self.iterations = steps
   self:initialize_plotting()
   local mod_error, overlap_error, relative_error, probe_error, mod_updates, im_error = -1,-1,nil, nil, 0
@@ -76,14 +77,17 @@ function engine:iterate(steps)
   for i=1,steps do
     self:update_iteration_dependent_parameters(i)
     self:P_Q()
+    if self.has_solution then
+      self.im_errors[{i}] = self:image_error()
+      probe_error = self:probe_error()
+    end
+    -- u.printf('rel error P_Qz: %g',self:relative_error(self.P_Qz))
     self:maybe_refine_positions()
     self.overlap_errors[i] = self:overlap_error(self.z,self.P_Qz)
     self.mod_errors[i], mod_updates = self:DM_update()
 
     if self.has_solution then
-      self.im_errors[{i}] = self:image_error()
       relative_error = self:relative_error()
-      probe_error = self:probe_error()
     end
 
     u.printf('%-10d%-15g%-15g%-15g%-15g%-15g%-15g',i,self.mod_errors[i] or -1,self.overlap_errors[i] or -1 ,self.im_errors[i] or -1, relative_error or -1, probe_error or -1, mod_updates/self.K*100.0)

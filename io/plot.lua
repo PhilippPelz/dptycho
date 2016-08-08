@@ -55,7 +55,7 @@ c.shutdown_reconstruction_plot = argcheck{
             {name="self", type='table'},
             call =
                 function (self)
-                  py.exec('p.stop()')
+                  -- py.exec('p.stop()')
                 end
             }
 
@@ -149,6 +149,19 @@ c.plot3d = argcheck{
             call =
                 function (self, arr, title, vmin, vmax)
                   py.eval('plot3d(arr,title,vmin,vmax)',{arr = arr, title=title, vmin=vmin, vmax=vmax})
+                end
+            }
+
+c.hist = argcheck{
+            nonamed=true,
+            name = "hist",
+            {name="self", type='table'},
+            {name="x", type='torch.FloatTensor'},
+            {name="bins", default='100', type='number'},
+            {name="title", default='Histogram', type='string'},
+            call =
+                function (self, x, bins,title)
+                  py.eval('hist(x,bins,title)',{x = x, bins=bins,title=title})
                 end
             }
 c.plot = plot

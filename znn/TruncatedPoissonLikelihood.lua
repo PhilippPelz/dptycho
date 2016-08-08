@@ -8,8 +8,9 @@ local TruncatedPoissonLikelihood, parent = torch.class('znn.TruncatedPoissonLike
 -- 1.Bian, L. et al. Fourier ptychographic reconstruction using Poisson maximum likelihood and truncated Wirtinger gradient. arXiv:1603.04746 [physics] (2016).
 -- 1.Chen, Y. & Candes, E. J. Solving Random Quadratic Systems of Equations Is Nearly as Easy as Solving Linear Systems. arXiv:1505.05114 [cs, math, stat] (2015).
 
-function TruncatedPoissonLikelihood:__init(a_h, a_lb, a_ub, gradInput, mask, buffer1, buffer2, z_buffer_real, K, No, Np, M, Nx, Ny)
+function TruncatedPoissonLikelihood:__init(a_h, a_lb, a_ub, gradInput, mask, buffer1, buffer2, z_buffer_real, K, No, Np, M, Nx, Ny, diagnostics)
    parent.__init(self)
+
    self.gradInput = gradInput
    self.lhs = buffer1
    self.rhs = buffer2
@@ -25,98 +26,90 @@ function TruncatedPoissonLikelihood:__init(a_h, a_lb, a_ub, gradInput, mask, buf
    self.a_h = a_h
    self.a_lb = a_lb
    self.a_ub = a_ub
+   self.diagnostics = diagnostics
    self.output = torch.CudaTensor(1):fill(0)
 end
 
 function TruncatedPoissonLikelihood:updateOutput(z, I_target)
   -- plt:plot(z[1][1][1]:abs():float():log(),'in_psi abs')
-  for k = 1, self.K do
-    for o = 1, self.No do
-      z[k][o]:fftBatched(z[k][o])
-    end
-  end
-  self.I_model = self.z_real:normZ(z):sum(2):sum(3)
+  z:view_3D():fftBatched()
+  self.I_model = self.z_real:normZ(z)
+  -- sum over probe and object modes
+  self.I_model:sum(2):sum(3)
   -- plt:plot(I_model[1][1][1]:float():log(),'I_model')
+
+  -- local I_m = self.I_model:clone():log():cmul(I_target)
+  -- local fac = self.I_model:clone():add(-1,I_m):cmul(self.mask)
+  -- local L = fac:sum()
+  -- print(L)
+
   self.I_model.THNN.TruncatedPoissonLikelihood_updateOutput(self.I_model:cdata(),I_target:cdata(),self.mask:cdata(),self.output:cdata())
+  -- print(self.output[1])
   return self.output[1]
 end
 
 function TruncatedPoissonLikelihood:calculateXsi(z,I_target)
-  -- for k = 1, self.K do
-  --   for o = 1, self.No do
-  --     self.gradInput[k][o]:fftBatched(z[k][o])
-  --   end
-  -- end
-
-  -- K x 1 x 1 x M x M -- far-field intensity
-  -- local I_model = self.gradInput:norm():sum(2):sum(3)
-  -- local I_model = self.z_real:normZ(z):sum(2):sum(3)
-
-  -- plt:plot(self.I_model[1][1][1]:float():log(),'self.I_model')
-
   -- ||c - |Az|^2||_1 / (K*M*M)
-  local K_t = self.rhs:add(I_target,-1,self.I_model):norm(1)/I_target:nElement()
-  -- u.printf('L_1 mean: %g',L1_mean)
+  local K_t = self.rhs:add(I_target,-1,self.I_model):norm(1)/(I_target:nElement())
+  local z_2norm = z:normall(2)/self.M/self.Np/self.No
   -- sqrt(n) * |a| / ( ||a|| ||z||) with ||a|| = n because DFT
-  self.rhs:sqrt(self.I_model):div(z:normall(2)/self.Nx/self.Ny/self.No)
-  -- calculate E_1
+  self.rhs:sqrt(self.I_model):div(z_2norm)
+  -- u.printf('I_model 11 max,min: %g, %g',self.I_model:max(),self.I_model:min())
+
+  -- calculate E_1, condition for denominator
   local E_1 = torch.ge(self.rhs,self.a_lb)
   self.lhs:le(self.rhs,self.a_ub)
   E_1:cmul(self.lhs)
+  if self.diagnostics then
+    -- u.printf('Percent filfilling condition     1: %2.2f',E_1:sum()/E_1:nElement()*100.0)
+    -- local rhs = self.rhs:float()
+    -- print(rhs:max(),rhs:min())
+    -- plt:hist(self.rhs:float():view(self.rhs:nElement()),'rhs, cond 1')
+    -- u.printf('K_t = %g',K_t)
+    -- u.printf('a_h = %g',self.a_h)
+    -- u.printf('K_t * a_h = %g',K_t*self.a_h)
+  end
   -- plt:plot(E_1[1][1][1]:float(),'E1')
 
   self.rhs:mul(K_t*self.a_h)
 
   -- |c - |Az|^2|
   self.lhs:add(I_target,-1,self.I_model):abs()
-  -- plt:plotcompare({self.lhs[1]:float(),self.rhs[1][1][1]:float()},{'self.lhs','self.rhs'})
+
+  -- local ab = self.I_model[1][1][1]:clone():fftshift():float():log()
+  -- local ak = I_target[1]:clone():fftshift():float():log()
+  -- local DI = ab:clone():add(-1,ak)
+  -- plt:plotcompare({ab,ak},{'I_model','I_target'})
+  -- plt:plot(DI:float():log(),'DI')
+
+  -- E_2, condition for numerator
   self.valid_gradients:le(self.lhs,self.rhs)
-  -- plt:plot(self.valid_gradients[1]:float(),'E2')
-  self.valid_gradients:cmul(E_1)
-  -- plt:plot(self.valid_gradients[1]:float(),'E1 && E2')
-
-  -- plt:plot(self.I_model[1][1][1]:float():log(),'self.I_model')
-  -- plt:plot(I_target[1]:float():log(),'self.I_target')
-  self.I_model.THNN.TruncatedPoissonLikelihood_GradientFactor(self.I_model:cdata(),I_target:cdata(),self.mask:cdata())
-
-  -- z * 2 * fm * (1 - I_target/I_model)
-  -- plt:plot(self.I_model[1][1][1]:float(),'self.GradientFactor')
-  -- plt:plot(self.gradInput[1][1][1]:zfloat():abs():log(),'self.gradInput 1')
-  self.gradInput:cmul(self.I_model:expandAs(self.gradInput))
-  -- plt:plot(self.gradInput[1][1][1]:zfloat():abs():log(),'self.gradInput 2')
-
-  for k = 1, self.K do
-    for o = 1, self.No do
-      self.gradInput[k][o]:ifftBatched()
-    end
+  if self.diagnostics then
+    -- u.printf('Percent filfilling condition     2: %2.2f',self.valid_gradients:sum()/self.valid_gradients:nElement()*100.0)
+    -- plt:hist(self.rhs:float():view(self.rhs:nElement()),'rhs')
+    -- plt:hist(self.lhs:float():view(self.lhs:nElement()),'lhs')
   end
 
-  -- plt:plot(self.gradInput[1][1][1]:zfloat(),'self.gradInput 3')
+  -- E_1 && E_2
+  self.valid_gradients:cmul(E_1)
+  if self.diagnostics then
+    -- u.printf('Percent filfilling condition 1 & 2: %2.2f',self.valid_gradients:sum()/self.valid_gradients:nElement()*100.0)
+  end
 
-  -- pprint(self.lhs)
-  -- pprint(self.rhs)
-  -- plt:plotcompare({self.lhs[1]:float():log() ,self.rhs[1][1][1]:float():log() },{'lhs','rhs'})
-  -- plt:plotcompare({self.lhs[2]:float():log() ,self.rhs[2][1][1]:float():log() },{'lhs2','rhs2'})
-  -- plt:plotcompare({self.lhs[3]:float():log() ,self.rhs[3][1][1]:float():log() },{'lhs3','rhs3'})
+  -- in-place calculation of I_model <-- fm * (1 - I_target/I_model)
+  self.I_model.THNN.TruncatedPoissonLikelihood_GradientFactor(self.I_model:cdata(),I_target:cdata(),self.mask:cdata())
+  -- gradinput is set to z, thats why only in-place multiply
+  -- z * 2 * fm * (1 - I_target/I_model)
+  self.gradInput:cmul(self.I_model:expandAs(self.gradInput))
+  self.gradInput:view_3D():ifftBatched()
   return self.gradInput
 end
 
 function TruncatedPoissonLikelihood:updateGradInput(z, I_target)
   self.gradInput = self:calculateXsi(z,I_target)
-
-  self.valid_gradients = self.valid_gradients:view(self.K,1,1,self.M,self.M):expandAs(self.gradInput)
-
-  -- pprint(valid_gradients)
-  local sum = self.valid_gradients:sum()
-  -- u.printf('valid gradients: %d, %2.2f percent', sum, sum/valid_gradients:nElement()*100.0)
-
-  self.gradInput:cmul(self.valid_gradients)
-
-  -- plt:plot(self.gradInput[1][1][1]:zfloat():abs():log(),'self.gradInput 111')
-  -- plt:plot(self.gradInput[2][1][1]:zfloat():abs():log(),'self.gradInput 211')
-  -- plt:plot(self.gradInput[3][1][1]:zfloat():abs():log(),'self.gradInput 311')
-
-  return self.gradInput, (sum/self.valid_gradients:nElement()*100.0)
+  local vg_expanded = self.valid_gradients:view(self.K,1,1,self.M,self.M):expandAs(self.gradInput)
+  self.gradInput:cmul(vg_expanded)
+  return self.gradInput, (self.valid_gradients:sum()/self.valid_gradients:nElement()*100.0)
 end
 
 function TruncatedPoissonLikelihood:__call__(input, target)

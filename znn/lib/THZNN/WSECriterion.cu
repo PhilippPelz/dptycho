@@ -24,8 +24,7 @@ struct PoissonLikelihood : public thrust::unary_function<T, float> {
     float intens = thrust::get<0>(x);
     float a = (float)thrust::get<1>(x);
     float m = (float)thrust::get<2>(x);
-    float l = logf(intens);
-    return m*(intens - a * l);
+    return m*(intens - a * logf(intens));
   }
 };
 

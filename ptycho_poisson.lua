@@ -17,11 +17,6 @@ local file = 'moon6.h5'
 
 local ptycho = require 'dptycho.core.ptycho'
 
-local par = {}
-par.i = 50
-par.DM_smooth_amplitude = 1
-par.probe_change_start = 1
-
 local f = hdf5.open(path..file,'r')
 
 local a = f:read('/data_unshift'):all():cuda()
@@ -55,7 +50,7 @@ par = ptycho.params.DEFAULT_PARAMS_TWF()
 par.Np = 1
 par.No = 1
 par.bg_solution = nil
-par.plot_every = 50
+par.plot_every = 1
 par.plot_start = 1
 par.show_plots = true
 par.beta = 0.9
@@ -77,7 +72,7 @@ par.object_inertia = nil
 
 par.P_Q_iterations = 10
 par.copy_probe = true
-par.copy_object = true
+par.copy_object = false--true
 par.margin = 0
 par.background_correction_start = 1e5
 
@@ -97,6 +92,14 @@ par.probe_solution = probe
 par.a = a
 par.fmask = fmask
 par.probe = nil
+
+par.twf.a_h = 25
+par.twf.a_lb = 1e-3
+par.twf.a_ub = 1e1
+par.twf.mu_max = 0.01
+par.twf.tau0 = 10
+par.twf.nu = 1e-2
+
 local ngin = ptycho.TWF_engine(par)
 -- ngin:generate_data('/media/philipp/win1/ProgramData/Dropbox/Public/moon9',1e4, true)
 ngin:iterate(250)

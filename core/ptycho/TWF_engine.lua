@@ -5,19 +5,32 @@ local plot = require 'dptycho.io.plot'
 local znn = require 'dptycho.znn'
 local plt = plot()
 local optim = require 'optim'
+local fn = require 'fn'
+
 local TWF_engine, super = classic.class(...,base_engine)
 
 function TWF_engine:_init(par)
   u.printf('========================== TWF engine ==========================')
   super._init(self,par)
-  self.L = znn.TruncatedPoissonLikelihood(self.twf.a_h,self.twf.a_lb,self.twf.a_ub, self.z, self.fm, self.a_buffer1, self.a_buffer2, self.z1_buffer_real, self.K, self.No, self.Np, self.M, self.Nx, self.Ny)
+  self.L = znn.TruncatedPoissonLikelihood(self.twf.a_h,self.twf.a_lb,self.twf.a_ub, self.z, self.fm, self.a_buffer1, self.a_buffer2, self.z1_buffer_real, self.K, self.No, self.Np, self.M, self.Nx, self.Ny, true)
   self.R = znn.SpatialSmoothnessCriterion(self.O_tmp,self.dR_dO,self.rescale_regul_amplitude*self.twf.nu)
   -- self.P_optim = self.P_optim(opfunc, x, config, state)
   -- self.O_optim = self.O_optim(opfunc, x, config, state)
+
+  self.optim_config = {}
+  self.optim_config.maxIter = 10
+  self.optim_config.sig = 0.5
+  self.optim_config.red = 1e8
+  self.optim_config.break_on_success = true
+  self.optim_state = {}
+
+  -- we deal with intensities in the MAP framework
+  self.a:pow(2)
 end
 
 function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     -- u.printf('device: %d',cutorch.getDevice())
+    print(No,Np)
     local frames_memory = 0
     local Fsize_bytes ,Zsize_bytes = 4,8
 
@@ -108,28 +121,25 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     local z1_storage = self.z1:storage()
     local z1_pointer = tonumber(torch.data(z1_storage,true))
     local z1_storage_real = torch.CudaStorage(z1_storage:size()*2,z1_pointer)
+
     local z1_storage_offset = 1
-
-    -- buffers
-
     self.a_buffer1 = torch.CudaTensor.new(z1_storage_real, z1_storage_offset, torch.LongStorage{K,M,M})
-
-    self.Pk_buffer_real = torch.CudaTensor.new(z1_storage_real, z1_storage_offset, torch.LongStorage{1,1,M,M})
     z1_storage_offset = z1_storage_offset + self.a_buffer1:nElement() + 1
 
-    if No > 1 or Np > 1 then
+    if self:sufficient_space(z1_storage_real,z1_storage_offset,K*M*M) then
       -- there is enough room already allocated for the second buffer
       self.a_buffer2 = torch.CudaTensor.new(z1_storage_real, z1_storage_offset, torch.LongStorage{K,M,M})
+      z1_storage_offset = z1_storage_offset + self.a_buffer2:nElement() + 1
     else
       self.a_buffer2 = torch.CudaTensor.new(torch.LongStorage{K,M,M})
     end
 
-    z1_storage_offset = 1
-    self.z1_buffer_real = torch.CudaTensor.new(z1_storage_real,z1_storage_offset,torch.LongStorage{K,No,Np,M,M})
-    z1_storage_offset = z1_storage_offset + self.z1_buffer_real:nElement() + 1
-
-    -- offset for real arrays
-    z1_storage_offset = z1_storage_offset*2 + 1
+    if self:sufficient_space(z1_storage_real,z1_storage_offset,K*No*Np*M*M) then
+      self.z1_buffer_real = torch.CudaTensor.new(z1_storage_real,z1_storage_offset,torch.LongStorage{K,No,Np,M,M})
+      z1_storage_offset = z1_storage_offset + self.z1_buffer_real:nElement() + 1
+    else
+      self.z1_buffer_real = torch.CudaTensor.new(torch.LongStorage{K,No,Np,M,M})
+    end
 
     self.zk_buffer_update_frames = self.z1[1]
     self.zk_buffer_merge_frames = self.z1[1]
@@ -138,6 +148,10 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     self.P_buffer_real = self.dL_dP_tmp1_real
     self.O_buffer_real = self.O_denom
     self.O_buffer = self.dR_dO
+end
+
+function TWF_engine:sufficient_space(storage,offset,elements)
+  return elements < (#storage - offset)
 end
 
 function TWF_engine:initialize_views()
@@ -207,6 +221,7 @@ end
 
 function TWF_engine:mu(it)
   return math.min(1-math.exp(-it/self.twf.tau0),self.twf.mu_max) / self.a:nElement()
+  -- return 1e-34
 end
 
 function TWF_engine:get_errors()
@@ -214,7 +229,7 @@ function TWF_engine:get_errors()
 end
 
 function TWF_engine:get_error_labels()
-  return {'NRMSE','R','L'}
+  return {'NRMSE','L','R'}
 end
 
 function TWF_engine:allocate_error_history()
@@ -223,40 +238,83 @@ function TWF_engine:allocate_error_history()
   self.L_error = torch.FloatTensor(self.iterations):fill(1)
 end
 
+function TWF_engine.optim_func_object(self,O)
+  self.counter = self.counter + 1
+  -- u.printf('calls: %d',self.counter)
+  -- u.printf('||O_old-O|| = %2.8g',self.old_O:clone():add(-1,self.O):normall(2)^2)
+  -- u.printf('||O||       = %2.8g',self.O:normall(2)^2)
+  self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
+  local L = self.L:updateOutput(self.z,self.a)
+  self.dL_dz, valid_gradients = self.L:updateGradInput(self.z,self.a)
+  self:merge_frames(self.P,self.dL_dO, self.dL_dO_views)
+  -- plt:plot(self.dL_dO[1][1]:zfloat(),'O 1')
+  return L, self.dL_dO
+end
+
+function TWF_engine.optim_func_probe(self,P)
+  local L = self.L:updateOutput(self.z,self.a)
+  self.dL_dz, valid_gradients = self.L:updateGradInput(self.z,self.a)
+  self:calculate_dL_dP(self.dL_dP)
+  return L, self.dL_dP
+end
+
 function TWF_engine:iterate(steps)
   self:before_iterate()
+  u.printf('rel error : %g',self:relative_error())
   self.iterations = steps
   self:initialize_plotting()
+  local valid_gradients = 0
   local mod_error, overlap_error, relative_error, probe_error, mod_updates, im_error = -1,-1,nil, nil, 0
-  u.printf('%-10s%-15s%-15s%-13s%-15s%-15s%-15s%-15s','iteration','L','R','R (%)','||dL/dO||','||dL/dP||','mu', 'e_rel')
+  u.printf('%-10s%-15s%-15s%-13s%-15s%-15s%-15s%-15s%-15s','iteration','L','R','R (%)','||dL/dO||','||dL/dP||','mu', 'e_rel','valid')
   print('----------------------------------------------------------------------------------------------------------------------')
+
+  self.counter = 0
+
   for i = 1, steps do
     self:update_iteration_dependent_parameters(i)
+
     self.L_error[i] = self.L:updateOutput(self.z,self.a)
-    self.dL_dz = self.L:updateGradInput(self.z,self.a)
+    self.dL_dz, valid_gradients = self.L:updateGradInput(self.z,self.a)
 
     -- calculate dL_dO
-    self:merge_frames(self.P,self.dL_dO, self.dL_dO_views)
-    self.R_error[i] = self.R:updateOutput(self.O)
-    self.dR_dO = self.R:updateGradInput(self.O)
+    -- self:merge_frames(self.P,self.dL_dO, self.dL_dO_views)
+    -- self.R_error[i] = self.R:updateOutput(self.O)
+    -- self.dR_dO = self.R:updateGradInput(self.O)
 
     -- plt:plot(self.dR_dO[1][1]:zfloat(),'self.dR_dO')
-
-    self.dL_dO:add(self.dR_dO)
-    self.dL_dO:mul(- self:mu(i))
+    -- self.dL_dO:add(self.dR_dO)
+    -- self.dL_dO:mul(- self:mu(i))
+    local L = 0
+    self.old_O = self.O:clone()
+    local O,L,k = optim.cg(fn.partial(self.optim_func_object,self),self.O,self.optim_config,self.optim_state)
+    -- plt:plot(self.O[1][1]:zfloat(),'O 1')
+    -- print()
+    -- print('Number of function evals = ',i)
+    -- print('L=')
+    -- for j=1,#L do print(j,L[j]); end
+    -- print()
+    self.L_error[i] = L[#L]
+    self.R_error[i] = 0
+    -- plt:hist(self.dL_dO:abs():float():view(self.dL_dO:nElement()),'dl_do')
+    -- plt:plot(self.O[1][1]:zfloat(),'O 1')
     -- plt:plot(self.dL_dO[1][1]:zfloat(),'self.dL_dO')
-    self.O:add(self.dL_dO)
+    -- self.O:add(self.dL_dO)
+    -- plt:plot(self.O[1][1]:zfloat(),'O 2')
     if self.update_probe then
       self:calculate_dL_dP(self.dL_dP)
       -- plt:plot(self.dL_dP[1][1]:zfloat(),'self.dL_dP')
       self.P:add(- self:mu(i),self.dL_dP)
       self:calculateO_denom()
     end
+
     self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
-    self.rel_error[i] = self:relative_error()
+
+    if self.has_solution then
+      self.rel_error[i] = self:relative_error()
+    end
 
     local rel = 100.0*self.R_error[i]/(self.L_error[i]+self.R_error[i])
-    u.printf('%-10d%-15g%-15g%-12.2g%% %-15g%-15g%-15g',i,self.L_error[i],self.R_error[i],rel,self.dL_dO:normall(1),self.dL_dP:normall(1),self:mu(i),self.rel_error[i])
+    u.printf('%-10d%-15g%-15g%-10.2g%%  %-15g%-15g%-15g%-15g%-15g',i,self.L_error[i],self.R_error[i],rel,self.dL_dO:normall(1),self.dL_dP:normall(1),self:mu(i),self.rel_error[i],valid_gradients)
 
     self:maybe_plot()
     self:maybe_save_data()
