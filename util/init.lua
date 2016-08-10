@@ -147,7 +147,13 @@ function m.copytable(obj, seen)
   local s = seen or {}
   local res = setmetatable({}, getmetatable(obj))
   s[obj] = res
-  for k, v in pairs(obj) do res[m.copytable(k, s)] = m.copytable(v, s) end
+  for k, v in pairs(obj) do
+    if k ~= '_classAttributes' then
+      -- print(k)
+      -- pprint(v)
+      res[m.copytable(k, s)] = m.copytable(v, s)
+    end
+  end
   return res
 end
 

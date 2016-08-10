@@ -55,7 +55,7 @@ par = ptycho.params.DEFAULT_PARAMS_TWF()
 par.Np = 1
 par.No = 1
 par.bg_solution = nil
-par.plot_every = 50
+par.plot_every = 25
 par.plot_start = 1
 par.show_plots = true
 par.beta = 0.9
@@ -69,11 +69,11 @@ par.fm_mask_radius = function(it) return nil end
 par.probe_update_start = 250
 par.probe_support = 0.5
 par.probe_regularization_amplitude = function(it) return nil end
-par.probe_inertia = 1e-10
+par.probe_inertia = 0
 par.probe_lowpass_fwhm = function(it) return nil end
 
 par.object_highpass_fwhm = function(it) return nil end
-par.object_inertia = nil
+par.object_inertia = 0
 
 par.P_Q_iterations = 10
 par.copy_probe = true
@@ -86,8 +86,8 @@ par.save_path = '/tmp/'
 par.save_raw_data = true
 par.run_label = 'ptycho2'
 
-par.O_denom_regul_factor_start = 1e-3
-par.O_denom_regul_factor_end = 1e-15
+par.O_denom_regul_factor_start = 0
+par.O_denom_regul_factor_end = 0
 
 par.pos = pos
 par.dpos = dpos
@@ -106,6 +106,6 @@ par.twf.mu_max = 0.01
 par.twf.tau0 = 10
 par.twf.nu = 1e-2
 
-local run_config = {{5,ptycho.DM_engine},{200,ptycho.TWF_engine}}
+local run_config = {{17,ptycho.DM_engine},{200,ptycho.TWF_engine}}
 local runner = ptycho.Runner(run_config,par)
 runner:run()

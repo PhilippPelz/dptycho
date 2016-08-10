@@ -327,6 +327,7 @@ class ReconPlot():
 
         x = np.linspace(1, errors[0].size, errors[0].size)
         for i,err in enumerate(errors):
+            # print(err)
             self.im_errors = self.err_axes.plot(x,err, label=self.error_labels[i])
 
         if self.im_pos is not None:

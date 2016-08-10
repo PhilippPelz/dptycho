@@ -22,26 +22,30 @@ function TWF_engine:_init(par)
   self.optim_config.sig = 0.5
   self.optim_config.red = 1e8
   self.optim_config.break_on_success = true
+  self.optim_config.verbose = false
   self.optim_state = {}
+
+  -- plt:plot(self.O[1][1]:zfloat(),'O init')
 
   -- we deal with intensities in the MAP framework
   self.a:pow(2)
 end
 
 function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
-    -- u.printf('device: %d',cutorch.getDevice())
-    print(No,Np)
     local frames_memory = 0
     local Fsize_bytes ,Zsize_bytes = 4,8
 
-    self.O = torch.ZCudaTensor.new(No,1,Nx,Ny)
-    self.O_denom = torch.CudaTensor(1,1,Nx,Ny):expandAs(self.O)
+    self:allocate_object(No,Nx,Ny)
+    self:allocate_probe(Np,M)
+
+    self.O_denom0 = torch.CudaTensor(1,1,Nx,Ny)
+    self.O_denom = self.O_denom0:expandAs(self.O)
+    self.O_mask0 = torch.CudaTensor(1,1,Nx,Ny)
+    self.O_mask = self.O_mask0:expandAs(self.O)
 
     self.dL_dO = torch.ZCudaTensor.new(self.O:size())
     self.O_tmp = torch.ZCudaTensor.new(self.O:size())
     self.dR_dO = torch.ZCudaTensor.new(self.O:size())
-
-    self:allocate_probe(Np,M)
 
     self.dL_dP = torch.ZCudaTensor.new(self.P:size()):zero()
     self.dL_dP_tmp1 = torch.ZCudaTensor.new(self.P:size())
@@ -57,8 +61,6 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     --   self.bg:zero()
     --   self.eta:fill(1)
     -- end
-
-
 
     local free_memory, total_memory = cutorch.getMemoryUsage(cutorch.getDevice())
     local used_memory = total_memory - free_memory
@@ -107,7 +109,6 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     self.dL_dz = z
     self.z1 = torch.ZCudaTensor.new(torch.LongStorage{K,No,Np,M,M})
     if self.has_solution then
-      self.object_solution = torch.ZCudaTensor.new(No,1,Nx,Ny)
       self.z2 = torch.ZCudaTensor.new(torch.LongStorage{K,No,Np,M,M})
     end
 
@@ -160,6 +161,7 @@ function TWF_engine:initialize_views()
   self.dL_dO_views = {}
   if self.has_solution then
     self.O_solution_views = {}
+    self.O_mask_views = {}
   end
 end
 
@@ -171,6 +173,7 @@ function TWF_engine:update_views()
     self.dL_dO_views[i] = self.dL_dO[slice]
     if self.has_solution then
       self.O_solution_views[i] = self.object_solution[slice]
+      self.O_mask_views[i] = self.O_mask[slice]
     end
   end
 end
@@ -214,11 +217,6 @@ function TWF_engine:refine_probe_internal(P_update_buffer, z_buffer1, z_buffer2,
   return math.sqrt(P_norm/self.Np)
 end
 
-function TWF_engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
-  merge_memory:zero()
-  self:merge_frames_internal(self.dL_dz, mul_merge, merge_memory, merge_memory_views, self.z1, self.dL_dP_tmp1, false)
-end
-
 function TWF_engine:mu(it)
   return math.min(1-math.exp(-it/self.twf.tau0),self.twf.mu_max) / self.a:nElement()
   -- return 1e-34
@@ -246,7 +244,10 @@ function TWF_engine.optim_func_object(self,O)
   self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
   local L = self.L:updateOutput(self.z,self.a)
   self.dL_dz, valid_gradients = self.L:updateGradInput(self.z,self.a)
-  self:merge_frames(self.P,self.dL_dO, self.dL_dO_views)
+  -- plt:plot(self.dL_dz[20][1][1]:zfloat(),'dL_dz 20')
+  -- plt:plot(self.dL_dz[40][1][1]:zfloat(),'dL_dz 40')
+  -- plt:plot(self.dL_dz[60][1][1]:zfloat(),'dL_dz 60')
+  self:merge_frames(self.dL_dz,self.P,self.dL_dO, self.dL_dO_views)
   -- plt:plot(self.dL_dO[1][1]:zfloat(),'O 1')
   return L, self.dL_dO
 end
@@ -287,6 +288,7 @@ function TWF_engine:iterate(steps)
     local L = 0
     self.old_O = self.O:clone()
     local O,L,k = optim.cg(fn.partial(self.optim_func_object,self),self.O,self.optim_config,self.optim_state)
+    local dL_dO_1norm = self.dL_dO:normall(1)
     -- plt:plot(self.O[1][1]:zfloat(),'O 1')
     -- print()
     -- print('Number of function evals = ',i)
@@ -314,7 +316,7 @@ function TWF_engine:iterate(steps)
     end
 
     local rel = 100.0*self.R_error[i]/(self.L_error[i]+self.R_error[i])
-    u.printf('%-10d%-15g%-15g%-10.2g%%  %-15g%-15g%-15g%-15g%-15g',i,self.L_error[i],self.R_error[i],rel,self.dL_dO:normall(1),self.dL_dP:normall(1),self:mu(i),self.rel_error[i],valid_gradients)
+    u.printf('%-10d%-15g%-15g%-10.2g%%  %-15g%-15g%-15g%-15g%-15g',i,self.L_error[i],self.R_error[i],rel,dL_dO_1norm,self.dL_dP:normall(1),self:mu(i),self.rel_error[i],valid_gradients)
 
     self:maybe_plot()
     self:maybe_save_data()
@@ -324,6 +326,8 @@ function TWF_engine:iterate(steps)
 
   end
   self:save_data(self.save_path .. self.run_label .. '_TWF_' .. (steps+1))
+  self.do_plot = true
+  self:maybe_plot()
   plt:shutdown_reconstruction_plot()
   collectgarbage()
 end

@@ -10,6 +10,9 @@ local stats = require 'dptycho.util.stats'
 local params = require "dptycho.core.ptycho.params"
 local tablex = require "pl.tablex"
 local paths = require "paths"
+local ptycho = require("dptycho.core.ptycho")
+local fn = require 'fn'
+local ztorch = require 'ztorch'
 require 'hdf5'
 -- _init
 -- allocateBuffers
@@ -33,23 +36,22 @@ require 'hdf5'
 
 local engine = classic.class(...)
 --pos,a,nmodes_probe,nmodes_object,object_solution,probe,dpos,fmask
-function engine:_init(par)
-  local par = self:replace_default_params(par)
-  tablex.update(self,par)
+function engine:_init(par1)
+  tablex.update(self,par1)
 
   if not paths.dirp(self.save_path) then
     paths.mkdir(self.save_path)
     u.printf('Created path %s',self.save_path)
   end
 
-  local min = par.pos:min(1)
+  local min = self.pos:min(1)
   -- pprint(min)
-  self.pos = par.pos:add(-1,min:expandAs(par.pos)):add(1)
+  self.pos = self.pos:add(-1,min:expandAs(self.pos)):add(1)
 
-  self.fm = par.fmask:expandAs(self.a)
+  self.fm = self.fmask:expandAs(self.a)
 
-  self.K = par.a:size(1)
-  self.M = par.a:size(2)
+  self.K = self.a:size(1)
+  self.M = self.a:size(2)
   self.MM = self.M*self.M
 
   local x = torch.repeatTensor(torch.linspace(-self.M/2,self.M/2,self.M),self.M,1)
@@ -57,8 +59,8 @@ function engine:_init(par)
   local y = x:clone():t()
   self.r2 = (x:pow(2) + y:pow(2))
 
-  self.has_solution = par.object_solution and par.probe_solution
-
+  self.has_solution = self.object_solution and self.probe_solution
+  -- plt:plotReIm(self.object_solution[1][1]:zfloat(),'object_solution 1')
   --expanded views of a and fm
   self.a_exp = self.a:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
   self.fm_exp = self.fm:view(self.K,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
@@ -67,7 +69,7 @@ function engine:_init(par)
   self.O_dim = 1
   self.P_dim = 2
 
-  local object_size = par.pos:max(1):add(torch.IntTensor({par.a:size(2) + 2*self.margin,par.a:size(3)+ 2*self.margin})):squeeze()
+  local object_size = self.pos:max(1):add(torch.IntTensor({self.a:size(2) + 2*self.margin,self.a:size(3)+ 2*self.margin})):squeeze()
 
   -- pprint(object_size)
   self.pos:add(self.margin)
@@ -77,10 +79,9 @@ function engine:_init(par)
   if self.Ny % 2 ~= 0 then self.Ny = self.Ny + 1 end
 
   self:allocateBuffers(self.K,self.No,self.Np,self.M,self.Nx,self.Ny)
-
   -- save reference in params for future use
-  par.O = self.O
-  par.P = self.P
+  par1.O = self.O
+  par1.P = self.P
 
   local Ox, Oy = self.O:size(3), self.O:size(4)
   -- print(Ox,Oy)
@@ -93,7 +94,7 @@ function engine:_init(par)
   -- pprint(self.O)
   -- plt:plot(self.r2_object)
 
-  if not par.probe then
+  if not self.probe then
     self.P:zero()
     self.P[1]:add(300+0i)
   end
@@ -109,23 +110,20 @@ function engine:_init(par)
     local endx = self.Nx-2*self.margin
     local endy = self.Ny-2*self.margin
     local slice = nil
-    if par.object_solution:dim() == 2 then
+    if self.object_solution:dim() == 2 then
       slice = {{startx,endx},{starty,endy}}
     else
       slice = {{},{},{startx,endx},{starty,endy}}
     end
-    -- pprint(par.object_solution)
+    -- pprint(self.object_solution)
     -- pprint(slice)
-    local sv = par.object_solution[slice]:clone()
-    -- pprint(sv)
+    local sv = self.object_solution[slice]:clone()
     self.object_solution:zero()
 
     self.object_solution[{{},{},{startx+self.margin,endx+self.margin},{starty+self.margin,endy+self.margin}}]:copy(sv)
     self.slice = {{},{},{startx+self.margin,endx+self.margin},{starty+self.margin,endy+self.margin}}
-    -- plt:plot(self.object_solution[1][1]:zfloat(),'object_solution')
+    -- plt:plotReIm(self.object_solution[1][1]:zfloat(),'object_solution in init')
   end
-
-  self.O_denom:zero()
 
   self.err_hist = {}
   self.max_power = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum(2):sum(3):max()
@@ -135,13 +133,13 @@ function engine:_init(par)
   self.power_threshold = 0.25 * self.fourier_relax_factor^2 * self.max_power / self.MM
   self.update_positions = false
   self.update_probe = false
-  self.object_inertia = par.object_inertia * self.K
-  self.probe_inertia = par.probe_inertia * self.Np * self.No * self.K
+  self.object_inertia = self.object_inertia * self.K
+  self.probe_inertia = self.probe_inertia * self.Np * self.No * self.K
 
   self.i = 1
   self.iterations = 1
 
-  if not par.probe then
+  if not self.probe then
     self.P:zero()
     self.P[1]:add(300+0i)
   end
@@ -205,53 +203,20 @@ function engine:print_report()
   print(   '----------------------------------------------------')
 end
 
--- P_Qz, P_Fz free to use
-function engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
-  self:merge_frames_internal(self.z, mul_merge, merge_memory, merge_memory_views, nil, nil, true)
-end
-
-function engine:merge_frames_internal(frames, mul_merge, merge_memory, merge_memory_views, product_shifted_buffer, mul_merge_shifted_buffer, do_normalize_merge_memory)
-  local z = frames
-  local mul_merge_repeated = self.zk_buffer_merge_frames
-  if self.object_inertia then
-    merge_memory:mul(self.object_inertia)
-  else
-    merge_memory:zero()
-  end
-  for k, view in ipairs(merge_memory_views) do
-    self:maybe_copy_new_batch_z(k)
-    local ind = self.k_to_batch_index[k]
-    mul_merge_repeated:conj(mul_merge:expandAs(z[ind]))
-    view:add(mul_merge_repeated:cmul(z[ind]):sum(self.P_dim))
-  end
-  -- plt:plot(merge_memory[1][1]:zfloat(),'merged')
-  if do_normalize_merge_memory then
-    merge_memory:cmul(self.O_denom)
-  end
-  -- plt:plot(merge_memory[1][1]:zfloat(),'merged 2')
-  -- plt:plot(merge_memory[1][1]:zfloat(),'merged','merged_'..self.i)
-end
-
 -- P_Fz free
 function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
-  for k, view in ipairs(merge_memory_views) do
-    batch_copy_func(self,k)
-    local ind = self.k_to_batch_index[k]
-    -- pprint(view)
-    -- pprint(mul_split)
-    z[ind]:cmul(view:expandAs(z[ind]),mul_split:expandAs(z[ind]))
-  end
+  self.ops.Q_star(z,mul_split,merge_memory_views,self.zk_buffer_update_frames, fn.partial(batch_copy_func,self),self.k_to_batch_index,self.batches,self.K,self.dpos)
 end
 
-function engine:P_Q_plain()
-  self:merge_frames(self.P,self.O,self.O_views)
-  self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
+function engine:calculateO_denom()
+  self.ops.calculateO_denom(self.O_denom,self.O_mask,self.O_denom_views,self.P,self.P_buffer_real,self.Pk_buffer_real,self.object_inertia,self.K,self.O_denom_regul_factor_start,self.O_denom_regul_factor_end,self.i,self.iterations,self.dpos)
+  -- plt:plot(self.O_denom[1][1]:float():log(),'O_denom')
 end
 
 function engine:P_Q()
   if self.update_probe then
     for _ = 1,self.P_Q_iterations do
-      self:merge_frames(self.P,self.O,self.O_views)
+      self:merge_frames(self.z,self.P,self.O,self.O_views)
       local probe_change = self:refine_probe()
       -- or probe_change > 0.97 * last_probe_change
       if not probe_change_0 then probe_change_0 = probe_change end
@@ -263,6 +228,27 @@ function engine:P_Q()
   else
     self:P_Q_plain()
   end
+end
+
+function engine:refine_probe()
+  local probe_change = self.ops.refine_probe(self.z,self.P,self.O_views,self.P_tmp1_PQstore,self.P_tmp1_real_PQstore,self.P_tmp2_real_PQstore,self.zk_tmp1_PQstore,self.zk_tmp2_PQstore, self.zk_tmp1_real_PQstore,self.k_to_batch_index, fn.partial(self.maybe_copy_new_batch_z,self),self.dpos,self.support,self.probe_inertia)
+  self:calculateO_denom()
+  return probe_change/self.Np
+end
+
+function engine:P_Q_plain()
+  self:merge_frames(self.z,self.P,self.O,self.O_views,true)
+  self.ops.Q_star(self.P_Qz,self.P,self.O_views,self.zk_buffer_update_frames, fn.partial(self.maybe_copy_new_batch_P_Q,self),self.k_to_batch_index,self.batches,self.K,self.dpos)
+end
+
+-- P_Qz, P_Fz free to use
+function engine:merge_frames(z,mul_merge, merge_memory, merge_memory_views, do_normalize_merge_memory)
+  self.ops.Q(z, mul_merge, merge_memory, merge_memory_views, self.zk_buffer_merge_frames, self.P_buffer,self.object_inertia, self.k_to_batch_index,fn.partial(self.maybe_copy_new_batch_z,self), self.batches, self.K)
+  -- plt:plotReIm(self.O[1][1]:zfloat(),'O after merge 0')
+  if do_normalize_merge_memory then
+    merge_memory:cmul(self.O_denom)
+  end
+  -- plt:plotReIm(self.O[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O after merge 1')
 end
 
 function engine:before_iterate()
@@ -280,6 +266,7 @@ function engine:initialize_views()
   self.O_denom_views = {}
   if self.has_solution then
     self.O_solution_views = {}
+    self.O_mask_views = {}
   end
 end
 
@@ -293,28 +280,23 @@ function engine:update_views()
     self.O_denom_views[i] = self.O_denom[slice]
     if self.has_solution then
       self.O_solution_views[i] = self.object_solution[slice]
+      self.O_mask_views[i] = self.O_mask[slice]
     end
   end
 end
 
-function engine.P_Mod(x,abs,measured_abs)
-  x.THNN.P_Mod(x:cdata(),x:cdata(),abs:cdata(),measured_abs:cdata())
+function engine:create_views(O)
+  local views = {}
+  for i=1,self.K do
+    local slice = {{},{},{self.pos[i][1],self.pos[i][1]+self.M-1},{self.pos[i][2],self.pos[i][2]+self.M-1}}
+    -- pprint(slice)
+    views[i] = O[slice]
+  end
+  return views
 end
 
 function engine.P_Mod_bg(x,fm,bg,a,af)
   x.THNN.P_Mod_bg(x:cdata(),fm:cdata(),bg:cdata(),a:cdata(),af:cdata(),1)
-end
-
-function engine.P_Mod_renorm(x,fm,fdev,a,af,renorm)
-  x.THNN.P_Mod_renorm(x:cdata(),fm:cdata(),fdev:cdata(),a:cdata(),af:cdata(),renorm)
-end
-
-function engine.InvSigma(x,sigma)
-  x.THNN.InvSigma(x:cdata(),x:cdata(),sigma)
-end
-
-function engine.ClipMinMax(x,min,max)
-  x.THNN.ClipMinMax(x:cdata(),x:cdata(),min,max)
 end
 
 function engine:replace_default_params(p)
@@ -326,30 +308,30 @@ function engine:replace_default_params(p)
   return par
 end
 
-function engine:maybe_copy_new_batch_z(k)
+function engine.maybe_copy_new_batch_z(self,k)
   u.printram('before maybe_copy_new_batch_z')
   self:maybe_copy_new_batch(self.z,self.z_h,'z',k)
   -- collectgarbage()
   -- u.printram('after maybe_copy_new_batch_z')
 end
 
-function engine:maybe_copy_new_batch_z1(k)
+function engine.maybe_copy_new_batch_z1(self,k)
   u.printram('before maybe_copy_new_batch_z')
   self:maybe_copy_new_batch(self.z1,self.z1_h,'z1',k)
   -- collectgarbage()
   -- u.printram('after maybe_copy_new_batch_z')
 end
 
-function engine:maybe_copy_new_batch_P_Q(k)
+function engine.maybe_copy_new_batch_P_Q(self,k)
   self:maybe_copy_new_batch(self.P_Qz,self.P_Qz_h,'P_Qz',k)
 end
 
-function engine:maybe_copy_new_batch_P_F(k)
+function engine.maybe_copy_new_batch_P_F(self,k)
   -- u.printf('engine:maybe_copy_new_batch_P_F(%d)',k)
   self:maybe_copy_new_batch(self.P_Fz,self.P_Fz_h,'P_Fz',k)
 end
 
-function engine:maybe_copy_new_batch_all(k)
+function engine.maybe_copy_new_batch_all(self,k)
   self:maybe_copy_new_batch_z(k)
   self:maybe_copy_new_batch_P_Q(k)
   self:maybe_copy_new_batch_P_F(k)
@@ -388,8 +370,8 @@ end
 
 function engine:prepare_plot_data()
   if self.O_mask then
-    -- self.O_buffer:cmul(self.O,self.O_mask)
-    self.O_buffer:copy(self.O)
+    self.O_buffer:cmul(self.O,self.O_mask)
+    -- self.O_buffer:copy(self.O)
   else
     self.O_buffer:copy(self.O)
   end
@@ -447,8 +429,6 @@ function engine:maybe_plot()
   end
 end
 
-
-
 function engine:initialize_plotting()
   if self.bg then
     self.bg_h = torch.FloatTensor(self.bg:size())
@@ -485,6 +465,13 @@ function engine:allocate_probe(Np,M)
   end
 end
 
+function engine:allocate_object(No,Nx,Ny)
+  if self.O == nil then
+    u.printf('allocating new object')
+    self.O = torch.ZCudaTensor.new(No,1,Nx,Ny)
+    self.O = self.O:zero():add(1+0i)
+  end
+end
 -- total memory requirements:
 -- 1 x object complex
 -- 1 x object real
@@ -495,14 +482,13 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   local frames_memory = 0
   local Fsize_bytes ,Zsize_bytes = 4,8
 
-  if not self.O then
-    self.O = torch.ZCudaTensor.new(No,1,Nx,Ny)
-    self.O = self.O:zero():add(1+0i)
-  end
-
-  self.O_denom = torch.CudaTensor(1,1,Nx,Ny):expandAs(self.O)
-
+  self:allocate_object(No,Nx,Ny)
   self:allocate_probe(Np,M)
+
+  self.O_denom0 = torch.CudaTensor(1,1,Nx,Ny)
+  self.O_denom = self.O_denom0:expandAs(self.O)
+  self.O_mask0 = torch.CudaTensor(1,1,Nx,Ny)
+  self.O_mask = self.O_mask0:expandAs(self.O)
 
   if self.background_correction_start > 0 then
     self.eta = torch.CudaTensor(M,M)
@@ -513,10 +499,6 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     self.bg_exp = self.bg:view(1,1,1,self.M,self.M):expand(self.K,self.No,self.Np,self.M,self.M)
     self.bg:zero()
     self.eta:fill(1)
-  end
-
-  if self.has_solution then
-    self.object_solution = torch.ZCudaTensor.new(No,1,Nx,Ny)
   end
 
   local free_memory, total_memory = cutorch.getMemoryUsage(cutorch.getDevice())
@@ -670,79 +652,6 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   self.O_tmp_real_PFstore = torch.CudaTensor.new( torch.LongStorage{No,1,Nx,Ny})
   P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_real_PFstore:nElement() + 1
 
-  -- self.P_tmp1_PQstore = torch.ZCudaTensor.new( {1,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_PQstore:nElement() + 1
-  -- self.P_tmp3_PQstore = torch.ZCudaTensor.new( {1,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_PQstore:nElement() + 1
-  --
-  -- self.zk_tmp1_PQstore = torch.ZCudaTensor.new( {No,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_PQstore:nElement() + 1
-  -- self.zk_tmp2_PQstore = torch.ZCudaTensor.new( {No,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_PQstore:nElement() + 1
-  --
-  -- self.O_tmp_PQstore = torch.ZCudaTensor.new( {No,1,Nx,Ny})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.O_tmp_PQstore:nElement()
-  --
-  -- -- offset for real arrays
-  -- P_Qstorage_offset = P_Qstorage_offset*2 + 1
-  --
-  -- self.P_tmp1_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_real_PQstore:nElement() + 1
-  -- self.P_tmp2_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp2_real_PQstore:nElement() + 1
-  -- self.P_tmp3_real_PQstore = torch.CudaTensor( torch.LongStorage{1,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_real_PQstore:nElement() + 1
-  -- self.a_tmp_real_PQstore = torch.CudaTensor( torch.LongStorage{1,1,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.a_tmp_real_PQstore:nElement() + 1
-  -- self.a_tmp3_real_PQstore = torch.CudaTensor( torch.LongStorage{1,1,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.a_tmp3_real_PQstore:nElement() + 1
-  --
-  -- self.zk_tmp1_real_PQstore = torch.CudaTensor( torch.LongStorage{No,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_real_PQstore:nElement() + 1
-  -- self.zk_tmp2_real_PQstore = torch.CudaTensor( torch.LongStorage{No,Np,M,M})
-  -- P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp2_real_PQstore:nElement() + 1
-  --
-  -- if P_Qstorage_offset + self.K*M*M + 1 > self.P_Qz:nElement() * 2 then
-  --   self.d = torch.CudaTensor(torch.LongStorage{self.K,M,M})
-  -- else
-  --   self.d = torch.CudaTensor( torch.LongStorage{self.K,M,M})
-  --   P_Qstorage_offset = P_Qstorage_offset + self.d:nElement() + 1
-  -- end
-  --
-  -- self.a_buffer1 = torch.CudaTensor(P_Qz_storage_real,1,torch.LongStorage{self.K,M,M})
-  --
-  -- -- buffers in P_Fz_storage
-  --
-  -- self.P_tmp1_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_PFstore:nElement() + 1
-  -- self.P_tmp2_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp2_PFstore:nElement() + 1
-  -- self.P_tmp3_PFstore = torch.ZCudaTensor.new( {1,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp3_PFstore:nElement() + 1
-  --
-  -- self.zk_tmp1_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp1_PFstore:nElement() + 1
-  -- self.zk_tmp2_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp2_PFstore:nElement() + 1
-  -- self.zk_tmp5_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp5_PFstore:nElement() + 1
-  -- self.zk_tmp6_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp6_PFstore:nElement() + 1
-  -- self.zk_tmp7_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp7_PFstore:nElement() + 1
-  -- self.zk_tmp8_PFstore = torch.ZCudaTensor.new( {No,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.zk_tmp8_PFstore:nElement() + 1
-  --
-  -- self.O_tmp_PFstore = torch.ZCudaTensor.new( {No,1,Nx,Ny})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_PFstore:nElement()
-  --
-  -- -- offset for real arrays
-  -- P_Fstorage_offset = P_Fstorage_offset*2 + 1
-  -- self.P_tmp1_real_PFstore = torch.CudaTensor.new( torch.LongStorage{1,Np,M,M})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.P_tmp1_real_PFstore:nElement() + 1
-  -- self.O_tmp_real_PFstore = torch.CudaTensor.new( torch.LongStorage{No,1,Nx,Ny})
-  -- P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_real_PFstore:nElement() + 1
-
   self.P_buffer = self.P_tmp1_PQstore
   self.P_buffer_real = self.P_tmp1_real_PQstore
   self.zk_buffer_update_frames = self.zk_tmp1_PFstore
@@ -782,6 +691,8 @@ function engine:update_iteration_dependent_parameters(it)
   if self.fm_support_radius(it) then
     self.fm_support = self.r2:lt(self.fm_support_radius(it)):cuda():fftshift()
     self.fm_support = self.fm_support:view(1,1,self.M,self.M):expand(self.No,self.Np,self.M,self.M)
+  else
+    self.fm_support = nil
   end
   if self.fm_mask_radius(it) then
     -- local conv = self.r2:clone():div(-2*(50/2.35482)^2):exp():cuda():fftshift()
@@ -935,7 +846,6 @@ function engine:generate_data(filename,poisson_noise,save_data)
   end
 end
 
--- recalculate (Q*Q)^-1
 function engine:calculate_pixels_with_sufficient_measurements()
   self.O_denom:fill(0)
   local gt = self.P_buffer_real:normZ(self.P):div(self.P_buffer_real:max()):gt(1e-2)
@@ -946,31 +856,6 @@ function engine:calculate_pixels_with_sufficient_measurements()
   end
   local m = self.O_denom:ge(4)
   return m:sum()
-end
-
-function engine:calculateO_denom()
-  if self.object_inertia then
-    self.O_denom:fill(self.object_inertia*self.K)
-  else
-    self.O_denom:fill(0)
-  end
-
-  local norm_P =  self.P_buffer_real:normZ(self.P):sum(self.P_dim)
-  norm_P = norm_P:expandAs(self.O_denom_views[1])
-  for _, view in ipairs(self.O_denom_views) do
-    view:add(norm_P)
-  end
-  local abs_max = self.P_buffer_real:absZ(self.P):max()
-  local fact = self.O_denom_regul_factor_start-(self.i/self.iterations)*(self.O_denom_regul_factor_start-self.O_denom_regul_factor_end)
-  local sigma =  abs_max * abs_max * fact
-  -- print('sigma = '..sigma)
-  -- plt:plot(self.O_denom[1][1]:float(),'calculateO_denom  self.O_denom')
-  self.InvSigma(self.O_denom,sigma)
-  -- self.O_denom:div(2)
-  self.O_mask = self.O_denom:lt(1e-5)
-  -- plt:plot(self.O_denom[1][1]:float(),'O_denom')
-  -- plt:plot(self.O_mask[1][1]:float(),'O_mask')
-  u.printram('after calculateO_denom')
 end
 
 function engine:P_F_with_background()
@@ -1087,87 +972,20 @@ function engine:P_F_with_background()
 end
 
 function engine:P_F()
+  local err, updates = 0,0
   if self.i >= self.background_correction_start then
-    self:P_F_with_background()
+    err, updates = self:P_F_with_background()
   else
-    self:P_F_without_background()
+    err, updates = self:P_F_without_background()
   end
+  self.mod_updates = self.mod_updates + updates
+  self.module_error = self.module_error + err
+  return err, updates
 end
 
 function engine:P_F_without_background()
-  -- print('P_F_without_background ' .. self.i)
-  local z = self.P_Fz
-  local abs = self.zk_tmp1_real_PQstore
-  local da = self.a_tmp_real_PQstore
-  local fdev = self.a_tmp3_real_PQstore
-  local err_fmag, renorm  = 0, 0
-  local batch_start, batch_end, batch_size = table.unpack(self.old_batch_params['P_Fz'])
-
-  -- local f = hdf5.open(self.save_path..self.i..'_abs.h5','w')
-  z:view_3D():fftBatched()
-  for k=1,batch_size do
-
-    local k_all = batch_start+k-1
-    -- sum over probe and object modes - 1x1xMxM
-    abs = abs:normZ(z[k]):sum(self.O_dim):sum(self.P_dim)
-    abs:sqrt()
-
-    if k_all < 0 then
-      local title = self.i..'_abs_'..self.plots
-      -- pprint(abs[1][1])
-      -- local ab = abs[1][1]:clone():fftshift():float():log()
-      -- local ak = self.a[k]:clone():fftshift():float():log()
-      -- local DI = ab:clone():add(-1,ak)
-      -- plt:plotcompare({ab,ak},{'abs_model','abs'},title,self.save_path ..title,self.show_plots)
-      -- plt:plot(DI:float():log(),'DI')
-      -- f:write('/ab_'..plots,ab)
-      -- f:write('/ak_'..plots,ak)
-
-      self.plots = self.plots + 1
-    end
-
-    fdev[1][1]:add(abs[1][1],-1,self.a[k_all])
-    if k_all < 0 then
-      plt:plot(fdev[1][1]:clone():fftshift():float(),'fdev')
-    end
-    da:pow(fdev,2)
-    da:cmul(self.fm[k_all])
-    err_fmag = da:sum()
-    -- u.printf('err_fmag = %g',err_fmag)
-    self.module_error = self.module_error + err_fmag
-    if err_fmag > self.power_threshold then
-      renorm = math.sqrt(self.power_threshold/err_fmag)
-      -- plt:plot(z[ind][1][1]:abs():float():log(),'z_out[ind][1] before')
-      if self.fm_support_radius(self.i) then
-        self.fm_support:cmul(self.fm_exp[k_all])
-      else
-        self.fm_support = self.fm_exp[k_all]
-      end
-      -- u.printf('||z||^2/||a||^2 = %f',z[k][1][1]:normall(2)^2/self.a[k_all]:norm()^2)
-      -- plt:plot(self.P[1][1]:zfloat(),'P')
-      -- plt:plotcompare({z[k][1][1]:zfloat():abs(),self.a[k_all]:float()},{'z','a'})
-
-      self.P_Mod(z[k],abs:expandAs(z[k]),self.a_exp[k_all])
-      -- self.P_Mod_renorm(z[k],self.fm_exp[k_all],fdev[1][1]:repeatTensor(self.No,self.Np,1,1),self.a_exp[k_all],abs[1][1]:repeatTensor(self.No,self.Np,1,1),renorm)
-
-      if self.fm_mask_radius(self.i) then
-        z[k]:maskedFill(self.fm_mask,zt.tocomplex(0))
-      end
-      -- plt:plot(z[ind][1][1]:abs():float():log(),'z_out[k][1] after')
-      self.mod_updates = self.mod_updates + 1
-    end
-  end
-  z:view_3D():ifftBatched()
-  -- f:close()
-  -- u.printMem()
-  -- plt:plot(self.P_Fz[1][1][1]:zfloat(),'self.z')
-  -- plt:plot(self.P_Fz[2][1][1]:zfloat(),'self.z2')
-  -- plt:plot(self.P_Fz[3][1][1]:zfloat(),'self.z3')
-  -- plt:plot(self.P_Fz[4][1][1]:zfloat(),'self.z4')
-  -- u.printf('%d/%d modulus updates', mod_updates, self.K)
-
-  self.module_error = self.module_error / self.norm_a
-  return self.module_error, self.mod_updates
+  local err, updates = self.ops.P_F_without_background(self.P_Fz, self.a, self.a_exp, self.fm, self.fm_exp, self.zk_tmp1_real_PQstore, self.a_tmp_real_PQstore, self.a_tmp3_real_PQstore, self.old_batch_params['P_Fz'], self.i, self.power_threshold, self.fm_support, self.M, self.No, self.Np)
+  return err/ self.norm_a, updates
 end
 
 function engine:maybe_refine_positions()
@@ -1177,39 +995,6 @@ function engine:maybe_refine_positions()
 end
 
 function engine:refine_positions()
-end
-
-function engine:refine_probe()
-  local new_P = self.P_tmp1_PQstore
-  local oview_conj = self.zk_tmp1_PQstore
-
-  local dP = self.P_tmp3_PQstore
-  local dP_abs = self.P_tmp3_real_PQstore
-
-  local new_P_denom = self.P_tmp1_real_PQstore
-  local denom_tmp = self.zk_tmp1_real_PQstore
-
-  new_P:mul(self.P,self.probe_inertia)
-  new_P_denom:fill(self.probe_inertia)
-
-  for k, view in ipairs(self.O_views) do
-    self:maybe_copy_new_batch_z(k)
-    local ind = self.k_to_batch_index[k]
-    local view_exp = view:expandAs(self.z[ind])
-    oview_conj:conj(view_exp)
-    new_P:add(oview_conj:cmul(self.z[ind]):sum(self.O_dim))
-    new_P_denom:add(denom_tmp:normZ(view_exp):sum(self.O_dim))
-  end
-
-  new_P:cdiv(new_P_denom)
-  -- new_probe = self.support:forward(new_probe)
-
-  local probe_change = dP_abs:normZ(dP:add(new_P,-1,self.P)):sum()
-  local P_norm = dP_abs:normZ(self.P):sum()
-  self.P:copy(new_P)
-
-  self:calculateO_denom()
-  return math.sqrt(probe_change/P_norm/self.Np)
 end
 
 function engine:overlap_error(z_in,z_out)
@@ -1235,36 +1020,59 @@ function engine:relative_error(z1)
   local norm = self.O_buffer_real
   local O_res = self.O_buffer
   local z_solution = self.z1
-  self:update_frames(z_solution,self.probe_solution,self.O_solution_views,self.maybe_copy_new_batch_z1)
+
+  local solution_masked = self.O_buffer:cmul(self.object_solution,self.O_mask)
+  -- plt:plotReIm(solution_masked[1][1]:zfloat(),'solution_masked')
+  local solution_masked_views = self:create_views(solution_masked)
+  self:update_frames(z_solution,self.probe_solution,solution_masked_views,self.maybe_copy_new_batch_z1)
+
+  local z_copy = self.z2:copy(z)
+  for k, mview in ipairs(self.O_mask_views) do
+    z_copy[k]:cmul(mview)
+  end
 
   if self.object_solution then
-    local c = z_solution:dot(z)
+    local c = z_solution:dot(z_copy)
     -- print(c)
-    local phase_diff = c/zt.abs(c)
-    -- u.printf('phase difference: %g + %g i',zt.arg(phase_diff),zt.imag(phase_diff))
-    self.z2:mul(z,phase_diff)
+    local phi = -zt.arg(c).re
+    local exp_minus_phi = ztorch.re(math.cos(-phi)) + ztorch.im(math.sin(-phi))
+    -- u.printf('phase difference: %g rad',zt.arg(exp_minus_phi).re)
+    -- u.printf('phase difference: %g rad',zt.arg(phase_diff).re)
+    -- u.printf('phase difference: %g + %g i',exp_minus_phi.re, exp_minus_phi.im)
+    -- plt:plotcompare({z_solution[45][1][1]:zfloat():re(),z_copy[45][1][1]:zfloat():re()},{'z sol re','z re'})
+    -- plt:plotcompare({z_solution[45][1][1]:zfloat():im(),z_copy[45][1][1]:zfloat():im()},{'z sol im','z im'})
+    self.z2:mul(z_copy,exp_minus_phi)
     -- O_res:mul(self.O,-1)
+    -- plt:plotcompare({z_solution[45][1][1]:zfloat():abs(),self.z2[45][1][1]:zfloat():abs()},{'sol abs','rec abs'})
+    -- plt:plotcompare({z_solution[45][1][1]:zfloat():arg(),self.z2[45][1][1]:zfloat():arg()},{'sol arg','rec arg'})
     self.z2:add(-1,z_solution)
     -- if self.do_plot then
-    --   plt:plotcompare({self.object_solution[1][1]:zfloat():re(),O_res[1][1]:zfloat():re()},{'sol re','rec re'})
-    --   plt:plotcompare({self.object_solution[1][1]:zfloat():im(),O_res[1][1]:zfloat():im()},{'sol im','rec im'})
-    --   plt:plotcompare({self.object_solution[1][1]:zfloat():abs(),O_res[1][1]:zfloat():abs()},{'sol abs','rec abs'})
-    --   plt:plotcompare({self.object_solution[1][1]:zfloat():arg(),O_res[1][1]:zfloat():arg()},{'sol arg','rec arg'})
+      -- plt:plotcompare({z_solution[1][1][1]:zfloat():re(),z[1][1][1]:zfloat():re()},{'z sol re','z re'})
+      -- plt:plotcompare({z_solution[1][1][1]:zfloat():im(),z[1][1][1]:zfloat():im()},{'z sol im','z im'})
+      -- plt:plotcompare({self.object_solution[1][1]:zfloat():abs(),O_res[1][1]:zfloat():abs()},{'sol abs','rec abs'})
+      -- plt:plotcompare({self.object_solution[1][1]:zfloat():arg(),O_res[1][1]:zfloat():arg()},{'sol arg','rec arg'})
     -- end
-    -- plt:plotReIm(O_res[1][1]:zfloat(),'image error')
+    -- plt:plotReIm(self.z2[45][1][1]:zfloat(),'diff z')
+    -- plt:plotReIm(self.z2[50][1][1]:zfloat(),'diff z')
+    -- plt:plotReIm(self.z2[75][1][1]:zfloat(),'diff z')
     -- plt:plotReIm(self.object_solution[1][1]:zfloat(),'self.object_solution')
-    return self.z2:normall(2)/z_solution:normall(2)
+    local result = self.z2:normall(2)/z_solution:normall(2)
+    -- print(result)
+    return result
   end
 end
 
 function engine:image_error()
   local O_res = self.O_buffer
   if self.object_solution then
-    local c = O_res:copy(self.O[1]):cmul(self.O_mask):dot(self.object_solution)
-    local phase_diff = c/zt.abs(c)
-    O_res:mul(self.O,-phase_diff)
+    local c = O_res:copy(self.O):cmul(self.O_mask):dot(self.object_solution)
+    local phi = zt.arg(c).re
+    local exp_minus_phi = ztorch.re(math.cos(-phi)) + ztorch.im(math.sin(-phi))
+    -- u.printf('phase difference: %g rad',zt.arg(exp_minus_phi).re)
+    O_res:mul(self.O,exp_minus_phi)
     -- if true then
-
+    -- plt:plotcompare({self.object_solution[1][1]:zfloat():abs(),O_res:clone():cmul(self.O_mask)[1][1]:zfloat():abs()},{'sol abs','rec abs'})
+    -- plt:plotcompare({self.object_solution[1][1]:zfloat():arg(),O_res:clone():cmul(self.O_mask)[1][1]:zfloat():arg()},{'sol arg','rec arg'})
     -- end
     O_res:add(-1,self.object_solution):cmul(self.O_mask)
     if self.do_plot then
@@ -1274,6 +1082,7 @@ function engine:image_error()
       -- plt:plotcompare({self.object_solution[1][1]:zfloat():arg(),O_res[1][1]:zfloat():arg()},{'sol arg','rec arg'})
       -- plt:plotReIm(O_res[1][1]:zfloat(),'error 1')
     end
+    -- plt:plotReIm(O_res[1][1]:zfloat(),'error 1')
     local O_res_norm = O_res:normall(2)
     local norm1 = O_res_norm/O_res:copy(self.object_solution):cmul(self.O_mask):normall(2)
     return norm1

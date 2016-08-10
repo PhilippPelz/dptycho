@@ -1,5 +1,6 @@
 local classic = require 'classic'
 local u = require "dptycho.util"
+local ptycho = require("dptycho.core.ptycho")
 local m = classic.module(...)
 
 local _DEFAULT_PARAMS = {
@@ -31,7 +32,7 @@ local _DEFAULT_PARAMS = {
   probe_lowpass_fwhm = function(it) return nil end,
 
   object_highpass_fwhm = function(it) return nil end,
-  object_inertia = 0.1,
+  object_inertia = 1e-8,
 
   P_Q_iterations = 5,
   copy_probe = false,
@@ -57,13 +58,16 @@ local _DEFAULT_PARAMS = {
 }
 
 function m.DEFAULT_PARAMS()
-  return u.copytable(_DEFAULT_PARAMS)
+  local default =  u.copytable(_DEFAULT_PARAMS)
+  default.ops = ptycho.ops
+  return default
 end
 
 function m.DEFAULT_PARAMS_TWF()
-  local t = u.copytable(_DEFAULT_PARAMS)
-  t.object_inertia = nil
-  return t
+  local default =  u.copytable(_DEFAULT_PARAMS)
+  default.ops = ptycho.ops
+  default.object_inertia = nil
+  return default
 end
 
 return m

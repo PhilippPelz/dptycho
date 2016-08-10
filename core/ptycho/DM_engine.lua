@@ -37,7 +37,7 @@ function engine:DM_update_without_background()
     self.z:add(self.P_Fz)
   end
   -- self:maybe_copy_new_batch_z(1)
-  return self.module_error, self.mod_updates
+  return mod_error, mod_updates
 end
 
 function engine:DM_update_with_background()
@@ -90,7 +90,7 @@ function engine:iterate(steps)
       relative_error = self:relative_error()
     end
 
-    u.printf('%-10d%-15g%-15g%-15g%-15g%-15g%-15g',i,self.mod_errors[i] or -1,self.overlap_errors[i] or -1 ,self.im_errors[i] or -1, relative_error or -1, probe_error or -1, mod_updates/self.K*100.0)
+    u.printf('%-10d%-15g%-15g%-15g%-15g%-15g%-15g',i,self.mod_errors[i] or -1,self.overlap_errors[i] or -1 , relative_error or -1,self.im_errors[i] or -1, probe_error or -1, mod_updates/self.K*100.0)
 
     self:maybe_plot()
     self:maybe_save_data()
@@ -98,8 +98,9 @@ function engine:iterate(steps)
     collectgarbage()
   end
   self:save_data(self.save_path .. self.run_label .. '_DM_' .. (steps+1))
+  self:maybe_plot()
   plt:shutdown_reconstruction_plot()
-  -- plt:plot(self.O[1]:zfloat(),'object - it '..steps)
+  -- plt:plot(self.O[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'object - it '..steps)
   -- plt:plot(self.P[1]:zfloat(),'new probe')
 end
 
