@@ -74,6 +74,8 @@ par.probe_lowpass_fwhm = function(it) return nil end
 
 par.object_highpass_fwhm = function(it) return nil end
 par.object_inertia = 0
+par.object_init = 'trunc'
+par.object_init_truncation_threshold = 0.8
 
 par.P_Q_iterations = 10
 par.copy_probe = true

@@ -1,18 +1,23 @@
 local classic = require 'classic'
-local znn = require 'dptycho.znn'
 local nn = require 'nn'
+local zt = require "ztorch.fcomplex"
+local pprint = require "pprint"
+
+local znn = require 'dptycho.znn'
+local stats = require 'dptycho.util.stats'
+local params = require "dptycho.core.ptycho.params"
+local ptycho = require "dptycho.core.ptycho"
 local u = require 'dptycho.util'
 local plot = require 'dptycho.io.plot'
 local plt = plot()
-local zt = require "ztorch.fcomplex"
-local pprint = require "pprint"
-local stats = require 'dptycho.util.stats'
-local params = require "dptycho.core.ptycho.params"
+
+
 local tablex = require "pl.tablex"
 local paths = require "paths"
-local ptycho = require("dptycho.core.ptycho")
+
 local fn = require 'fn'
 local ztorch = require 'ztorch'
+
 require 'hdf5'
 -- _init
 -- allocateBuffers
@@ -79,6 +84,9 @@ function engine:_init(par1)
   if self.Ny % 2 ~= 0 then self.Ny = self.Ny + 1 end
 
   self:allocateBuffers(self.K,self.No,self.Np,self.M,self.Nx,self.Ny)
+
+  self:initial_probe()
+  self:initialize_object()
   -- save reference in params for future use
   par1.O = self.O
   par1.P = self.P
@@ -205,7 +213,7 @@ end
 
 -- P_Fz free
 function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
-  self.ops.Q_star(z,mul_split,merge_memory_views,self.zk_buffer_update_frames, fn.partial(batch_copy_func,self),self.k_to_batch_index,self.batches,self.K,self.dpos)
+  self.ops.Q(z,mul_split,merge_memory_views,self.zk_buffer_update_frames,self.k_to_batch_index, fn.partial(batch_copy_func,self),self.batches,self.K,self.dpos)
 end
 
 function engine:calculateO_denom()
@@ -238,12 +246,12 @@ end
 
 function engine:P_Q_plain()
   self:merge_frames(self.z,self.P,self.O,self.O_views,true)
-  self.ops.Q_star(self.P_Qz,self.P,self.O_views,self.zk_buffer_update_frames, fn.partial(self.maybe_copy_new_batch_P_Q,self),self.k_to_batch_index,self.batches,self.K,self.dpos)
+  self.ops.Q(self.P_Qz,self.P,self.O_views,self.zk_buffer_update_frames, fn.partial(self.maybe_copy_new_batch_P_Q,self),self.k_to_batch_index,self.batches,self.K,self.dpos)
 end
 
 -- P_Qz, P_Fz free to use
 function engine:merge_frames(z,mul_merge, merge_memory, merge_memory_views, do_normalize_merge_memory)
-  self.ops.Q(z, mul_merge, merge_memory, merge_memory_views, self.zk_buffer_merge_frames, self.P_buffer,self.object_inertia, self.k_to_batch_index,fn.partial(self.maybe_copy_new_batch_z,self), self.batches, self.K)
+  self.ops.Q_star(z, mul_merge, merge_memory, merge_memory_views, self.zk_buffer_merge_frames, self.P_buffer,self.object_inertia, self.k_to_batch_index,fn.partial(self.maybe_copy_new_batch_z,self), self.batches, self.K,self.dpos)
   -- plt:plotReIm(self.O[1][1]:zfloat(),'O after merge 0')
   if do_normalize_merge_memory then
     merge_memory:cmul(self.O_denom)
@@ -445,6 +453,25 @@ function engine:initialize_plotting()
   u.printram('after initialize_plotting')
 end
 
+function engine:initialize_probe()
+  local Pre = stats.truncnorm({self.M,self.M},0,1,1e-1,1e-2):cuda()
+    for i=2,self.Np do
+      self.P[1][i]:copyRe(Pre):copyIm(Pre)
+      self.P[1][i]:cmul(self.P[1][1]:abs())
+    end
+end
+
+function engine:initialize_object()
+  if self.object_init == 'const' then
+    self.O:zero():add(1+0i)
+  elseif self.object_init == 'trunc' then
+    local z = ptycho.initialization.truncated_spectral_estimate(self.z,self.P,self.O_denom,self.object_init_truncation_threshold,self.ops,self.a,self.z1,self.a_buffer1,self.zk_buffer_update_frames,self.P_buffer,self.O_buffer,self.batch_params,self.old_batch_params,self.k_to_batch_index,self.batches,self.batch_size,self.K,self.M,self.No,self.Np,self.pos,self.dpos)
+    self.merge_frames(z,self.P,self.O,self.O_views)
+  elseif self.object_init == 'gcl' then
+      u.printf('gcl initialization is not implement yet')
+  end
+end
+
 function engine:allocate_probe(Np,M)
   if not self.P then
     self.P = torch.ZCudaTensor.new(1,Np,M,M)
@@ -453,7 +480,7 @@ function engine:allocate_probe(Np,M)
       self.P[1][i]:copyRe(Pre):copyIm(Pre)
       self.P[1][i]:cmul(self.P[1][1]:abs())
     end
-  elseif not self.P:dim() == 4 then
+  elseif self.P:dim() ~= 4 then
     local tmp = self.P
     self.P = torch.ZCudaTensor.new(1,Np,M,M)
     self.P[1][1]:copy(tmp)
@@ -467,9 +494,7 @@ end
 
 function engine:allocate_object(No,Nx,Ny)
   if self.O == nil then
-    u.printf('allocating new object')
     self.O = torch.ZCudaTensor.new(No,1,Nx,Ny)
-    self.O = self.O:zero():add(1+0i)
   end
 end
 -- total memory requirements:
@@ -1017,8 +1042,6 @@ end
 -- we assume that self.z has actually the current z if this is called
 function engine:relative_error(z1)
   local z = z1 or self.z
-  local norm = self.O_buffer_real
-  local O_res = self.O_buffer
   local z_solution = self.z1
 
   local solution_masked = self.O_buffer:cmul(self.object_solution,self.O_mask)
@@ -1036,26 +1059,10 @@ function engine:relative_error(z1)
     -- print(c)
     local phi = -zt.arg(c).re
     local exp_minus_phi = ztorch.re(math.cos(-phi)) + ztorch.im(math.sin(-phi))
-    -- u.printf('phase difference: %g rad',zt.arg(exp_minus_phi).re)
-    -- u.printf('phase difference: %g rad',zt.arg(phase_diff).re)
-    -- u.printf('phase difference: %g + %g i',exp_minus_phi.re, exp_minus_phi.im)
-    -- plt:plotcompare({z_solution[45][1][1]:zfloat():re(),z_copy[45][1][1]:zfloat():re()},{'z sol re','z re'})
-    -- plt:plotcompare({z_solution[45][1][1]:zfloat():im(),z_copy[45][1][1]:zfloat():im()},{'z sol im','z im'})
     self.z2:mul(z_copy,exp_minus_phi)
-    -- O_res:mul(self.O,-1)
     -- plt:plotcompare({z_solution[45][1][1]:zfloat():abs(),self.z2[45][1][1]:zfloat():abs()},{'sol abs','rec abs'})
     -- plt:plotcompare({z_solution[45][1][1]:zfloat():arg(),self.z2[45][1][1]:zfloat():arg()},{'sol arg','rec arg'})
     self.z2:add(-1,z_solution)
-    -- if self.do_plot then
-      -- plt:plotcompare({z_solution[1][1][1]:zfloat():re(),z[1][1][1]:zfloat():re()},{'z sol re','z re'})
-      -- plt:plotcompare({z_solution[1][1][1]:zfloat():im(),z[1][1][1]:zfloat():im()},{'z sol im','z im'})
-      -- plt:plotcompare({self.object_solution[1][1]:zfloat():abs(),O_res[1][1]:zfloat():abs()},{'sol abs','rec abs'})
-      -- plt:plotcompare({self.object_solution[1][1]:zfloat():arg(),O_res[1][1]:zfloat():arg()},{'sol arg','rec arg'})
-    -- end
-    -- plt:plotReIm(self.z2[45][1][1]:zfloat(),'diff z')
-    -- plt:plotReIm(self.z2[50][1][1]:zfloat(),'diff z')
-    -- plt:plotReIm(self.z2[75][1][1]:zfloat(),'diff z')
-    -- plt:plotReIm(self.object_solution[1][1]:zfloat(),'self.object_solution')
     local result = self.z2:normall(2)/z_solution:normall(2)
     -- print(result)
     return result
@@ -1075,14 +1082,6 @@ function engine:image_error()
     -- plt:plotcompare({self.object_solution[1][1]:zfloat():arg(),O_res:clone():cmul(self.O_mask)[1][1]:zfloat():arg()},{'sol arg','rec arg'})
     -- end
     O_res:add(-1,self.object_solution):cmul(self.O_mask)
-    if self.do_plot then
-      -- plt:plotcompare({self.object_solution[1][1]:zfloat():re(),O_res[1][1]:zfloat():re()},{'sol re','rec re'})
-      -- plt:plotcompare({self.object_solution[1][1]:zfloat():im(),O_res[1][1]:zfloat():im()},{'sol im','rec im'})
-      -- plt:plotcompare({self.object_solution[1][1]:zfloat():abs(),O_res[1][1]:zfloat():abs()},{'sol abs','rec abs'})
-      -- plt:plotcompare({self.object_solution[1][1]:zfloat():arg(),O_res[1][1]:zfloat():arg()},{'sol arg','rec arg'})
-      -- plt:plotReIm(O_res[1][1]:zfloat(),'error 1')
-    end
-    -- plt:plotReIm(O_res[1][1]:zfloat(),'error 1')
     local O_res_norm = O_res:normall(2)
     local norm1 = O_res_norm/O_res:copy(self.object_solution):cmul(self.O_mask):normall(2)
     return norm1
@@ -1094,8 +1093,9 @@ function engine:probe_error()
   local P_corr = self.P_tmp2_PFstore
   if self.probe_solution then
     local c = self.P[1]:dot(self.probe_solution)
-    local phase_diff = c/zt.abs(c)
-    P_corr:mul(self.P,phase_diff)
+    local phi = -zt.arg(c).re
+    local exp_minus_phi = ztorch.re(math.cos(-phi)) + ztorch.im(math.sin(-phi))
+    P_corr:mul(self.P,exp_minus_phi)
     P_corr:add(-1,self.probe_solution)
     local norm1 = P_corr:normall(2)/self.probe_solution:normall(2)
     return norm1

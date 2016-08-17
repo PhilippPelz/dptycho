@@ -33,6 +33,8 @@ local _DEFAULT_PARAMS = {
 
   object_highpass_fwhm = function(it) return nil end,
   object_inertia = 1e-8,
+  object_init = 'const',
+  object_truncation_threshold = 0.8,
 
   P_Q_iterations = 5,
   copy_probe = false,

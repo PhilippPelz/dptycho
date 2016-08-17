@@ -2,6 +2,7 @@ local classic = require 'classic'
 local dataloader = require 'dptycho.io.dataloader'
 local plot = require 'dptycho.io.plot'
 local plt = plot()
+local py = require('fb.python')
 require 'pprint'
 require 'zcutorch'
 local m = classic.module(...)
@@ -9,6 +10,25 @@ local m = classic.module(...)
 m:submodule("stats")
 m:class("linear_schedule")
 m:class("tabular_schedule")
+
+py.exec([=[
+import numpy as np
+from numpy.fft import fft
+
+def DTF2D(N):
+  W = fft(np.eye(N))
+  W2D = np.kron(W,W)/N
+  return W2D.real, W2D.imag
+]=])
+
+function m.DTF2D(N)
+  local WR,WI = py.eval('DTF2D(N)',{N=N})
+  local f = torch.FloatTensor(N,N,2)
+  z[{{},{},{1}}]:copy(WR)
+  z[{{},{},{2}}]:copy(WI)
+  local z = torch.ZFloatTensor(N,N):copy(f)
+  return z
+end
 
 function m.load_sim_and_allocate(file)
   local ret = {}
@@ -156,6 +176,10 @@ function m.copytable(obj, seen)
   end
   return res
 end
+
+function m.meshgrid(x,y)
+
+end 
 
 function m.printf(s,...)
   return io.write(s:format(...)..'\n')

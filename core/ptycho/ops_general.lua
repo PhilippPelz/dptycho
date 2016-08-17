@@ -22,6 +22,16 @@ function m.static.InvSigma(x,sigma)
   x.THNN.InvSigma(x:cdata(),x:cdata(),sigma)
 end
 
+function m.create_views(tensor,positions,view_size)
+  local views = {}
+  for i=1,positions:size(1) do
+    local slice = {{},{},{positions[i][1],positions[i][1]+view_size-1},{positions[i][2],positions[i][2]+view_size-1}}
+    -- pprint(slice)
+    views[i] = tensor[slice]
+  end
+  return views
+end
+
 function m.static.P_F_without_background(z,a,a_exp,fm,fm_exp,zk_real_buffer, a_buffer1, a_buffer2, batch_param_table, iteration, power_threshold, fourier_mask,M,No,Np)
   -- print('P_F_without_background ' .. self.i)
   local abs = zk_real_buffer

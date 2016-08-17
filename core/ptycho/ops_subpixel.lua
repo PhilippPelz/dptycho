@@ -73,7 +73,7 @@ ARGS:
 RETURN:
 - `z`     : the new frames
 ]]
-function m.static.Q(z, mul_merge, merge_memory, merge_memory_views, zk_buffer, P_buffer,O_inertia, k_to_batch_index, batch_copy_func,batches,K)
+function m.static.Q(z, mul_merge, merge_memory, merge_memory_views, zk_buffer, P_buffer,O_inertia, k_to_batch_index, batch_copy_func,batches,K,dpos)
     local product_shifted = zk_buffer
     local mul_merge_shifted = P_buffer
 
@@ -89,7 +89,7 @@ function m.static.Q(z, mul_merge, merge_memory, merge_memory_views, zk_buffer, P
 
     for k, view in ipairs(merge_memory_views) do
       if batches > 2 then xlua.progress(k,K) end
-      pos:fill(1):cmul(self.dpos[k])
+      pos:fill(1):cmul(dpos[k])
       batch_copy_func(k)
       local ind = k_to_batch_index[k]
       mul_merge_shifted[1]:shift(mul_merge[1],pos)
@@ -119,7 +119,7 @@ ARGS:
 RETURN:
 - `z`     : the new frames
 ]]
-function m.static.Q_star(z,mul_split,merge_memory_views,zk_buffer,batch_copy_func,k_to_batch_index,batches,K,dpos)
+function m.static.Q_star(z,mul_split,merge_memory_views,zk_buffer,k_to_batch_index,batch_copy_func,batches,K,dpos)
   local mul_split_shifted = zk_buffer
   local pos = torch.FloatTensor{1,1}
   for k, view in ipairs(merge_memory_views) do
