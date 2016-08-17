@@ -26,7 +26,7 @@ local _DEFAULT_PARAMS = {
   fm_mask_radius = function(it) return nil end,
 
   probe_update_start = 5,
-  probe_support = nil,
+  probe_support = 0,
   probe_regularization_amplitude = function(it) return nil end,
   probe_inertia = 1e-9,
   probe_lowpass_fwhm = function(it) return nil end,
@@ -34,7 +34,7 @@ local _DEFAULT_PARAMS = {
   object_highpass_fwhm = function(it) return nil end,
   object_inertia = 1e-8,
   object_init = 'const',
-  object_truncation_threshold = 0.8,
+  object_truncation_threshold = 80,
 
   P_Q_iterations = 5,
   copy_probe = false,
@@ -68,7 +68,8 @@ end
 function m.DEFAULT_PARAMS_TWF()
   local default =  u.copytable(_DEFAULT_PARAMS)
   default.ops = ptycho.ops
-  default.object_inertia = nil
+  default.object_inertia = 0
+  default.probe_inertia = 0
   return default
 end
 

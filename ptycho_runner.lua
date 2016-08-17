@@ -55,7 +55,7 @@ par = ptycho.params.DEFAULT_PARAMS_TWF()
 par.Np = 1
 par.No = 1
 par.bg_solution = nil
-par.plot_every = 25
+par.plot_every = 1
 par.plot_start = 1
 par.show_plots = true
 par.beta = 0.9
@@ -75,7 +75,7 @@ par.probe_lowpass_fwhm = function(it) return nil end
 par.object_highpass_fwhm = function(it) return nil end
 par.object_inertia = 0
 par.object_init = 'trunc'
-par.object_init_truncation_threshold = 0.8
+par.object_init_truncation_threshold = 95
 
 par.P_Q_iterations = 10
 par.copy_probe = true

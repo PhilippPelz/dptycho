@@ -6,7 +6,8 @@ require 'zcutorch'
 local m = classic.module(...)
 
 m:submodule("params")
-m:submodule("init")
+m:submodule("initialization")
+
 m:class("ops_general")
 m:class("ops")
 m:class("ops_subpixel")

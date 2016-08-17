@@ -64,8 +64,13 @@ RETURN:
 ]]
 function m.static.Q_star(z, mul_merge, merge_memory, merge_memory_views, zk_buffer, P_buffer,O_inertia, k_to_batch_index, batch_copy_func,batches,K,dpos)
   local mul_merge_repeated = zk_buffer
-  merge_memory:mul(O_inertia)
-  -- plt:plotReIm(merge_memory[1][1]:zfloat(),'merged-1')
+  if O_inertia ~= 0 then
+    merge_memory:mul(O_inertia)
+  else
+    merge_memory:fill(0)
+  end
+  -- plt:plotReIm(mul_merge[1][1]:zfloat(),'mul_merge')
+  -- plt:plotReIm(merge_memory[1][1]:zfloat(),'merge_memory')
   for k, view in ipairs(merge_memory_views) do
     if batches > 2 then xlua.progress(k,K) end
     batch_copy_func(k)
@@ -73,11 +78,11 @@ function m.static.Q_star(z, mul_merge, merge_memory, merge_memory_views, zk_buff
     mul_merge_repeated:conj(mul_merge:expandAs(z[ind]))
     -- add sum over probe modes
     view:add(mul_merge_repeated:cmul(z[ind]):sum(2))
-    -- if k < 3 then
-    --   plt:plotReIm(merge_memory[1][1]:zfloat(),'merged '..k)
-    -- end
+    if k < 0 then
+      plt:plotReIm(merge_memory[1][1]:zfloat(),'merged '..k)
+    end
   end
-
+  -- plt:plotReIm(merge_memory[1][1]:zfloat(),'merged '..1)
   return z
 end
 
@@ -85,14 +90,14 @@ end
 
 --[[ split the object into frames
 ARGS:
-- 'z'           : the frames to split into, el CC [K,No,Np,M,M]
-- 'mul_split`   :
-- 'merge_memory_views'          :
-- `batch_copy_func`    :
-- 'k_to_batch_index':
-- 'engine'             :
+- 'z'                     : the frames to split into, el CC [K,No,Np,M,M]
+- 'mul_split`             :
+- 'merge_memory_views'    :
+- `batch_copy_func`       :
+- 'k_to_batch_index'      :
+- 'engine'                :
 RETURN:
-- `z`     : the new frames
+- `z`                     : the new frames
 ]]
 function m.static.Q(z,mul_split,merge_memory_views,zk_buffer,k_to_batch_index,batch_copy_func,batches,K,dpos)
   for k, view in ipairs(merge_memory_views) do
@@ -113,7 +118,7 @@ function m.static.refine_probe(z,P,O_views,P_buffer1,P_buffer_real1,P_buffer_rea
   local oview_conj = zk_buffer1
   local denom_tmp = zk_buffer_real1
 
-  if P_inertia then
+  if P_inertia ~= 0 then
     new_P:mul(P,P_inertia)
     new_P_denom:fill(P_inertia)
   else
@@ -131,7 +136,9 @@ function m.static.refine_probe(z,P,O_views,P_buffer1,P_buffer_real1,P_buffer_rea
   end
   new_P:cdiv(new_P_denom)
   P:copy(new_P)
-  if probe_support then P = probe_support:forward(P) end
+  if probe_support then
+    P = probe_support:forward(P)
+  end
   return math.sqrt(dP:add(new_P,-1,P):normall(2)^2/P:normall(2)^2)
 end
 

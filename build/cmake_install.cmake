@@ -76,14 +76,18 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho" TYPE FILE FILES
     "/home/philipp/projects/dptycho/core/ptycho/TWF_engine.lua"
     "/home/philipp/projects/dptycho/core/ptycho/init.lua"
+    "/home/philipp/projects/dptycho/core/ptycho/initialization.lua"
     "/home/philipp/projects/dptycho/core/ptycho/DM_engine.lua"
+    "/home/philipp/projects/dptycho/core/ptycho/ops_subpixel.lua"
     "/home/philipp/projects/dptycho/core/ptycho/Runner.lua"
     "/home/philipp/projects/dptycho/core/ptycho/base_engine_shifted.lua"
     "/home/philipp/projects/dptycho/core/ptycho/DM_engine_subpix.lua"
+    "/home/philipp/projects/dptycho/core/ptycho/ops.lua"
     "/home/philipp/projects/dptycho/core/ptycho/base_engine.lua"
     "/home/philipp/projects/dptycho/core/ptycho/TWF_engine_subpix.lua"
     "/home/philipp/projects/dptycho/core/ptycho/params.lua"
     "/home/philipp/projects/dptycho/core/ptycho/RAAR_engine.lua"
+    "/home/philipp/projects/dptycho/core/ptycho/ops_general.lua"
     )
 endif()
 
@@ -113,6 +117,7 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
     "/home/philipp/projects/dptycho/znn/Select.lua"
     "/home/philipp/projects/dptycho/znn/SqrtInPlace.lua"
     "/home/philipp/projects/dptycho/znn/init.lua"
+    "/home/philipp/projects/dptycho/znn/PoissonLikelihood.lua"
     "/home/philipp/projects/dptycho/znn/SpatialSmoothnessCriterion.lua"
     "/home/philipp/projects/dptycho/znn/ConvSlice.lua"
     "/home/philipp/projects/dptycho/znn/FFT.lua"

@@ -22,7 +22,7 @@ function m.static.InvSigma(x,sigma)
   x.THNN.InvSigma(x:cdata(),x:cdata(),sigma)
 end
 
-function m.create_views(tensor,positions,view_size)
+function m.static.create_views(tensor,positions,view_size)
   local views = {}
   for i=1,positions:size(1) do
     local slice = {{},{},{positions[i][1],positions[i][1]+view_size-1},{positions[i][2],positions[i][2]+view_size-1}}

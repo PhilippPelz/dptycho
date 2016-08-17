@@ -30,6 +30,10 @@ function m.DTF2D(N)
   return z
 end
 
+function m.percentile(a,perc)
+  return py.eval('np.percentile(a,q)',{a=a,q=perc})
+end
+
 function m.load_sim_and_allocate(file)
   local ret = {}
   local d = dataloader()
@@ -179,7 +183,7 @@ end
 
 function m.meshgrid(x,y)
 
-end 
+end
 
 function m.printf(s,...)
   return io.write(s:format(...)..'\n')

@@ -60,38 +60,46 @@ collectgarbage()
 
 DEBUG = false
 
-local par = ptycho.params.DEFAULT_PARAMS_TWF()
+local par = ptycho.params.DEFAULT_PARAMS()
 
 par.Np = NP
 par.No = 1
 par.bg_solution = nil
-par.plot_every = 10
+par.plot_every = 5
 par.plot_start = 1
 par.show_plots = true
 par.beta = 0.9
-par.fourier_relax_factor = 15e-2
-par.position_refinement_start = 4
+par.fourier_relax_factor = 8e-2
+par.position_refinement_start = 250
 par.position_refinement_every = 3
 par.position_refinement_max_disp = 2
+par.fm_support_radius = function(it) return nil end
+par.fm_mask_radius = function(it) return nil end
 
 par.probe_update_start = 3
-par.probe_support = 0.4
-par.probe_inertia = 1e-2
+par.probe_support = 0.5
+par.probe_regularization_amplitude = function(it) return nil end
+par.probe_inertia = 0
+par.probe_lowpass_fwhm = function(it) return nil end
 
-par.object_inertia = 1e-7
+par.object_highpass_fwhm = function(it) return nil end
+par.object_inertia = 0
+par.object_init = 'const'
+par.object_init_truncation_threshold = 0.8
 
 par.P_Q_iterations = 10
 par.copy_probe = true
-par.copy_object = false
+par.copy_object = false--true
 par.margin = 0
 par.background_correction_start = 1e5
 
-par.save_interval = 50
+par.save_interval = 250
 par.save_path = path..'/hyperscan_lowres2/'
 par.save_raw_data = false
+par.run_label = 'ptycho2'
 
-par.O_denom_regul_factor_start = 1e-6
-par.O_denom_regul_factor_end = 1e-9
+par.O_denom_regul_factor_start = 0
+par.O_denom_regul_factor_end = 0
 
 par.pos = pos
 par.dpos = dpos
@@ -100,22 +108,15 @@ par.object_solution = nil
 par.probe_solution = probe
 par.a = a
 par.fmask = fmask
-par.probe = nil
+par.P = nil
+par.O = nil
 
-
-par.probe_lowpass_fwhm = function(it) return nil end--u.linear_schedule(6,250,130,130)
-par.object_highpass_fwhm = function(it) return nil end--u.linear_schedule(6,250,170,170)
-par.fm_mask_radius = function(it) return nil end--u.linear_schedule(1,250,170,170)
-par.fm_support_radius = function(it) return nil end
-par.probe_regularization_amplitude = function(it) return nil end --u.linear_schedule(6,250,170,170)--u.linear_schedule(1,250,700,900)
-
-par.pos = pos
-par.dpos = dpos
--- par.dpos_solution = dpos_solution
--- par.solution = solution
-par.a = a
-par.fmask = fmask
-par.probe = probe
+par.twf.a_h = 25
+par.twf.a_lb = 1e-3
+par.twf.a_ub = 1e1
+par.twf.mu_max = 0.01
+par.twf.tau0 = 10
+par.twf.nu = 1e-2
 
 
 local ngin = ptycho.DM_engine(par)
