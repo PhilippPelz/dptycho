@@ -24,7 +24,7 @@ RETURN:
 ]]
 function m.static.calculateO_denom(O_denom,O_mask,O_denom_views,P,P_buffer_real,Pk_buffer_real,O_inertia,K,O_denom_regul_factor_start,O_denom_regul_factor_end,i,it,dpos)
   if O_inertia ~= 0 then
-    O_denom:fill(O_inertia*K)
+    O_denom:fill(O_inertia)
   else
     O_denom:fill(1e-12)
   end

@@ -13,7 +13,7 @@ local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 
 local path = '/home/philipp/drop/Public/'
-local file = 'po.h5'
+local file = 'po3.h5'
 
 local ptycho = require 'dptycho.core.ptycho'
 
@@ -25,7 +25,7 @@ local f = hdf5.open(path..file,'r')
 
 
 
-local pos = f:read('/pos'):all():int()
+-- local pos = f:read('/pos'):all():int()
 
 -- dpos[{1,1}] = 5
 
@@ -34,7 +34,7 @@ local a = f:read('/data_unshift'):all():cuda()
 -- local a = torch.CudaTensor(pos:size(1),M,M)
 local fmask = a:clone():fill(1)
 -- print(dpos)
-
+local pos = f:read('/scan_info/positions_int'):all():int()
 local dpos_solution = pos:clone():float():zero()
 -- local dpos_solution = f:read('/scan_info/dpos'):all():float()
 local dpos = pos:clone():float():zero()--:normal()*2
@@ -107,6 +107,8 @@ par.probe_lowpass_fwhm = function(it) return nil end
 
 par.object_highpass_fwhm = function(it) return nil end
 par.object_inertia = 1e-5
+par.object_init = 'copy_solution'
+par.object_init_truncation_threshold = 0.8
 
 par.P_Q_iterations = 10
 par.copy_probe = true
@@ -130,6 +132,6 @@ par.a = a
 par.fmask = fmask
 par.probe = nil
 
-local ngin = ptycho.TWF_engine(par)
+local ngin = ptycho.DM_engine(par)
 ngin:generate_data('/home/philipp/drop/Public/moon2',nil, true)
 -- ngin:iterate(250)

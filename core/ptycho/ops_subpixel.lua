@@ -78,7 +78,7 @@ function m.static.Q(z, mul_merge, merge_memory, merge_memory_views, zk_buffer, P
     local mul_merge_shifted = P_buffer
 
     if O_inertia then
-      merge_memory:fill(O_inertia*K)
+      merge_memory:fill(O_inertia)
     else
       merge_memory:fill(0)
     end

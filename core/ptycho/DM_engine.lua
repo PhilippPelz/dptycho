@@ -7,7 +7,6 @@ local engine, super = classic.class(...,base_engine)
 
 function engine:_init(par)
   super._init(self,par)
-  self:update_views()
 end
 
 function engine:DM_update()

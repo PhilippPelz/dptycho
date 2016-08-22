@@ -13,7 +13,7 @@ local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 
 local path = '/home/philipp/drop/Public/'
-local file = 'moon6.h5'
+local file = 'moon2.h5'
 
 local ptycho = require 'dptycho.core.ptycho'
 
@@ -55,7 +55,7 @@ par = ptycho.params.DEFAULT_PARAMS_TWF()
 par.Np = 1
 par.No = 1
 par.bg_solution = nil
-par.plot_every = 1
+par.plot_every = 5
 par.plot_start = 1
 par.show_plots = true
 par.beta = 0.9
@@ -75,7 +75,7 @@ par.probe_lowpass_fwhm = function(it) return nil end
 par.object_highpass_fwhm = function(it) return nil end
 par.object_inertia = 0
 par.object_init = 'trunc'
-par.object_init_truncation_threshold = 95
+par.object_init_truncation_threshold = 90
 
 par.P_Q_iterations = 10
 par.copy_probe = true
@@ -87,6 +87,7 @@ par.save_interval = 250
 par.save_path = '/tmp/'
 par.save_raw_data = true
 par.run_label = 'ptycho2'
+
 
 par.O_denom_regul_factor_start = 0
 par.O_denom_regul_factor_end = 0

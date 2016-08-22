@@ -18,6 +18,8 @@ local paths = require "paths"
 local fn = require 'fn'
 local ztorch = require 'ztorch'
 
+
+require 'parallel'
 require 'hdf5'
 -- _init
 -- allocateBuffers
@@ -58,9 +60,15 @@ function engine:_init(par1)
   self.K = self.a:size(1)
   self.M = self.a:size(2)
   self.MM = self.M*self.M
+  self.err_hist = {}
+  self.object_inertia = self.object_inertia * self.K
+  self.probe_inertia = self.probe_inertia * self.Np * self.No * self.K
+  self.i = 1
+  self.iterations = 1
+  self.update_positions = false
+  self.update_probe = false
 
   local x = torch.repeatTensor(torch.linspace(-self.M/2,self.M/2,self.M),self.M,1)
-  -- pprint(x)
   local y = x:clone():t()
   self.r2 = (x:pow(2) + y:pow(2))
 
@@ -80,8 +88,6 @@ function engine:_init(par1)
   self.pos:add(self.margin)
   self.Nx = object_size[1] - 1
   self.Ny = object_size[2] - 1
-  if self.Nx % 2 ~= 0 then self.Nx = self.Nx + 1 end
-  if self.Ny % 2 ~= 0 then self.Ny = self.Ny + 1 end
 
   self:allocateBuffers(self.K,self.No,self.Np,self.M,self.Nx,self.Ny)
 
@@ -96,85 +102,31 @@ function engine:_init(par1)
   local x = torch.repeatTensor(x,1,Oy)
   local y = torch.repeatTensor(torch.linspace(-Oy/2,Oy/2,Oy),Ox,1):float()
   self.r2_object = (x:pow(2) + y:pow(2))
-  -- pprint(self.r2_object)
-  -- pprint(self.O)
-  -- plt:plot(self.r2_object)
 
-  if not self.probe then
-    self.P:zero()
-    self.P[1]:add(300+0i)
-  end
+  self:calculate_statistics()
+  self.par = nil
+  self:initialize_views()
 
-  if self.probe_support then
-    local probe_size = self.P:size():totable()
-    local support = znn.SupportMask(probe_size,probe_size[#probe_size]/3)
-    self.P = support:forward(self.P)
-  end
+  u.printram('after init')
+  collectgarbage()
+end
 
-  if self.has_solution then
-    local startx, starty = 1,1
-    local endx = self.Nx-2*self.margin
-    local endy = self.Ny-2*self.margin
-    local slice = nil
-    if self.object_solution:dim() == 2 then
-      slice = {{startx,endx},{starty,endy}}
-    else
-      slice = {{},{},{startx,endx},{starty,endy}}
-    end
-    -- pprint(self.object_solution)
-    -- pprint(slice)
-    local sv = self.object_solution[slice]:clone()
-    self.object_solution:zero()
-
-    self.object_solution[{{},{},{startx+self.margin,endx+self.margin},{starty+self.margin,endy+self.margin}}]:copy(sv)
-    self.slice = {{},{},{startx+self.margin,endx+self.margin},{starty+self.margin,endy+self.margin}}
-    -- plt:plotReIm(self.object_solution[1][1]:zfloat(),'object_solution in init')
-  end
-
-  self.err_hist = {}
+function engine:calculate_statistics()
   self.max_power = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum(2):sum(3):max()
   self.total_power = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum()
   self.total_measurements = self.fm:sum()
   self.total_nonzero_measurements = torch.gt(self.a_buffer1:cmul(self.a,self.fm),0):sum()
   self.power_threshold = 0.25 * self.fourier_relax_factor^2 * self.max_power / self.MM
-  self.update_positions = false
-  self.update_probe = false
-  self.object_inertia = self.object_inertia * self.K
-  self.probe_inertia = self.probe_inertia * self.Np * self.No * self.K
-
-  self.i = 1
-  self.iterations = 1
-
-  if not self.probe then
-    self.P:zero()
-    self.P[1]:add(300+0i)
-  end
-
   self.norm_a = self.a_buffer1:cmul(self.a,self.fm):norm(2)^2
-
-  if self.probe_support ~= 0 then
-    local probe_size = self.P:size():totable()
-    self.support = znn.SupportMask(probe_size,probe_size[#probe_size]*self.probe_support)
-  else
-    self.support = nil
-  end
-
   local expected_obj_var = self.O:nElement() / self.total_power
   self.rescale_regul_amplitude = self.total_measurements / (8*self.O:nElement()*expected_obj_var)
--- reg_del2_amplitude *= reg_rescale
-
-  -- local P_norm = self.P:normall(2)^2
-  -- self.P:mul(self.max_power/P_norm)
-
-  u.printram('after init')
-
-  self.par = nil
-  self:initialize_views()
-  self:update_views()
-
-  collectgarbage()
+  local I = self.a:clone():pow(2)
+  self.I_max = I:sum(2):sum(3):max()
+  self.I_total = I:sum()
+  self.I_mean = self.I_total/self.a:size(1)
+  self.P_norm = self.P:normall(2)^2
+  self.valid_measurements = self:calculate_pixels_with_sufficient_measurements()
 end
-
 
 function engine:print_report()
   print(   '----------------------------------------------------')
@@ -187,15 +139,20 @@ function engine:print_report()
   u.printf('# unknowns object                      : %2.3g',self.O:nElement())
   u.printf('# unknowns probe                       : %2.3g',self.P:nElement())
   u.printf('# unknowns total                       : %2.3g',self.O:nElement() + self.P:nElement())
+  u.printf('')
   u.printf('total measurements/image_pixels        : %g',
   self.total_measurements/self.valid_measurements)
   u.printf('nonzero measurements/image_pixels      : %g',
   self.total_nonzero_measurements/self.valid_measurements)
   u.printf('nonzero measurements/# unknowns        : %g',
   self.total_nonzero_measurements/(self.valid_measurements + self.P:nElement()))
-  u.printf('total power                            : %g',self.total_power)
+  u.printf('')
   u.printf('maximum power                          : %g',self.max_power)
   u.printf('rescale_regul_amplitude                : %g',self.rescale_regul_amplitude)
+  u.printf('probe intensity                        : %g',self.P_norm)
+  u.printf('total counts in this scan              : %g',self.I_total)
+  u.printf('max counts in pattern                  : %g',self.I_max)
+  u.printf('mean counts                            : %g',self.I_mean)
   print(   '----------------------------------------------------')
 end
 
@@ -248,8 +205,9 @@ function engine:merge_frames(z,mul_merge, merge_memory, merge_memory_views, do_n
 end
 
 function engine:before_iterate()
+  self:initialize_object_solution()
+  self:update_views()
   self:initialize_probe()
-  self.valid_measurements = self:calculate_pixels_with_sufficient_measurements()
   self:calculateO_denom()
   self:initialize_object()
   self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
@@ -452,6 +410,17 @@ function engine:initialize_probe()
   if self.copy_probe then
     self.P:copy(self.probe_solution)
   end
+  if not self.probe_solution then
+    self.P:zero()
+    self.P[1]:add(300+0i)
+  end
+  if self.probe_support ~= 0 then
+    local probe_size = self.P:size():totable()
+    self.support = znn.SupportMask(probe_size,probe_size[#probe_size]*self.probe_support)
+    self.P = self.support:forward(self.P)
+  else
+    self.support = nil
+  end
 end
 
 function engine:initialize_object()
@@ -459,12 +428,33 @@ function engine:initialize_object()
     self.O:zero():add(1+0i)
   elseif self.object_init == 'trunc' then
     local z = ptycho.initialization.truncated_spectral_estimate(self.z,self.P,self.O_denom,self.object_init_truncation_threshold,self.ops,self.a,self.z1,self.a_buffer2,self.zk_buffer_update_frames,self.P_buffer,self.O_buffer,self.batch_params,self.old_batch_params,self.k_to_batch_index,self.batches,self.batch_size,self.K,self.M,self.No,self.Np,self.pos,self.dpos)
-    self.merge_frames(z,self.P,self.O,self.O_views)
-    plot:plot(self.O[1][1]:zfloat())
+    self:merge_frames(z,self.P,self.O,self.O_views,true)
+    plt:plot(self.O[1][1]:zfloat())
   elseif self.object_init == 'gcl' then
       u.printf('gcl initialization is not implement yet')
   elseif self.object_init == 'copy_solution' then
-      self.O[1][1]:copy(self.object_solution)
+      self.O:copy(self.object_solution)
+  end
+end
+
+function engine:initialize_object_solution()
+  if self.object_solution then
+    local startx, starty = 1,1
+    local endx = self.Nx-2*self.margin
+    local endy = self.Ny-2*self.margin
+    local slice = nil
+    if self.object_solution:dim() == 2 then
+      slice = {{startx,endx},{starty,endy}}
+      self.object_solution = self.object_solution:view(1,1,self.Nx,self.Ny):expand(self.No,self.Np,self.Nx,self.Ny)
+    end
+    slice = {{},{},{startx,endx},{starty,endy}}
+    -- pprint(slice)
+    local sv = self.object_solution[slice]:clone()
+    self.object_solution:zero()
+
+    self.object_solution[{{},{},{startx+self.margin,endx+self.margin},{starty+self.margin,endy+self.margin}}]:copy(sv)
+    self.slice = {{},{},{startx+self.margin,endx+self.margin},{starty+self.margin,endy+self.margin}}
+    -- pprint(self.object_solution)
   end
 end
 
@@ -865,7 +855,10 @@ function engine:generate_data(filename,poisson_noise,save_data)
   a:zero()
 
   self:initialize_probe()
+  self:initialize_object_solution()
   self:initialize_object()
+  self:update_views()
+  self:calculateO_denom()
 
   if poisson_noise then
     local P_norm = self.P:normall(2)^2
@@ -908,15 +901,14 @@ function engine:generate_data(filename,poisson_noise,save_data)
 
       if poisson_noise then
 
-        -- local I_total = a[k_full]:sum()
+        local I_total = a[k_full]:sum()
         -- u.printf('I_total[%d] = %g',k_full,I_total)
-        --:mul(poisson_noise/I_total)
-        -- local a_h = a[k_full]:float()
-        -- a_h[a_h:lt(0)] = 0
-        -- local a_h_noisy = u.stats.poisson(a_h)
-        --
-        -- -- u.printf('%g',a_h_noisy:sum())
-        -- a[k_full]:copy(a_h_noisy)
+        local a_h = a[k_full]:float()
+        a_h[a_h:lt(0)] = 0
+        local a_h_noisy = u.stats.poisson(a_h)
+
+        -- u.printf('%g',a_h_noisy:sum())
+        a[k_full]:copy(a_h_noisy)
       end
 
       a[k_full]:sqrt()
@@ -930,34 +922,26 @@ function engine:generate_data(filename,poisson_noise,save_data)
 
   self.a:copy(a)
 
-  local I = self.a:clone():pow(2)
-  local I_max = I:sum(2):sum(3):max()
-  local I_total = I:sum()
-  local I_mean = I_total/self.a:size(1)
-  local P_norm = self.P:normall(2)^2
+  self:calculate_statistics()
+  self:print_report()
 
-  u.printf('probe intensity          : %g',P_norm)
-  u.printf('total counts in this scan: %g',I_total)
-  u.printf('max counts in pattern    : %g',I_max)
-  u.printf('mean counts              : %g',I_mean)
-
-  plt:plot(self.P[1][1]:re():float(),'P')
-  plt:plot(self.O[1][1]:re():float(),'O')
+  plt:plot(self.P[1][1]:re():float(),'P used for generate_data')
+  plt:plot(self.O[1][1]:re():float(),'O used for generate_data')
   if save_data then
     self:save_data(filename)
   end
 end
 
 function engine:calculate_pixels_with_sufficient_measurements()
-  self.O_denom:fill(0)
-  local gt = self.P_buffer_real:normZ(self.P):div(self.P_buffer_real:max()):gt(1e-2)
-  local norm_P = gt[{{1},{1},{},{}}]
-  norm_P = norm_P:expandAs(self.O_denom_views[1])
-  for _, view in ipairs(self.O_denom_views) do
-    view:add(norm_P)
-  end
-  local m = self.O_denom:ge(4)
-  return m:sum()
+  -- self.O_denom:fill(0)
+  -- local gt = self.P_buffer_real:normZ(self.P):div(self.P_buffer_real:max()):gt(1e-2)
+  -- local norm_P = gt[{{1},{1},{},{}}]
+  -- norm_P = norm_P:expandAs(self.O_denom_views[1])
+  -- for _, view in ipairs(self.O_denom_views) do
+  --   view:add(norm_P)
+  -- end
+  -- local m = self.O_denom:ge(4)
+  return self.O_mask:sum()
 end
 
 function engine:P_F_with_background()
