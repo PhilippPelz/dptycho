@@ -195,7 +195,7 @@ def largest_evec_Ta_Fv2(Ta,v):
     #print psutil.virtual_memory().used
     #riplot(TaFv.toarray(),'TaFv')
     try:
-        evals, evec = linalg.eigs(TaFv,1,tol=1e-4)
+        evals, evec = linalg.eigs(TaFv,1,tol=1e-6)
     except ArpackNoConvergence:
         print 'Eigenvector search did not converge'
     except ArpackError:
@@ -287,27 +287,33 @@ function m.truncated_spectral_estimate(z,P,O_denom,truncation_threshold,ops,a,z_
     local a_max = u.percentile(a:float(),truncation_threshold)
     local T_a = a_buffer:gt(a,a_max)
 
-    -- for i=1,K do
-    --   plt:plotcompare({a[i]:float():log(), T_a[i]:float()},{'a',string.format('Ta[%d]',1)})
-    -- end
+    for i=1,3 do
+      plt:plotcompare({a[i]:float():log(), T_a[i]:float()},{'a',string.format('Ta[%d]',1)})
+    end
 
-    local T_aCx = torch.ZCudaTensor(T_a:size()):copyRe(T_a):fillIm(0)
-    -- plt:plotReIm(T_aCx[1]:zfloat(),string.format('T_aCx[%d]',1))
-    T_aCx:ifftBatched()
+    local ph = P:clone():view_3D():fftBatched()
+    pprint(ph)
+    plt:plot(ph[1]:zfloat(),string.format('fft p[%d]',1))
+    ph = ph:arg():view(1,1,Np,M,M):expand(K,1,Np,M,M)
+
+    local T_aCx = torch.ZCudaTensor(T_a:size()):polar(T_a,ph)
+    plt:plot(T_aCx[1]:zfloat(),string.format('T_aCx[%d]',1))
+    T_aCx:view_3D():ifftBatched()
     -- plt:plotReIm(T_aCx[1]:zfloat(),string.format('T_aCx[%d]',1))
     local T_a_exp = T_aCx:view(K,1,1,M,M):expand(K,No,Np,M,M)
     local Q_star_F_star_T_a = O_buffer
     local Q_star_F_star_T_a_views = ops.create_views(Q_star_F_star_T_a,pos,M)
     ops.Q_star(T_a_exp,P,Q_star_F_star_T_a,Q_star_F_star_T_a_views,zk_buffer,P_buffer,0,k_to_batch_index,partial_maybe_copy_new_batch,batches,K,dpos)
     -- plt:plot(O_denom[1][1]:float(),'O_denom')
-    plt:plot(Q_star_F_star_T_a[1][1]:zfloat(),'Q_star_F_star_T_a')
+    -- plt:plot(Q_star_F_star_T_a[1][1]:zfloat(),'Q_star_F_star_T_a')
     Q_star_F_star_T_a:cmul(O_denom)
     plt:plot(Q_star_F_star_T_a[1][1]:zfloat(),'Q_star_F_star_T_a norm')
     ops.Q(zT_a, P, Q_star_F_star_T_a_views, zk_buffer, k_to_batch_index,partial_maybe_copy_new_batch, batches, K,dpos)
+    zT_a:view_3D():fftBatched()
     for k = 1,K do
         for no = 1, No do
             for np = 1, Np do
-                plt:plot(zT_a[k][no][np]:zfloat(),'zT_a[k][no][np]')
+                -- plt:plot(zT_a[k][no][np]:zfloat(),'zT_a[k][no][np]')
                 local v = zT_a[k][no][np]:zfloat():view(zT_a[k][no][np]:nElement())
                 local m = T_a[k]:float():view(T_a[k]:nElement())
                 -- pprint(v)
@@ -318,7 +324,7 @@ function m.truncated_spectral_estimate(z,P,O_denom,truncation_threshold,ops,a,z_
                 -- u.printf('eval = %g + %g i',evalre,evalim)
                 -- z[k][no][np]:polar(1,zT_a[k][no][np]:cmul(T_a[k]):arg())
                 z[k][no][np]:polar(evec_abs:cuda(),evec_phase:cuda())
-                plt:plot(z[k][no][np]:zfloat(),'z[k][no][np]')
+                -- plt:plot(z[k][no][np]:zfloat(),'z[k][no][np]')
             end
         end
     end
@@ -342,7 +348,7 @@ ARGS:
 RETURN:
 - `z`     : the new frames
 ]]
-function m.truncated_spectral_estimate_power_it(z,P,O_denom,truncation_threshold,ops,a,z_buffer, a_buffer,zk_buffer,P_buffer,O_buffer,batch_params,old_batch_params,k_to_batch_index,batches,batch_size,K,M,No,Np,pos,dpos)
+function m.truncated_spectral_estimate_power_it(z,P,O_denom,truncation_threshold,ops,a,z_buffer, a_buffer,zk_buffer,P_buffer,O_buffer,batch_params,old_batch_params,k_to_batch_index,batches,batch_size,K,M,No,Np,pos,dpos,O_mask)
 
     local same_batch = function(batch_params1,batch_params2)
         local batch_start1, batch_end1, batch_size1 = table.unpack(batch_params1)
@@ -379,10 +385,7 @@ function m.truncated_spectral_estimate_power_it(z,P,O_denom,truncation_threshold
         -- u.printram('after maybe_copy_new_batch')
     end
 
-
     local zT_a = z_buffer
-    local F_PQ_Fstar_Ta = z
-
     local zT_a_h = nil
     if batches > 1 then
         zT_a_h = torch.FloatTensor(zT_a:size())
@@ -390,61 +393,76 @@ function m.truncated_spectral_estimate_power_it(z,P,O_denom,truncation_threshold
         zT_a_h = torch.Tensor()
     end
 
-    z:randn()
-    local normest = math.sqrt(a:sum()/a:nElement())
-    a_buffer:abs(a)
-    local T_a = a_buffer:le(9*normest^2)
+    local partial_maybe_copy_new_batch = fn.partial(maybe_copy_new_batch,zT_a,zT_a_h,'z')
+    local O_views = ops.create_views(O_buffer,pos,M)
 
-    for tt = 1,10 do
-      z:view_3D():fftBatched()
-
+    local A = function()
+      -- plt:plot(P[1][1]:zfloat(),string.format('z1 %d',1))
+      z_buffer = ops.Q(z_buffer, P, O_views, zk_buffer, k_to_batch_index,partial_maybe_copy_new_batch, batches, K,dpos)
+      -- plt:plot(z_buffer[1][1][1]:zfloat(),string.format('z1 %d',1))
+      -- plt:plot(z_buffer[20][1][1]:zfloat(),string.format('z20 %d',1))
+      z_buffer:view_3D():fftBatched()
+      -- plt:plot(z_buffer[1][1][1]:zfloat(),string.format('z1 %d',2))
+      -- plt:plot(z_buffer[20][1][1]:zfloat(),string.format('z20 %d',2))
+      return z_buffer
     end
 
+    local At = function(z)
+      z:view_3D():ifftBatched()
+      -- plt:plot(z_buffer[20][1][1]:zfloat(),string.format('z20 %d',1))
+      ops.Q_star(z,P,O_buffer,O_views,zk_buffer,P_buffer,0,k_to_batch_index,partial_maybe_copy_new_batch,batches,K,dpos)
+      O_buffer:cmul(O_denom)
+      return O_buffer
+    end
 
-    local partial_maybe_copy_new_batch = fn.partial(maybe_copy_new_batch,zT_a,zT_a_h,'z')
+    -- O_buffer:copy(torch.ZFloatTensor(O_buffer:size()):randn())
+    -- plt:plot(O_buffer[1][1]/:zfloat(),string.format('O %d',1))
 
-    -- preparations done
-
+    local normest = math.sqrt(a:sum()/a:nElement())
     local a_max = u.percentile(a:float(),truncation_threshold)
-    local T_a = a_buffer:gt(a,a_max)
+    -- local T_a = a_buffer:gt(a,a_max)
+    local T_a = a_buffer:ge(a,9*normest^2)
 
-    -- for i=1,K do
-    --   plt:plotcompare({a[i]:float():log(), T_a[i]:float()},{'a',string.format('Ta[%d]',1)})
-    -- end
+    local ph = P:clone():view_3D():fftBatched()
+    pprint(ph)
+    plt:plot(ph[1]:zfloat(),string.format('fft p[%d]',1))
+    ph = ph:arg():view(1,1,Np,M,M):expand(K,1,Np,M,M)
 
-    local T_aCx = torch.ZCudaTensor(T_a:size()):copyRe(T_a):fillIm(0)
-    -- plt:plotReIm(T_aCx[1]:zfloat(),string.format('T_aCx[%d]',1))
-    T_aCx:ifftBatched()
+    local T_aCx = torch.ZCudaTensor(T_a:size()):polar(T_a,ph)
+    plt:plot(T_aCx[1]:zfloat(),string.format('T_aCx[%d]',1))
+    T_aCx:view_3D():ifftBatched()
     -- plt:plotReIm(T_aCx[1]:zfloat(),string.format('T_aCx[%d]',1))
     local T_a_exp = T_aCx:view(K,1,1,M,M):expand(K,No,Np,M,M)
-    local Q_star_F_star_T_a = O_buffer
-    local Q_star_F_star_T_a_views = ops.create_views(Q_star_F_star_T_a,pos,M)
-    ops.Q_star(T_a_exp,P,Q_star_F_star_T_a,Q_star_F_star_T_a_views,zk_buffer,P_buffer,0,k_to_batch_index,partial_maybe_copy_new_batch,batches,K,dpos)
-    -- plt:plot(O_denom[1][1]:float(),'O_denom')
-    plt:plot(Q_star_F_star_T_a[1][1]:zfloat(),'Q_star_F_star_T_a')
-    Q_star_F_star_T_a:cmul(O_denom)
-    plt:plot(Q_star_F_star_T_a[1][1]:zfloat(),'Q_star_F_star_T_a norm')
-    ops.Q(zT_a, P, Q_star_F_star_T_a_views, zk_buffer, k_to_batch_index,partial_maybe_copy_new_batch, batches, K,dpos)
-    for k = 1,K do
-        for no = 1, No do
-            for np = 1, Np do
-                plt:plot(zT_a[k][no][np]:zfloat(),'zT_a[k][no][np]')
-                local v = zT_a[k][no][np]:zfloat():view(zT_a[k][no][np]:nElement())
-                local m = T_a[k]:float():view(T_a[k]:nElement())
-                -- pprint(v)
-                -- pprint(m)
-                local evalre, evalim, evec_abs, evec_phase = table.unpack(py.eval('largest_evec_Ta_Fv_reals2(Ta,vr,vi)',{Ta=m,vr=v:re(),vi=v:im()}))
-                -- pprint(evalre)
-                -- pprint(evalim)
-                -- u.printf('eval = %g + %g i',evalre,evalim)
-                -- z[k][no][np]:polar(1,zT_a[k][no][np]:cmul(T_a[k]):arg())
-                z[k][no][np]:polar(evec_abs:cuda(),evec_phase:cuda())
-                plt:plot(z[k][no][np]:zfloat(),'z[k][no][np]')
-            end
-        end
+    local O_buffer = O_buffer
+    local O_buffer_views = ops.create_views(O_buffer,pos,M)
+    ops.Q_star(T_a_exp,P,O_buffer,O_buffer_views,zk_buffer,P_buffer,0,k_to_batch_index,partial_maybe_copy_new_batch,batches,K,dpos)
+    O_buffer:cmul(O_denom)
+    -- plt:plot(O_buffer[1][1]:zfloat(),'O_buffer')
+    -- a_buffer:abs(a)
+    -- local T_a = a_buffer:ge(9*normest^2)
+    for i=20,23 do
+      plt:plotcompare({a[i]:float():log(), T_a[i]:float()},{'a',string.format('Ta[%d]',1)})
     end
 
-    return z
+    local T_a_exp = T_a:view(K,1,1,M,M):expand(K,No,Np,M,M)
+    local O = O_buffer
+    for tt = 1,200 do
+      local z = A()
+      -- plt:plot(z[1][1][1]:zfloat(),string.format('z1 %d',tt))
+      -- plt:plot(z[20][1][1]:zfloat(),string.format('z20 before %d',tt))
+      z:cmul(T_a_exp)
+      -- plt:plot(z[1][1][1]:zfloat(),string.format('z1 %d',tt))
+      -- plt:plot(z[20][1][1]:zfloat(),string.format('z20 after  %d',tt))
+      O = At(z)
+      O:div(O:max())
+      if tt % 5 == 0 then
+        plt:plot(O[1][1]:clone():cmul(O_mask):zfloat(),string.format('O %d',tt))
+      end
+    end
+
+    O_buffer:mul(normest)
+
+    return O_buffer
 end
 
 

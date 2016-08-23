@@ -427,8 +427,16 @@ function engine:initialize_object()
   if self.object_init == 'const' then
     self.O:zero():add(1+0i)
   elseif self.object_init == 'trunc' then
-    local z = ptycho.initialization.truncated_spectral_estimate(self.z,self.P,self.O_denom,self.object_init_truncation_threshold,self.ops,self.a,self.z1,self.a_buffer2,self.zk_buffer_update_frames,self.P_buffer,self.O_buffer,self.batch_params,self.old_batch_params,self.k_to_batch_index,self.batches,self.batch_size,self.K,self.M,self.No,self.Np,self.pos,self.dpos)
-    self:merge_frames(z,self.P,self.O,self.O_views,true)
+    -- local z = ptycho.initialization.truncated_spectral_estimate(self.z,self.P,self.O_denom,self.object_init_truncation_threshold,self.ops,self.a,self.z1,self.a_buffer2,self.zk_buffer_update_frames,self.P_buffer,self.O_buffer,self.batch_params,self.old_batch_params,self.k_to_batch_index,self.batches,self.batch_size,self.K,self.M,self.No,self.Np,self.pos,self.dpos,self.O_mask)
+    -- -- self.O:copy(O)
+    -- z:view_3D():ifftBatched()
+    -- self:merge_frames(z,self.P,self.O,self.O_views,true)
+    -- plt:plot(self.O[1][1]:zfloat())
+
+    local O = ptycho.initialization.truncated_spectral_estimate_power_it(self.z,self.P,self.O_denom,self.object_init_truncation_threshold,self.ops,self.a,self.z1,self.a_buffer2,self.zk_buffer_update_frames,self.P_buffer,self.O_buffer,self.batch_params,self.old_batch_params,self.k_to_batch_index,self.batches,self.batch_size,self.K,self.M,self.No,self.Np,self.pos,self.dpos,self.O_mask)
+    self.O:copy(O)
+    -- z:view_3D():ifftBatched()
+    -- self:merge_frames(z,self.P,self.O,self.O_views,true)
     plt:plot(self.O[1][1]:zfloat())
   elseif self.object_init == 'gcl' then
       u.printf('gcl initialization is not implement yet')
@@ -445,6 +453,7 @@ function engine:initialize_object_solution()
     local slice = nil
     if self.object_solution:dim() == 2 then
       slice = {{startx,endx},{starty,endy}}
+      self.object_solution = self.object_solution[slice]:clone()
       self.object_solution = self.object_solution:view(1,1,self.Nx,self.Ny):expand(self.No,self.Np,self.Nx,self.Ny)
     end
     slice = {{},{},{startx,endx},{starty,endy}}

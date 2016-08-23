@@ -13,7 +13,7 @@ local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 
 local path = '/home/philipp/drop/Public/'
-local file = 'moon2.h5'
+local file = 'moon21.h5'
 
 local ptycho = require 'dptycho.core.ptycho'
 
@@ -40,8 +40,8 @@ local pi = f:read('/pi'):all():cuda()--:view(torch.LongStorage{1,1,512,512})
 local probe = torch.ZCudaTensor.new(pr:size()):copyIm(pi):copyRe(pr)
 local object_solution = torch.ZCudaTensor.new(o_r:size()):copyIm(o_i):copyRe(o_r)
 -- plt:plotReIm(probe[1][1]:zfloat())
--- plt:plot(probe[1][1]:zfloat())
--- plt:plot(object_solution[1][1]:zfloat())
+plt:plot(probe[1][1]:zfloat())
+plt:plot(object_solution[1][1]:zfloat())
 o_r = nil
 o_i = nil
 pr = nil
@@ -55,7 +55,7 @@ par = ptycho.params.DEFAULT_PARAMS_TWF()
 par.Np = 1
 par.No = 1
 par.bg_solution = nil
-par.plot_every = 5
+par.plot_every = 10
 par.plot_start = 1
 par.show_plots = true
 par.beta = 0.9
@@ -75,7 +75,7 @@ par.probe_lowpass_fwhm = function(it) return nil end
 par.object_highpass_fwhm = function(it) return nil end
 par.object_inertia = 0
 par.object_init = 'trunc'
-par.object_init_truncation_threshold = 90
+par.object_init_truncation_threshold = 98
 
 par.P_Q_iterations = 10
 par.copy_probe = true
@@ -109,6 +109,8 @@ par.twf.mu_max = 0.01
 par.twf.tau0 = 10
 par.twf.nu = 1e-2
 
-local run_config = {{17,ptycho.DM_engine},{200,ptycho.TWF_engine}}
+local run_config = {{50,ptycho.DM_engine}
+-- ,{200,ptycho.TWF_engine}
+}
 local runner = ptycho.Runner(run_config,par)
 runner:run()

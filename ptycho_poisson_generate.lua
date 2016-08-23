@@ -13,7 +13,7 @@ local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 
 local path = '/home/philipp/drop/Public/'
-local file = 'po3.h5'
+local file = 'po5.h5'
 
 local ptycho = require 'dptycho.core.ptycho'
 
@@ -34,7 +34,8 @@ local a = f:read('/data_unshift'):all():cuda()
 -- local a = torch.CudaTensor(pos:size(1),M,M)
 local fmask = a:clone():fill(1)
 -- print(dpos)
-local pos = f:read('/scan_info/positions_int'):all():int()
+local pos = f:read('/pos'):all():int()
+-- local pos = f:read('/scan_info/positions_int'):all():int()
 local dpos_solution = pos:clone():float():zero()
 -- local dpos_solution = f:read('/scan_info/dpos'):all():float()
 local dpos = pos:clone():float():zero()--:normal()*2
@@ -133,5 +134,5 @@ par.fmask = fmask
 par.probe = nil
 
 local ngin = ptycho.DM_engine(par)
-ngin:generate_data('/home/philipp/drop/Public/moon2',nil, true)
+ngin:generate_data('/home/philipp/drop/Public/moon21',nil, true)
 -- ngin:iterate(250)
