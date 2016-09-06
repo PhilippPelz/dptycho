@@ -2,7 +2,7 @@ local classic = require 'classic'
 local znn = require 'dptycho.znn'
 local nn = require 'nn'
 local ffi = require 'ffi'
-local plot = require 'io.plot'
+local plot = require 'dptycho.io.plot'
 local plt = plot()
 local c = classic.class(...)
 

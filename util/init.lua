@@ -3,6 +3,7 @@ local dataloader = require 'dptycho.io.dataloader'
 local plot = require 'dptycho.io.plot'
 local plt = plot()
 local py = require('fb.python')
+local argcheck = require 'argcheck'
 require 'pprint'
 require 'zcutorch'
 local m = classic.module(...)
@@ -10,6 +11,7 @@ local m = classic.module(...)
 m:submodule("stats")
 m:class("linear_schedule")
 m:class("tabular_schedule")
+m:class("physics")
 
 py.exec([=[
 import numpy as np
@@ -20,6 +22,20 @@ def DTF2D(N):
   W2D = np.kron(W,W)/N
   return W2D.real, W2D.imag
 ]=])
+
+
+function m.read_file(path)
+    local file = io.open(path, "rb") -- r read mode and b binary mode
+    if not file then return nil end
+    local content = file:read "*a" -- *a or *all reads the whole file
+    file:close()
+    return content
+end
+
+function m.script_path()
+   local str = debug.getinfo(2, "S").source:sub(2)
+   return str:match("(.*/)")
+end
 
 function m.DTF2D(N)
   local WR,WI = py.eval('DTF2D(N)',{N=N})
@@ -60,6 +76,40 @@ function m.load_sim_and_allocate(file)
   ret.nslices = data.deltas[data.Znums[1]]:size():totable()[1]
   return ret
 end
+
+function m.r(N)
+  local x = torch.repeatTensor(torch.linspace(-N/2,N/2,N),N,1)
+  local y = x:clone():t()
+  local r2 = (x:pow(2) + y:pow(2))
+  return r2:sqrt()
+end
+
+function m.r2(N)
+  local x = torch.repeatTensor(torch.linspace(-N/2,N/2,N),N,1)
+  local y = x:clone():t()
+  local r2 = (x:pow(2) + y:pow(2))
+  return r2
+end
+
+m.qq = argcheck{
+   nonamed=true,
+   {name="n", type='number'},
+   {name="dx", type='number'},
+   call = function(n,dx)
+     local r = m.r(n)
+     return r:div(n*dx)
+   end
+}
+
+m.qq2 = argcheck{
+   nonamed=true,
+   {name="n", type='number'},
+   {name="dx", type='number'},
+   call = function(n,dx)
+     local qq = m.qq(n,dx)
+     return qq:pow(2)
+   end
+}
 
 function m.load_sim_and_allocate_stacked(path,file,ptycho)
   local ret = {}

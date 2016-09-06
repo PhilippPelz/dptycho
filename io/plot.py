@@ -139,7 +139,10 @@ def scatter_positions(pos1,pos2):
     ax.scatter(pos1[0],pos1[1],c='r')
     ax.scatter(pos2[0],pos2[1],c='b')
     plt.show()
-
+def scatter_positions2(pos1):
+    fig, ax = plt.subplots()
+    ax.scatter(pos1[:,0],pos1[:,1],c='r')
+    plt.show()
 
 def plot3d(arr,title,vmin = 0,vmax = 0.7):
     mlab.figure(1, fgcolor=(1, 1, 1), bgcolor=(0, 0, 0))

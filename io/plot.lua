@@ -1,7 +1,7 @@
 local classic = require 'classic'
 local py = require('fb.python')
 local argcheck = require('argcheck')
-local dataloader = require 'io.dataloader'
+local dataloader = require 'dptycho.io.dataloader'
 
 local PYTHON_PLOTFILE = "/home/philipp/projects/dptycho/io/plot.py"
 --local PYTHON_PLOTFILE = "./plot.py"
@@ -105,7 +105,23 @@ plot = argcheck{
                   py.eval('zplot(img,suptitle,savepath,cmap,title,show)',{img = {img:abs(),img:arg()}, suptitle=suptitle, savepath=savepath, cmap=cmap,title=title, show=show})
                 end
             }
-
+plot = argcheck{
+            nonamed=true,
+            name = "plot",
+            overload = plot,
+            {name="self", type='table'},
+            {name="img", type='torch.ZCudaTensor'},
+            {name="suptitle", default='Image', type='string'},
+            {name="savepath", default=py.None, type='string'},
+            {name="show", default=true, type='boolean'},
+            {name="cmap", default={'Greys','hsv'}, type='table'},
+            {name="title", default={'Abs','Phase'}, type='table'},
+            call =
+                function (self,img, suptitle, savepath, show, cmap, title)
+                  local img1 = img:zfloat()
+                  py.eval('zplot(img,suptitle,savepath,cmap,title,show)',{img = {img1:abs(),img1:arg()}, suptitle=suptitle, savepath=savepath, cmap=cmap,title=title, show=show})
+                end
+            }
 c.plotReIm = argcheck{
             nonamed=true,
             name = "plot",
@@ -177,6 +193,15 @@ c.scatter_positions = argcheck{
                   py.eval('scatter_positions(pos1,pos2)',{pos1 = pos1, pos2=pos2})
                 end
             }
-
+c.scatter_positions2 = argcheck{
+            nonamed=true,
+            name = "scatter_positions2",
+            {name="self", type='table'},
+            {name="pos1", type='torch.FloatTensor'},
+            call =
+                function (self, pos1)
+                  py.eval('scatter_positions2(pos1)',{pos1 = pos1})
+                end
+            }
 
 return c

@@ -168,7 +168,7 @@ end
 function TWF_engine:update_views()
   for i=1,self.K do
     local slice = {{},{},{self.pos[i][1],self.pos[i][1]+self.M-1},{self.pos[i][2],self.pos[i][2]+self.M-1}}
-    pprint(slice)
+    -- pprint(slice)
     self.O_views[i] = self.O[slice]
     self.O_denom_views[i] = self.O_denom[slice]
     self.dL_dO_views[i] = self.dL_dO[slice]

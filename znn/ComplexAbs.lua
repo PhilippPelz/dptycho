@@ -1,6 +1,6 @@
 local nn = require 'nn'
 require 'dptycho.znn'
-local plot = require 'io.plot'
+local plot = require 'dptycho.io.plot'
 local plt = plot()
 local c, parent = torch.class('znn.ComplexAbs', 'nn.Module')
 

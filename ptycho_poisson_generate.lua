@@ -134,5 +134,5 @@ par.fmask = fmask
 par.probe = nil
 
 local ngin = ptycho.DM_engine(par)
-ngin:generate_data('/home/philipp/drop/Public/moon21',nil, true)
+ngin:generate_data('/home/philipp/drop/Public/moon22',nil, true)
 -- ngin:iterate(250)

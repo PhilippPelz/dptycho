@@ -1,6 +1,6 @@
 
 require 'pprint'
-local plot = require 'io.plot'
+local plot = require 'dptycho.io.plot'
 local plt = plot()
 local c, parent = torch.class('znn.AtomRadiusPenalty', 'nn.Criterion')
 

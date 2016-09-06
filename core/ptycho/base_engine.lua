@@ -68,9 +68,7 @@ function engine:_init(par1)
   self.update_positions = false
   self.update_probe = false
 
-  local x = torch.repeatTensor(torch.linspace(-self.M/2,self.M/2,self.M),self.M,1)
-  local y = x:clone():t()
-  self.r2 = (x:pow(2) + y:pow(2))
+  self.r2 = u.r2(self.M)
 
   self.has_solution = self.object_solution and self.probe_solution
   -- plt:plotReIm(self.object_solution[1][1]:zfloat(),'object_solution 1')
@@ -191,6 +189,7 @@ end
 
 function engine:P_Q_plain()
   self:merge_frames(self.z,self.P,self.O,self.O_views,true)
+  -- plt:plot(self.O[1][1]:zfloat(),'O after merge')
   self.ops.Q(self.P_Qz,self.P,self.O_views,self.zk_buffer_update_frames,self.k_to_batch_index,fn.partial(self.maybe_copy_new_batch_P_Q,self),self.batches,self.K,self.dpos)
 end
 
@@ -434,10 +433,10 @@ function engine:initialize_object()
     -- plt:plot(self.O[1][1]:zfloat())
 
     local O = ptycho.initialization.truncated_spectral_estimate_power_it(self.z,self.P,self.O_denom,self.object_init_truncation_threshold,self.ops,self.a,self.z1,self.a_buffer2,self.zk_buffer_update_frames,self.P_buffer,self.O_buffer,self.batch_params,self.old_batch_params,self.k_to_batch_index,self.batches,self.batch_size,self.K,self.M,self.No,self.Np,self.pos,self.dpos,self.O_mask)
-    self.O:copy(O)
+    self.O:polar(torch.CudaTensor(O:size()):fill(1),O:arg())
     -- z:view_3D():ifftBatched()
     -- self:merge_frames(z,self.P,self.O,self.O_views,true)
-    plt:plot(self.O[1][1]:zfloat())
+    plt:plotReIm(self.O[1][1]:zfloat(),'O initialization')
   elseif self.object_init == 'gcl' then
       u.printf('gcl initialization is not implement yet')
   elseif self.object_init == 'copy_solution' then
@@ -1150,7 +1149,7 @@ function engine:image_error()
     -- if true then
     -- plt:plotcompare({self.object_solution[1][1]:zfloat():abs(),O_res:clone():cmul(self.O_mask)[1][1]:zfloat():abs()},{'sol abs','rec abs'})
     -- plt:plotcompare({self.object_solution[1][1]:zfloat():arg(),O_res:clone():cmul(self.O_mask)[1][1]:zfloat():arg()},{'sol arg','rec arg'})
-    -- end
+    -- -- end
     O_res:add(-1,self.object_solution):cmul(self.O_mask)
     local O_res_norm = O_res:normall(2)
     local norm1 = O_res_norm/O_res:copy(self.object_solution):cmul(self.O_mask):normall(2)

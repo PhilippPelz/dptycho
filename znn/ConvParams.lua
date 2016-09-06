@@ -1,7 +1,7 @@
 require 'nn'
 require 'dptycho.znn'
 require 'pprint'
-local plot = require 'io.plot'
+local plot = require 'dptycho.io.plot'
 local plt = plot()
 local c, parent = torch.class('znn.ConvParams', 'nn.Module')
 

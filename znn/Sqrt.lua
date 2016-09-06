@@ -1,5 +1,5 @@
 local Sqrt, parent = torch.class('znn.Sqrt','nn.Sqrt')
-local plot = require 'io.plot'
+local plot = require 'dptycho.io.plot'
 local plt = plot()
 
 function Sqrt:__init(b)

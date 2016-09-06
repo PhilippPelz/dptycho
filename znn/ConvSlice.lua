@@ -1,7 +1,7 @@
 local nn = require 'nn'
 require 'dptycho.znn'
 local c, parent = torch.class('znn.ConvSlice', 'nn.Module')
-local plot = require 'io.plot'
+local plot = require 'dptycho.io.plot'
 local plt = plot()
 
 function c:__init(filters,inv_filters,weights,gradWeights)

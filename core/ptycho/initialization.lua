@@ -415,38 +415,22 @@ function m.truncated_spectral_estimate_power_it(z,P,O_denom,truncation_threshold
       return O_buffer
     end
 
-    -- O_buffer:copy(torch.ZFloatTensor(O_buffer:size()):randn())
+    O_buffer:copy(torch.ZFloatTensor(O_buffer:size()):randn())
     -- plt:plot(O_buffer[1][1]/:zfloat(),string.format('O %d',1))
 
     local normest = math.sqrt(a:sum()/a:nElement())
     local a_max = u.percentile(a:float(),truncation_threshold)
-    -- local T_a = a_buffer:gt(a,a_max)
-    local T_a = a_buffer:ge(a,9*normest^2)
+    local T_a = a_buffer:gt(a,a_max)
+    -- local T_a = a_buffer:ge(a,9*normest^2)
 
-    local ph = P:clone():view_3D():fftBatched()
-    pprint(ph)
-    plt:plot(ph[1]:zfloat(),string.format('fft p[%d]',1))
-    ph = ph:arg():view(1,1,Np,M,M):expand(K,1,Np,M,M)
+    local T_a_exp = T_a:cmul(a):view(K,1,1,M,M):expand(K,No,Np,M,M)
 
-    local T_aCx = torch.ZCudaTensor(T_a:size()):polar(T_a,ph)
-    plt:plot(T_aCx[1]:zfloat(),string.format('T_aCx[%d]',1))
-    T_aCx:view_3D():ifftBatched()
-    -- plt:plotReIm(T_aCx[1]:zfloat(),string.format('T_aCx[%d]',1))
-    local T_a_exp = T_aCx:view(K,1,1,M,M):expand(K,No,Np,M,M)
-    local O_buffer = O_buffer
-    local O_buffer_views = ops.create_views(O_buffer,pos,M)
-    ops.Q_star(T_a_exp,P,O_buffer,O_buffer_views,zk_buffer,P_buffer,0,k_to_batch_index,partial_maybe_copy_new_batch,batches,K,dpos)
-    O_buffer:cmul(O_denom)
-    -- plt:plot(O_buffer[1][1]:zfloat(),'O_buffer')
-    -- a_buffer:abs(a)
-    -- local T_a = a_buffer:ge(9*normest^2)
-    for i=20,23 do
-      plt:plotcompare({a[i]:float():log(), T_a[i]:float()},{'a',string.format('Ta[%d]',1)})
-    end
-
-    local T_a_exp = T_a:view(K,1,1,M,M):expand(K,No,Np,M,M)
+    -- for i=20,23 do
+    --   plt:plotcompare({a[i]:float():log(), T_a[i]:float()},{'a',string.format('Ta[%d]',1)})
+    -- end
+    -- :view(K,1,1,M,M):expand(K,No,Np,M,M)
     local O = O_buffer
-    for tt = 1,200 do
+    for tt = 1,50 do
       local z = A()
       -- plt:plot(z[1][1][1]:zfloat(),string.format('z1 %d',tt))
       -- plt:plot(z[20][1][1]:zfloat(),string.format('z20 before %d',tt))
@@ -455,13 +439,13 @@ function m.truncated_spectral_estimate_power_it(z,P,O_denom,truncation_threshold
       -- plt:plot(z[20][1][1]:zfloat(),string.format('z20 after  %d',tt))
       O = At(z)
       O:div(O:max())
-      if tt % 5 == 0 then
-        plt:plot(O[1][1]:clone():cmul(O_mask):zfloat(),string.format('O %d',tt))
-      end
+      -- if tt % 200 == 0 then
+      --   plt:plot(O[1][1]:clone():cmul(O_mask):zfloat(),string.format('O %d',tt))
+      -- end
     end
 
     O_buffer:mul(normest)
-
+    -- plt:plot(O_buffer[1][1]:zfloat(),'O_buffer')
     return O_buffer
 end
 
