@@ -21,7 +21,7 @@ function m.truncnorm(shape,a,b,mu,sigma)
 end
 
 function m.poisson(x)
-  return py.eval('poisson(x)',{x=x})
+  return py.eval('np.random.poisson(x)',{x=x})
 end
 
 function m.percentile(x,q)

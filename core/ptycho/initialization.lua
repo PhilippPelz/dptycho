@@ -292,7 +292,7 @@ function m.truncated_spectral_estimate(z,P,O_denom,truncation_threshold,ops,a,z_
     end
 
     local ph = P:clone():view_3D():fftBatched()
-    pprint(ph)
+    -- pprint(ph)
     plt:plot(ph[1]:zfloat(),string.format('fft p[%d]',1))
     ph = ph:arg():view(1,1,Np,M,M):expand(K,1,Np,M,M)
 
@@ -393,6 +393,13 @@ function m.truncated_spectral_estimate_power_it(z,P,O_denom,truncation_threshold
         zT_a_h = torch.Tensor()
     end
 
+    -- local PI = P:clone():view_3D():fftBatched():norm():sum(1):re():expandAs(a)
+    -- local a_diff = PI:add(-1,a):abs()
+    --
+    -- for i=20,30 do
+    --   plt:plot(a_diff[i]:float(),'a_diff['..i..']')
+    -- end
+
     local partial_maybe_copy_new_batch = fn.partial(maybe_copy_new_batch,zT_a,zT_a_h,'z')
     local O_views = ops.create_views(O_buffer,pos,M)
 
@@ -421,7 +428,7 @@ function m.truncated_spectral_estimate_power_it(z,P,O_denom,truncation_threshold
     local normest = math.sqrt(a:sum()/a:nElement())
     local a_max = u.percentile(a:float(),truncation_threshold)
     local T_a = a_buffer:gt(a,a_max)
-    -- local T_a = a_buffer:ge(a,9*normest^2)
+    -- local T_a = a_buffer:le(a,9*normest^2)
 
     local T_a_exp = T_a:cmul(a):view(K,1,1,M,M):expand(K,No,Np,M,M)
 

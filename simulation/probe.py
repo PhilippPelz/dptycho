@@ -61,7 +61,7 @@ def focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um = 1000, C5_mm=1, tx = 0,
     tilt_y = 0
 
     phi = {
-                '22':0.0,
+                '22':33.0,
                 '33':0.0,
                 '44':0.0,
                 '55':0.0,
@@ -81,7 +81,10 @@ def focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um = 1000, C5_mm=1, tx = 0,
                     'formats':['f8']*14}
     a0 = np.zeros(1,a_dtype)
     a0['20']=defocus_nm  # defocus: -60 nm
+    a0['22']=2.3
     a0['40']=C3_um # C3/spherical aberration: 1000 um
+    a0['42']=2.28
+    a0['44']=0.06
     a0['60']=C5_mm    # C5/Chromatic aberration: 1 mm
 
     dk = 1.0/(N*d)
@@ -123,6 +126,7 @@ def focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um = 1000, C5_mm=1, tx = 0,
     # add in the complex part
     # MATLAB: probe = probe.*exp(i*chi);
     arr*=np.exp(1j*chi);
+    arr = fftshift(arr)
     arr_real = fftshift(ifft2(arr))
     arr_real /= np.linalg.norm(arr_real)
     if plot:

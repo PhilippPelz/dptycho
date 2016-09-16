@@ -108,7 +108,7 @@ end
 function TruncatedPoissonLikelihood:updateGradInput(z, I_target)
   self.gradInput = self:calculateXsi(z,I_target)
   local vg_expanded = self.valid_gradients:view(self.K,1,1,self.M,self.M):expandAs(self.gradInput)
-  self.gradInput:cmul(vg_expanded)
+  -- self.gradInput:cmul(vg_expanded)
   return self.gradInput, (self.valid_gradients:sum()/self.valid_gradients:nElement()*100.0)
 end
 

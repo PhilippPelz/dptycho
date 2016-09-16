@@ -32,15 +32,15 @@ def MTF_DQE_2D(cam,binning,s,path):
         mtf2D = fftshift(mtff(qq))
         dqe2D = fftshift(dqef(qq))
 
-        f, ax = plt.subplots(1,1,figsize=(10,7))
-        cax = ax.imshow(mtf2D)
-        plt.colorbar(cax)
-        plt.show()
-
-        f, ax = plt.subplots(1,1,figsize=(10,7))
-        cax = ax.imshow(dqe2D)
-        plt.colorbar(cax)
-        plt.show()
+        # f, ax = plt.subplots(1,1,figsize=(10,7))
+        # cax = ax.imshow(mtf2D)
+        # plt.colorbar(cax)
+        # plt.show()
+        #
+        # f, ax = plt.subplots(1,1,figsize=(10,7))
+        # cax = ax.imshow(dqe2D)
+        # plt.colorbar(cax)
+        # plt.show()
 
         return mtf2D, dqe2D
 

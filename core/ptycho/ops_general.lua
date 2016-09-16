@@ -71,9 +71,9 @@ function m.static.P_F_without_background(z,a,a_exp,fm,fm_exp,zk_real_buffer, a_b
       else
         fourier_mask = fm_exp[k_all]
       end
-      -- m.P_Mod(z[k],abs_exp,a_exp[k_all])
+      m.P_Mod(z[k],abs_exp,a_exp[k_all])
       -- pprint(fourier_mask)
-      m.P_Mod_renorm(z[k],fourier_mask,fdev_exp,a_exp[k_all],abs_exp,renorm)
+      -- m.P_Mod_renorm(z[k],fourier_mask,fdev_exp,a_exp[k_all],abs_exp,renorm)
       mod_updates = mod_updates + 1
     end
   end

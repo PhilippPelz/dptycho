@@ -16,6 +16,7 @@ m:class("physics")
 py.exec([=[
 import numpy as np
 from numpy.fft import fft
+import scipy.ndimage.filters as f
 
 def DTF2D(N):
   W = fft(np.eye(N))
@@ -46,8 +47,16 @@ function m.DTF2D(N)
   return z
 end
 
+function m.unwrap(x)
+  return py.eval('np.unwrap(x)',{x=x})
+end
+
 function m.percentile(a,perc)
   return py.eval('np.percentile(a,q)',{a=a,q=perc})
+end
+
+function m.gf(a,sigma)
+  return py.eval('f.gaussian_filter(a,sigma)',{a=a,sigma=sigma})
 end
 
 function m.load_sim_and_allocate(file)

@@ -124,6 +124,8 @@ function engine:calculate_statistics()
   self.I_mean = self.I_total/self.a:size(1)
   self.P_norm = self.P:normall(2)^2
   self.valid_measurements = self:calculate_pixels_with_sufficient_measurements()
+  self.counts_per_valid_pixel = self.I_total /self.valid_measurements
+  self.counts_per_pixel = self.I_total / (self.O:nElement()/self.No)
 end
 
 function engine:print_report()
@@ -151,6 +153,8 @@ function engine:print_report()
   u.printf('total counts in this scan              : %g',self.I_total)
   u.printf('max counts in pattern                  : %g',self.I_max)
   u.printf('mean counts                            : %g',self.I_mean)
+  u.printf('counts per       pixel                 : %g',self.counts_per_pixel)
+  u.printf('counts per valid pixel                 : %g',self.counts_per_valid_pixel)
   print(   '----------------------------------------------------')
 end
 
@@ -433,12 +437,15 @@ function engine:initialize_object()
     -- plt:plot(self.O[1][1]:zfloat())
 
     local O = ptycho.initialization.truncated_spectral_estimate_power_it(self.z,self.P,self.O_denom,self.object_init_truncation_threshold,self.ops,self.a,self.z1,self.a_buffer2,self.zk_buffer_update_frames,self.P_buffer,self.O_buffer,self.batch_params,self.old_batch_params,self.k_to_batch_index,self.batches,self.batch_size,self.K,self.M,self.No,self.Np,self.pos,self.dpos,self.O_mask)
-    self.O:polar(torch.CudaTensor(O:size()):fill(1),O:arg())
+    local angle = O:arg():float()
+    -- angle = u.gf(angle,2)
+    self.O:polar(torch.CudaTensor(O:size()):fill(1),angle:cuda())
     -- z:view_3D():ifftBatched()
     -- self:merge_frames(z,self.P,self.O,self.O_views,true)
-    plt:plotReIm(self.O[1][1]:zfloat(),'O initialization')
+    plt:plot(self.O[1][1]:zfloat(),'O initialization')
   elseif self.object_init == 'gcl' then
       u.printf('gcl initialization is not implement yet')
+      self.O:zero():add(1+0i)
   elseif self.object_init == 'copy_solution' then
       self.O:copy(self.object_solution)
   end
@@ -455,9 +462,17 @@ function engine:initialize_object_solution()
       self.object_solution = self.object_solution[slice]:clone()
       self.object_solution = self.object_solution:view(1,1,self.Nx,self.Ny):expand(self.No,self.Np,self.Nx,self.Ny)
     end
+
     slice = {{},{},{startx,endx},{starty,endy}}
     -- pprint(slice)
     local sv = self.object_solution[slice]:clone()
+    -- pprint(self.object_solution:size())
+    if self.object_solution:size(2) ~= self.Nx+2*self.margin or self.object_solution:size(3) ~= self.Ny+2*self.margin then
+      local os = self.object_solution
+      self.object_solution = torch.ZCudaTensor().new({self.No,1,self.Nx+2*self.margin,self.Ny+2*self.margin})
+      os:storage():free()
+    end
+
     self.object_solution:zero()
 
     self.object_solution[{{},{},{startx+self.margin,endx+self.margin},{starty+self.margin,endy+self.margin}}]:copy(sv)

@@ -206,7 +206,7 @@ function engine:refine_positions()
 end
 
 function engine:filter_object()
-  pprint(self.O_tmp_PQstore)
+  -- pprint(self.O_tmp_PQstore)
   local O_fluence = self.O_tmp_PQstore:copy(self.O):normall(2)
   print('filtering object')
   -- plt:plot(self.P[1][1]:zfloat(),self.i..' P',self.save_path .. self.i..' P',false)
