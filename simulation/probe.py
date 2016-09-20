@@ -10,7 +10,34 @@ from matplotlib import pyplot as plt
 import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from numpy.fft import ifft2, fft2, fftshift
+def sector_mask(shape,centre,radius,angle_range):
+    """
+    Return a boolean mask for a circular sector. The start/stop angles in
+    `angle_range` should be given in clockwise order.
+    """
 
+    x,y = np.ogrid[:shape[0],:shape[1]]
+    cx,cy = centre
+    tmin,tmax = np.deg2rad(angle_range)
+
+    # ensure stop angle > start angle
+    if tmax < tmin:
+            tmax += 2*np.pi
+
+    # convert cartesian --> polar coordinates
+    r2 = (x-cx)*(x-cx) + (y-cy)*(y-cy)
+    theta = np.arctan2(x-cx,y-cy) - tmin
+
+    # wrap angles between 0 and 2*pi
+    theta %= (2*np.pi)
+
+    # circular mask
+    circmask = r2 <= radius*radius
+
+    # angular mask
+    anglemask = theta <= (tmax-tmin)
+
+    return circmask*anglemask
 def applot(img, suptitle='Image', savePath=None, cmap=['hot','hsv'], title=['Abs','Phase'], show=True):
     im1, im2 = np.abs(img), np.angle(img)
     fig, (ax1,ax2) = plt.subplots(1,2,figsize=(10, 13))
@@ -134,4 +161,14 @@ def focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um = 1000, C5_mm=1, tx = 0,
         applot(arr_real,'arr_real')
     return np.real(arr_real).astype(np.float32), np.imag(arr_real).astype(np.float32)
 
-#focused_probe(300e3, 1024, 1, 6e-3, 1e3, C3_um = 0, C5_mm=0, tx = 0,ty =0, Nedge = 25, plot=True)
+# N=1024
+# a,b = focused_probe(300e3, N, 1, 6e-3, 1e3, C3_um = 0, C5_mm=0, tx = 0,ty =0, Nedge = 25, plot=False)
+# rs_mask1 = np.logical_not(sector_mask((N,N),(N/2,N/2),0.03*N,(0,360)))
+# p = a+1j*b
+# p *= rs_mask1
+# ftp = fftshift(fft2(p))
+# #fs_mask1 = np.logical_not(sector_mask((N,N),(N/2,N/2),0.18*N,(0,360)))
+# #ftp2 = ftp*fs_mask1
+# applot(ftp,'ftp')
+#
+# applot(ifft2(fftshift(ftp)),'p')

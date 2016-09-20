@@ -18,11 +18,22 @@ local ptycho = require 'dptycho.core.ptycho'
 function get_data(pot_path,dose,npos,probe_type)
   local s = simul.simulator()
   local pot = s:load_potential(pot_path)
-  local pos = s:get_positions_raster(300,500-N)
+  local pos = s:get_positions_raster(npos,500-N)
   pos = pos:int() + 1
 
   if probe_type == 1 then
-    local probe = s:focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um , C5_mm, tx ,ty , Nedge , plot)
+    local N = 256
+    local d = 2.0
+    local alpha_rad = 5e-3
+    local C3_um = 500
+    local defocus_nm = 1.8e3
+    local C5_mm = 800
+    local tx = 0
+    local ty = 0
+    local Nedge = 10
+    local plotit = true
+  if probe_type == 1 then
+    local probe = s:focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um , C5_mm, tx ,ty , Nedge , plotit)
   elseif probe_type == 2 then
     local probe = s:random_probe(N)
   elseif probe_type == 3 then
@@ -43,22 +54,16 @@ function get_data(pot_path,dose,npos,probe_type)
   return result
 end
 
-function run_experiment(par,run_config)
-
-  local runner = ptycho.Runner(run_config,par)
-  runner:run()
-end
-
 function main()
-  conn = hypero.connect()
-  bat = conn:battery('bayes_opt', '1.0')
-  hs = hypero.Sampler()
+  local conn = hypero.connect()
+  local bat = conn:battery('bayes_opt', '1.0')
+  local hs = hypero.Sampler()
 
-  doses = {}
-  npos = {}
-  nu = {4e-1,3e-1,2e-1,5e-2}
+  local doses = {}
+  local npos = {}
+  local nu = {4e-1,3e-1,2e-1,5e-2}
 
-  par = ptycho.params.DEFAULT_PARAMS_TWF()
+  local par = ptycho.params.DEFAULT_PARAMS_TWF()
 
   par.Np = 1
   par.No = 1
@@ -96,17 +101,9 @@ function main()
   par.save_raw_data = true
   par.run_label = 'ptycho2'
 
-
   par.O_denom_regul_factor_start = 0
   par.O_denom_regul_factor_end = 0
 
-  par.pos = pos
-  par.dpos = dpos
-  par.dpos_solution = dpos_solution
-  par.object_solution = object_solution
-  par.probe_solution = probe
-  par.a = a
-  par.fmask = fmask
   par.P = nil
   par.O = nil
 
@@ -122,6 +119,24 @@ function main()
   par.experiment.det_pix = 40e-6
   par.experiment.N_det_pix = 256
 
-  local run_config = {{200,ptycho.TWF_engine}
-  -- ,{200,ptycho.TWF_engine}
-  }
+  for d = 1,2 do
+    local data = get_data('/home/philipp/vol26.h5',1e8,300,1)
+
+    par.pos = pos
+    par.dpos = dpos
+    par.dpos_solution = dpos_solution
+    par.object_solution = object_solution
+    par.probe_solution = probe
+    par.a = a
+    par.fmask = fmask
+
+    local run_config = {{200,ptycho.TWF_engine}
+    -- ,{200,ptycho.TWF_engine}
+    }
+
+    local runner = ptycho.Runner(run_config,par)
+    runner:run()
+  end
+end
+
+main()
