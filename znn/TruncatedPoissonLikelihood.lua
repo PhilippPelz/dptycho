@@ -8,7 +8,7 @@ local TruncatedPoissonLikelihood, parent = torch.class('znn.TruncatedPoissonLike
 -- 1.Bian, L. et al. Fourier ptychographic reconstruction using Poisson maximum likelihood and truncated Wirtinger gradient. arXiv:1603.04746 [physics] (2016).
 -- 1.Chen, Y. & Candes, E. J. Solving Random Quadratic Systems of Equations Is Nearly as Easy as Solving Linear Systems. arXiv:1505.05114 [cs, math, stat] (2015).
 
-function TruncatedPoissonLikelihood:__init(a_h, a_lb, a_ub, gradInput, mask, buffer1, buffer2, z_buffer_real, K, No, Np, M, Nx, Ny, diagnostics)
+function TruncatedPoissonLikelihood:__init(a_h, a_lb, a_ub, gradInput, mask, buffer1, buffer2, z_buffer_real, K, No, Np, M, Nx, Ny, diagnostics, do_truncate)
    parent.__init(self)
 
    self.gradInput = gradInput
@@ -27,6 +27,7 @@ function TruncatedPoissonLikelihood:__init(a_h, a_lb, a_ub, gradInput, mask, buf
    self.a_lb = a_lb
    self.a_ub = a_ub
    self.diagnostics = diagnostics
+   self.do_truncate = do_truncate
    self.output = torch.CudaTensor(1):fill(0)
 end
 
@@ -49,51 +50,53 @@ function TruncatedPoissonLikelihood:updateOutput(z, I_target)
 end
 
 function TruncatedPoissonLikelihood:calculateXsi(z,I_target)
-  -- ||c - |Az|^2||_1 / (K*M*M)
-  local K_t = self.rhs:add(I_target,-1,self.I_model):norm(1)/(I_target:nElement())
-  local z_2norm = z:normall(2)/self.M/self.Np/self.No
-  -- sqrt(n) * |a| / ( ||a|| ||z||) with ||a|| = n because DFT
-  self.rhs:sqrt(self.I_model):div(z_2norm)
-  -- u.printf('I_model 11 max,min: %g, %g',self.I_model:max(),self.I_model:min())
+  if self.do_truncate then
+    -- ||c - |Az|^2||_1 / (K*M*M)
+    local K_t = self.rhs:add(I_target,-1,self.I_model):norm(1)/(I_target:nElement())
+    local z_2norm = z:normall(2)/self.M/self.Np/self.No
+    -- sqrt(n) * |a| / ( ||a|| ||z||) with ||a|| = n because DFT
+    self.rhs:sqrt(self.I_model):div(z_2norm)
+    -- u.printf('I_model 11 max,min: %g, %g',self.I_model:max(),self.I_model:min())
 
-  -- calculate E_1, condition for denominator
-  local E_1 = torch.ge(self.rhs,self.a_lb)
-  self.lhs:le(self.rhs,self.a_ub)
-  E_1:cmul(self.lhs)
-  if self.diagnostics then
-    -- u.printf('Percent filfilling condition     1: %2.2f',E_1:sum()/E_1:nElement()*100.0)
-    -- local rhs = self.rhs:float()
-    -- print(rhs:max(),rhs:min())
-    -- plt:hist(self.rhs:float():view(self.rhs:nElement()),'rhs, cond 1')
-    -- u.printf('K_t = %g',K_t)
-    -- u.printf('a_h = %g',self.a_h)
-    -- u.printf('K_t * a_h = %g',K_t*self.a_h)
-  end
-  -- plt:plot(E_1[1][1][1]:float(),'E1')
+    -- calculate E_1, condition for denominator
+    local E_1 = torch.ge(self.rhs,self.a_lb)
+    self.lhs:le(self.rhs,self.a_ub)
+    E_1:cmul(self.lhs)
+    if self.diagnostics then
+      -- u.printf('Percent filfilling condition     1: %2.2f',E_1:sum()/E_1:nElement()*100.0)
+      -- local rhs = self.rhs:float()
+      -- print(rhs:max(),rhs:min())
+      -- plt:hist(self.rhs:float():view(self.rhs:nElement()),'rhs, cond 1')
+      -- u.printf('K_t = %g',K_t)
+      -- u.printf('a_h = %g',self.a_h)
+      -- u.printf('K_t * a_h = %g',K_t*self.a_h)
+    end
+    -- plt:plot(E_1[1][1][1]:float(),'E1')
 
-  self.rhs:mul(K_t*self.a_h)
+    self.rhs:mul(K_t*self.a_h)
 
-  -- |c - |Az|^2|
-  self.lhs:add(I_target,-1,self.I_model):abs()
+    -- |c - |Az|^2|
+    self.lhs:add(I_target,-1,self.I_model):abs()
 
-  -- local ab = self.I_model[1][1][1]:clone():fftshift():float():log()
-  -- local ak = I_target[1]:clone():fftshift():float():log()
-  -- local DI = ab:clone():add(-1,ak)
-  -- plt:plotcompare({ab,ak},{'I_model','I_target'})
-  -- plt:plot(DI:float():log(),'DI')
+    -- local ab = self.I_model[1][1][1]:clone():fftshift():float():log()
+    -- local ak = I_target[1]:clone():fftshift():float():log()
+    -- local DI = ab:clone():add(-1,ak)
+    -- plt:plotcompare({ab,ak},{'I_model','I_target'})
+    -- plt:plot(DI:float():log(),'DI')
 
-  -- E_2, condition for numerator
-  self.valid_gradients:le(self.lhs,self.rhs)
-  if self.diagnostics then
-    -- u.printf('Percent filfilling condition     2: %2.2f',self.valid_gradients:sum()/self.valid_gradients:nElement()*100.0)
-    -- plt:hist(self.rhs:float():view(self.rhs:nElement()),'rhs')
-    -- plt:hist(self.lhs:float():view(self.lhs:nElement()),'lhs')
-  end
+    -- E_2, condition for numerator
+    self.valid_gradients:le(self.lhs,self.rhs)
+    if self.diagnostics then
+      -- u.printf('Percent filfilling condition     2: %2.2f',self.valid_gradients:sum()/self.valid_gradients:nElement()*100.0)
+      -- plt:hist(self.rhs:float():view(self.rhs:nElement()),'rhs')
+      -- plt:hist(self.lhs:float():view(self.lhs:nElement()),'lhs')
+    end
 
-  -- E_1 && E_2
-  self.valid_gradients:cmul(E_1)
-  if self.diagnostics then
-    -- u.printf('Percent filfilling condition 1 & 2: %2.2f',self.valid_gradients:sum()/self.valid_gradients:nElement()*100.0)
+    -- E_1 && E_2
+    self.valid_gradients:cmul(E_1)
+    if self.diagnostics then
+      -- u.printf('Percent filfilling condition 1 & 2: %2.2f',self.valid_gradients:sum()/self.valid_gradients:nElement()*100.0)
+    end
   end
 
   -- in-place calculation of I_model <-- fm * (1 - I_target/I_model)
@@ -108,7 +111,9 @@ end
 function TruncatedPoissonLikelihood:updateGradInput(z, I_target)
   self.gradInput = self:calculateXsi(z,I_target)
   local vg_expanded = self.valid_gradients:view(self.K,1,1,self.M,self.M):expandAs(self.gradInput)
-  -- self.gradInput:cmul(vg_expanded)
+  if self.do_truncate then
+    self.gradInput:cmul(vg_expanded)
+  end
   return self.gradInput, (self.valid_gradients:sum()/self.valid_gradients:nElement()*100.0)
 end
 

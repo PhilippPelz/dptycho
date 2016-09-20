@@ -32,7 +32,7 @@ function c:scale_probe_intensity(probe, total_dose, n_exposures)
   local poisson_noise = total_dose / n_exposures
   u.printf('poisson noise                 : %g',poisson_noise)
   local P_norm = probe:normall(2)^2
-  local O_mean_transparency = self.T:abs():mean() - 0.2
+  local O_mean_transparency = self.T_proj:abs():mean() - 0.2
   local factor = math.sqrt(poisson_noise / P_norm / O_mean_transparency)
   u.printf('mean object transparency      : %g',O_mean_transparency)
   u.printf('multiply probe with           : %g',factor)
@@ -80,7 +80,7 @@ function c:exitwaves_projected(pos,in_psi, view_size, E, total_dose)
   local v_proj = self.v:sum(1)[1]
   -- plt:plot(v_proj,'proj potential')
   self.T_proj = torch.ZCudaTensor(v_proj:size()):polar(v_proj:im():mul(-self.physics.sigma*self.dz):exp(),v_proj:re():mul(self.physics.sigma*self.dz))
-  plt:plot(self.T,'proj T')
+  -- plt:plot(self.T_proj,'proj T')
 
   self:scale_probe_intensity(in_psi,total_dose,pos:size(1))
   local views = s.create_views(self.T_proj, pos, view_size,0)

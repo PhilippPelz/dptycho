@@ -42,6 +42,8 @@ local _DEFAULT_PARAMS = {
   margin = 0,
   background_correction_start = 1e5,
 
+  stopping_threshold = 1e-5,
+
   save_interval = 5,
   save_path = '/tmp/',
   save_raw_data = false,
@@ -56,6 +58,12 @@ local _DEFAULT_PARAMS = {
     mu_max = 0.01,
     tau0 = 330,
     nu = 1e-2
+  },
+  experiment = {
+    z = 0.5,
+    E = 300e3,
+    det_pix = 30e-6,
+    N_det_pix = 256
   }
 }
 

@@ -21,10 +21,10 @@ local s = simul.simulator()
 -- print(pos)
 
 -- plt:scatter_positions2(pos:float())
-local E = 300e3
+local E = 100e3
 local N = 256
 local d = 2.0
-local alpha_rad = 3e-3
+local alpha_rad = 5e-3
 local C3_um = 500
 local defocus_nm = 1.8e3
 local C5_mm = 800
@@ -33,7 +33,7 @@ local ty = 0
 local Nedge = 10
 local plot = true
 local binning = 8
-local dose = 3e6
+local dose = 9e6
 local probe_size = {384,384}
 local support = znn.SupportMask(probe_size,probe_size[#probe_size]*0.2)
 -- local probe = torch.ZCudaTensor(table.unpack(probe_size)):fillRe(1):fillIm(0)
@@ -45,9 +45,9 @@ local pot = s:load_potential('/home/philipp/vol26.h5')
 local pos = s:get_positions_raster(300,500-N)
 pos = pos:int() + 1
 
--- local probe = s:focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um , C5_mm, tx ,ty , Nedge , plot)
+local probe = s:focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um , C5_mm, tx ,ty , Nedge , plot)
 -- local probe = s:random_probe(N)
-local probe = s:random_probe3(N,0.10,0.2,0.10)
+-- local probe = s:random_probe3(N,0.10,0.2,0.10)
 plt:plot(probe:zfloat())
 local I = s:dp_multislice(pos,probe, N, binning, E, dose)
 -- local I = s:dp_projected(pos,probe, N, binning, E, dose)

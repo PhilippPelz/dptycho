@@ -76,7 +76,7 @@ par.probe_lowpass_fwhm = function(it) return nil end
 
 par.object_highpass_fwhm = function(it) return nil end
 par.object_inertia = 0
-par.object_init = 'trunc'
+par.object_init = 'const'
 par.object_init_truncation_threshold = 94
 
 par.P_Q_iterations = 10
@@ -109,7 +109,12 @@ par.twf.a_lb = 1e-3
 par.twf.a_ub = 1e1
 par.twf.mu_max = 0.01
 par.twf.tau0 = 10
-par.twf.nu = 1e-2
+par.twf.nu = 2e-1
+
+par.experiment.z = 0.4
+par.experiment.E = 100e3
+par.experiment.det_pix = 30e-6
+par.experiment.N_det_pix = 256
 
 local run_config = {{200,ptycho.TWF_engine}
 -- ,{200,ptycho.TWF_engine}

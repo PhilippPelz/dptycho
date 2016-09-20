@@ -10,6 +10,7 @@ import numpy as np
 from numpy.fft import fftshift
 import matplotlib.pyplot as plt
 from scipy import interpolate as i
+from scipy.ndimage import filters as filter
 from math import *
 import inspect, os
 
@@ -29,8 +30,10 @@ def MTF_DQE_2D(cam,binning,s,path):
         rr = np.sqrt(xx**2 + yy**2)
         qq = rr / np.max(size)
 
-        mtf2D = fftshift(mtff(qq))
-        dqe2D = fftshift(dqef(qq))
+        mtfq = mtff(qq)
+        dqeq = dqef(qq)
+        mtf2D = fftshift(mtfq)
+        dqe2D = fftshift(filter.gaussian_filter(dqeq,3))
 
         # f, ax = plt.subplots(1,1,figsize=(10,7))
         # cax = ax.imshow(mtf2D)
@@ -89,4 +92,4 @@ def raster_positions(npos,size):
 
 
 #pos(71,384)
-#MTF_DQE_2D('K2',2,1024)
+# MTF_DQE_2D('K2',4,512)

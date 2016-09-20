@@ -45,7 +45,7 @@ local engine = classic.class(...)
 --pos,a,nmodes_probe,nmodes_object,object_solution,probe,dpos,fmask
 function engine:_init(par1)
   tablex.update(self,par1)
-
+  self.dx = u.physics(self.experiment.E):real_space_resolution(self.experiment.z,self.experiment.det_pix,self.experiment.N_det_pix)
   if not paths.dirp(self.save_path) then
     paths.mkdir(self.save_path)
     u.printf('Created path %s',self.save_path)
@@ -123,9 +123,11 @@ function engine:calculate_statistics()
   self.I_total = I:sum()
   self.I_mean = self.I_total/self.a:size(1)
   self.P_norm = self.P:normall(2)^2
-  self.valid_measurements = self:calculate_pixels_with_sufficient_measurements()
-  self.counts_per_valid_pixel = self.I_total /self.valid_measurements
+  self.pixels_with_sufficient_exposure = self:calculate_pixels_with_sufficient_measurements()
+  self.counts_per_valid_pixel = self.I_total /self.pixels_with_sufficient_exposure
   self.counts_per_pixel = self.I_total / (self.O:nElement()/self.No)
+  local dx2_in_Angstrom2 = self.dx^2 / 1e-20
+  self.electrons_per_angstrom2 = self.counts_per_valid_pixel / dx2_in_Angstrom2
 end
 
 function engine:print_report()
@@ -133,6 +135,7 @@ function engine:print_report()
   u.printf('K (number of diff. patterns)           : %d',self.K)
   u.printf('N (object dimensions)                  : %d x %d',self.Nx,self.Ny)
   u.printf('M (probe size)                         : %d',self.M)
+  u.printf('resolution (Angstrom)                  : %g',self.dx*1e10)
   print(   '----------------------------------------------------')
   u.printf('power threshold is                     : %g',self.power_threshold)
   u.printf('total measurements                     : %g',self.total_measurements)
@@ -141,11 +144,11 @@ function engine:print_report()
   u.printf('# unknowns total                       : %2.3g',self.O:nElement() + self.P:nElement())
   u.printf('')
   u.printf('total measurements/image_pixels        : %g',
-  self.total_measurements/self.valid_measurements)
+  self.total_measurements/self.pixels_with_sufficient_exposure)
   u.printf('nonzero measurements/image_pixels      : %g',
-  self.total_nonzero_measurements/self.valid_measurements)
+  self.total_nonzero_measurements/self.pixels_with_sufficient_exposure)
   u.printf('nonzero measurements/# unknowns        : %g',
-  self.total_nonzero_measurements/(self.valid_measurements + self.P:nElement()))
+  self.total_nonzero_measurements/(self.pixels_with_sufficient_exposure + self.P:nElement()))
   u.printf('')
   u.printf('maximum power                          : %g',self.max_power)
   u.printf('rescale_regul_amplitude                : %g',self.rescale_regul_amplitude)
@@ -155,6 +158,7 @@ function engine:print_report()
   u.printf('mean counts                            : %g',self.I_mean)
   u.printf('counts per       pixel                 : %g',self.counts_per_pixel)
   u.printf('counts per valid pixel                 : %g',self.counts_per_valid_pixel)
+  u.printf('e- / Angstrom^2                        : %g',self.electrons_per_angstrom2)
   print(   '----------------------------------------------------')
 end
 
@@ -869,6 +873,14 @@ function engine:save_data(filename)
   if self.save_raw_data then
     f:write('/data_unshift',self.a:float())
   end
+
+  f:write('/statistics/dose',torch.FloatTensor({self.electrons_per_angstrom2})
+  f:write('/statistics/MdivN',torch.FloatTensor({self.total_measurements/self.pixels_with_sufficient_exposure})
+  f:write('/statistics/counts_per_pixel',torch.FloatTensor({self.counts_per_valid_pixel})
+  f:write('/statistics/K',torch.FloatTensor({self.K})
+  f:write('/results/err_img',torch.FloatTensor({self.image_error[self.i]})
+  f:write('/results/err_rel',torch.FloatTensor({self.relative_error[self.i]})
+
   f:close()
 end
 

@@ -39,7 +39,7 @@ function m.static.calculateO_denom(O_denom,O_mask,O_denom_views,P,P_buffer_real,
   local fact = O_denom_regul_factor_start-(i/it)*(O_denom_regul_factor_start-O_denom_regul_factor_end)
   local sigma =  abs_max * abs_max * fact
   local n = O_denom:clone():div(O_denom:max())
-  O_mask:gt(n,10e-2)
+  O_mask:gt(n,1e-2)
   -- plt:plot(O_denom[1][1]:float(),'O_denom')
   m.InvSigma(O_denom,sigma)
   u.printram('after calculateO_denom')
