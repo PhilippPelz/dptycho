@@ -48,11 +48,11 @@ def sector_mask(shape,centre,radius,angle_range):
     circmask = r2 <= radius*radius
 
     # angular mask
-    anglemask = theta <= (tmax-tmin)
+    anglemask = theta < (tmax-tmin)
 
     return circmask*anglemask
 
-def applot(img, suptitle='Image', savePath=None, cmap=['hot','hsv'], title=['Abs','Phase'], show=True):
+def applot(img, suptitle='Image', savePath=None, cmap=['hot','Blues_r'], title=['Abs','Phase'], show=True):
     im1, im2 = np.abs(img), np.angle(img)
     fig, (ax1,ax2) = plt.subplots(1,2,figsize=(10, 13))
     div1 = make_axes_locatable(ax1)
@@ -100,6 +100,202 @@ def plotcx(x):
     imax1 = ax1.imshow(imsave(x), interpolation='nearest')
     plt.show()
 
+def focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um = 1000, C5_mm=1, tx = 0,ty =0, Nedge = 15, plot=False):
+    emass = 510.99906;   # electron rest mass in keV
+    hc = 12.3984244;     # h*c
+    lam = hc/np.sqrt(E*1e-3*(2*emass+E*1e-3)) # in Angstrom
+    alpha = alpha_rad
+    tilt_x = 0
+    tilt_y = 0
+
+    phi = {
+                '22':33.0,
+                '33':0.0,
+                '44':0.0,
+                '55':0.0,
+                '66':0.0,
+                '31':0.0,
+                '42':0.0,
+                '53':0.0,
+                '64':0.0,
+                '51':0.0,
+                '62':0.0
+            }
+    a_dtype = {'names':['20', '22',
+                             '31','33',
+                             '40', '42', '44',
+                             '51', '53', '55',
+                             '60', '62', '64', '66'],
+                    'formats':['f8']*14}
+    a0 = np.zeros(1,a_dtype)
+    a0['20']=defocus_nm  # defocus: -60 nm
+    a0['22']=2.3
+    a0['40']=C3_um # C3/spherical aberration: 1000 um
+    a0['42']=2.28
+    a0['44']=0.06
+    a0['60']=C5_mm    # C5/Chromatic aberration: 1 mm
+
+    dk = 1.0/(N*d)
+    qmax = np.sin(alpha)/lam
+    kx, ky = np.meshgrid(dk*(-N/2.+np.arange(N))+tilt_x,dk*
+                               (-N/2.+np.arange(N))+tilt_y)
+    ktm = np.arcsin(qmax*lam)
+    k2 = np.sqrt(kx**2+ky**2)
+    #riplot(k2,'k2')
+    ktheta = np.arcsin(k2*lam)
+    kphi = np.arctan2(ky,kx)
+    #riplot(ktheta,'ktheta')
+    scaled_a = a0.copy().view(np.float64)
+    scales =np.array([10, 10,           #a_2x, nm->A
+                      10, 10,             #a_3x, nm->A
+                      1E4, 1E4, 1E4,      #a_4x, um->A
+                      1E4, 1E4, 1E4,      #a_5x, um->A
+                      1E7, 1E7, 1E7, 1E7,  #a_6x, mm->A
+                      ],dtype=np.float64)
+    scaled_a *= scales
+    a = scaled_a.view(a_dtype)
+
+    cos = np.cos
+    chi = 2.0*np.pi/lam*(1.0/2*(a['22']*cos(2*(kphi-phi['22']))+a['20'])*ktheta**2 +
+            1.0/3*(a['33']*cos(3*(kphi-phi['33']))+a['31']*cos(1*(kphi-phi['31'])))*ktheta**3 +
+            1.0/4*(a['44']*cos(4*(kphi-phi['44']))+a['42']*cos(2*(kphi-phi['42']))+a['40'])*ktheta**4 +
+            1.0/5*(a['55']*cos(5*(kphi-phi['55']))+a['53']*cos(3*(kphi-phi['53']))+a['51']*cos(1*(kphi-phi['51'])))*ktheta**5 +
+            1.0/6*(a['66']*cos(6*(kphi-phi['66']))+a['64']*cos(4*(kphi-phi['64']))+a['62']*cos(2*(kphi-phi['62']))+a['60'])*ktheta**6)
+    #riplot(chi,'chi')
+    arr = np.zeros((N,N),dtype=np.complex);
+    arr[ktheta<ktm] = 1 + 1j
+    #riplot(arr,'arr')
+    dEdge = Nedge/(qmax/dk);  # fraction of aperture radius that will be smoothed
+    # some fancy indexing: pull out array elements that are within
+    #    our smoothing edges
+    ind = np.bitwise_and((ktheta/ktm > (1-dEdge)),
+                         (ktheta/ktm < (1+dEdge)))
+    arr[ind] = 0.5*(1-np.sin(np.pi/(2*dEdge)*(ktheta[ind]/ktm-1)))
+    # add in the complex part
+    # MATLAB: probe = probe.*exp(i*chi);
+    arr*=np.exp(1j*chi);
+    arr = fftshift(arr)
+    arr_real = fftshift(ifft2(arr))
+    arr_real /= np.linalg.norm(arr_real)
+    if plot:
+        applot(arr,'arr')
+        applot(arr_real,'arr_real')
+    return np.real(arr_real).astype(np.float32), np.imag(arr_real).astype(np.float32)
+
+def fzp(N,a):
+    rmax = N/2
+
+    res = np.zeros((N,N),dtype=np.float)
+    for n in np.arange(0,0.75*N/2,2):
+        inner = np.logical_not(sector_mask((N,N),(N/2,N/2),sqrt(a*n),(0,360)))
+        if n==0: inner = np.ones_like(inner)
+        outer = sector_mask((N,N),(N/2,N/2),sqrt(a*(n+1)),(0,360))
+
+        ring = inner.astype(np.float) * outer.astype(np.float)
+
+        res += ring
+#        riplot(res)
+        if sqrt(a*(n+4)) > rmax: break
+#    riplot(res,'rings')
+    res1 = 1*np.exp(1j*np.pi/4*res)
+    # plotcx(res1)
+#    applot(res1,'fzp')
+    return np.real(res1).astype(np.float32), np.imag(res1).astype(np.float32)
+
+def random_fzp(N,a,sections):
+    rmax = N/2
+    res = np.zeros((N,N),dtype=np.float)
+    for n in np.arange(0,0.75*N/2,2):
+        for k in np.arange(0,sections+n):
+            angle_step = 360/(sections+n)
+            inner = np.logical_not(sector_mask((N,N),(N/2,N/2),sqrt(a*n),(angle_step*k,angle_step*(k+1))))
+            if n==0: inner = np.ones_like(inner)
+            outer = sector_mask((N,N),(N/2,N/2),sqrt(a*(n+1)),(angle_step*k,angle_step*(k+1)))
+
+            ring = inner.astype(np.float) * outer.astype(np.float) * np.random.randint(1,13)
+
+            res += ring
+#        riplot(res)
+        if sqrt(a*(n+4)) > rmax: break
+#    riplot(res,'rings')
+    res1 = 1*np.exp(1j*np.pi/12*res)
+    # plotcx(res1)
+#    applot(res1,'fzp')
+    return np.real(res1).astype(np.float32), np.imag(res1).astype(np.float32)
+
+def random_fzp2(N,a,sections):
+    rmax = N/2
+    res = np.zeros((N,N),dtype=np.float)
+    for n in np.arange(0,0.75*N/2,1):
+        for k in np.arange(0,sections+n):
+            angle_step = 360/(sections+n)
+            inner = np.logical_not(sector_mask((N,N),(N/2,N/2),sqrt(a*n),(angle_step*k,angle_step*(k+1))))
+            if n==0: inner = np.ones_like(inner)
+            outer = sector_mask((N,N),(N/2,N/2),sqrt(a*(n+1)),(angle_step*k,angle_step*(k+1)))
+
+            ring = inner.astype(np.float) * outer.astype(np.float) * np.random.randint(1,13)
+
+            res += ring
+#        riplot(res)
+        if sqrt(a*(n+4)) > rmax: break
+#    riplot(res,'rings')
+    res1 = 1*np.exp(1j*np.pi/12*res)
+    return np.real(res1).astype(np.float32), np.imag(res1).astype(np.float32)
+    # plotcx(res1)
+#    applot(res1,'fzpreturn np.real(res1).astype(np.float32), np.imag(res1).astype(np.float32)return res1
+
+def gr_probe(N):
+    xx,yy = np.mgrid[:N,:N]
+    r2 = xx**2 + yy**2
+    g = np.exp(-500*r2)
+    riplot(g)
+    rs_mask = sector_mask((N,N),(N/2,N/2),0.25*N,(0,360))
+    rs_mask = rs_mask/norm(rs_mask,1)
+
+    fs_mask1 = sector_mask((N,N),(N/2,N/2),0.25*N,(0,360))
+    fs_mask2 = sector_mask((N,N),(N/2,N/2),0.20*N,(0,360))
+    fs_mask3 = np.logical_not(sector_mask((N,N),(N/2,N/2),0.10*N,(0,360)))
+    #riplot(fs_mask3)
+    fs_mask = (fs_mask1.astype(np.int) + 2*fs_mask2.astype(np.int)) * fs_mask3.astype(np.int)
+    fs_mask = fs_mask/norm(fs_mask,1)
+    #riplot(rs_mask)
+    #riplot(fs_mask)
+
+    fs_mask = fftshift(fs_mask)
+    phase = fftshift(nd.gaussian_filter(fftshift(np.pi*np.random.uniform(size=(N,N))),2))
+    psi_f = fs_mask * np.exp(2j*phase)
+    riplot(fftshift(psi_f)        )
+
+    for i in range(100):
+        # print i
+        psi = ifft2(psi_f,norm='ortho')
+    #    applot(psi,'psi')
+        psir = psi.real
+        psii = psi.imag
+    #    psir = nd.gaussian_filter(psi.real,3)
+    #    psii = nd.gaussian_filter(psi.imag,3)
+        psi = rs_mask * (psir + 1j* psii)
+        psi = psi/norm(psi)
+    #    plotcx(psi)
+
+        psi_f = fft2(psi,norm='ortho')
+    #    applot(psi_f,'psi_f')
+    #    plotcx(fftshift(psi_f))
+    #    psi_fangle = fftshift(nd.gaussian_filter(fftshift(np.angle(psi_f)),1))
+        psi_fangle = np.angle(psi_f)
+        psi_f = fs_mask * np.exp(1j*psi_fangle)
+        psi_f = psi_f/norm(psi_f)
+    #    plotcx(fftshift(psi_f))
+    from skimage.restoration import unwrap_phase
+    psi = ifft2(psi_f,norm='ortho')
+    plotcx(psi)
+    psi_fabs = np.abs(psi_f)
+
+    psi_fangle = unwrap_phase(np.angle(psi_f))
+    psi_fu = psi_fabs * np.exp(1j*psi_fangle)
+    # plotcx(fftshift(psi_fu))
+    return np.real(psi).astype(np.float32), np.imag(psi).astype(np.float32)
+
 def blr_probe(N):
     rs_mask = sector_mask((N,N),(N/2,N/2),0.25*N,(0,360))
     rs_mask = rs_mask/norm(rs_mask,1)
@@ -140,13 +336,13 @@ def blr_probe(N):
     #    plotcx(fftshift(psi_f))
     from skimage.restoration import unwrap_phase
     psi = ifft2(psi_f,norm='ortho')
-    # plotcx(psi)
+    plotcx(psi)
     psi_fabs = np.abs(psi_f)
 
     psi_fangle = unwrap_phase(np.angle(psi_f))
     psi_fu = psi_fabs * np.exp(1j*psi_fangle)
-    # plotcx(fftshift(psi_fu))
-    return psi.real.astype(np.float32), psi.imag.astype(np.float32)
+    plotcx(fftshift(psi_fu))
+    return np.real(psi).astype(np.float32), np.imag(psi).astype(np.float32)
 
 def blr_probe2(N,rs_rad,fs_rad1,fs_rad2):
     rs_mask = sector_mask((N,N),(N/2,N/2),rs_rad*N,(0,360))
@@ -158,8 +354,93 @@ def blr_probe2(N,rs_rad,fs_rad1,fs_rad2):
     #riplot(fs_mask3)   + 2*fs_mask2.astype(np.int)
     fs_mask = (fs_mask1.astype(np.int) ) * fs_mask3.astype(np.int)
     fs_mask = fs_mask/norm(fs_mask,1)
+    sh = fs_mask.shape
+#    fs_mask[sh[0]/2-1:sh[0]/2+1,:] = 0
+#    fs_mask[:,sh[0]/2-1:sh[0]/2+1] = 0
     #riplot(rs_mask)
     #riplot(fs_mask)
+
+    fs_mask = fftshift(fs_mask)
+    phase = fftshift(nd.gaussian_filter(fftshift(np.pi*np.random.uniform(size=(N,N))),2))
+    psi_f = fs_mask * np.exp(2j*phase)
+#    riplot(fftshift(psi_f)        )
+
+    for i in range(70):
+        # print i
+        psi = ifft2(psi_f,norm='ortho')
+#        plotcx(psi)
+    #    applot(psi,'psi')
+        psir = psi.real
+        psii = psi.imag
+#        psir = nd.gaussian_filter(psi.real,5)
+#        psii = nd.gaussian_filter(psi.imag,5)
+        psi = rs_mask * (psir + 1j* psii)
+        psi = psi/norm(psi)
+#        plotcx(psi)
+
+        psi_f = fft2(psi,norm='ortho')
+#        plotcx(psi_f)
+#        applot(psi_f,'psi_f')
+#        riplot(fs_mask,'fs_mask')
+#        plotcx(fftshift(psi_f))
+    #    psi_fangle = fftshift(nd.gaussian_filter(fftshift(np.angle(psi_f)),1))
+        psi_fangle = np.angle(psi_f)
+        psi_f = fs_mask * np.exp(1j*psi_fangle)
+        psi_f = psi_f/norm(psi_f)
+#        plotcx(psi_f)
+
+#    psi = ifft2(psi_f,norm='ortho')
+##        plotcx(psi)
+##    applot(psi,'psi')
+#    psir = psi.real
+#    psii = psi.imag
+##        psir = nd.gaussian_filter(psi.real,5)
+##        psii = nd.gaussian_filter(psi.imag,5)
+#    psi = rs_mask * np.exp(1j*np.angle(psi))
+#    psi = psi/norm(psi)
+##        plotcx(psi)
+#
+#    psi_f = fft2(psi,norm='ortho')
+#    psi_f_angle = nd.zoom(nd.zoom(fftshift(np.angle(psi_f)),0.5),2)
+#    psi_f = np.abs(psi_f)    * np.exp(1j*fftshift(psi_f_angle))
+
+#    from skimage.restoration import unwrap_phase
+    psi = ifft2(psi_f,norm='ortho')
+#    plotcx(psi)
+    # applot(psi)
+
+#    psia = nd.gaussian_filter(np.abs(psi),5)
+#    psip = nd.gaussian_filter(np.angle(psi),5)
+#    psi2 = psia * np.exp(1j*psip)
+##    plotcx(psi2)
+#    angles = np.digitize(np.angle(psi2),np.arange(10)*np.pi/10) * np.pi/10
+#    psi3 = np.abs(psi2) * np.exp(1j*angles)
+#    plotcx(psi3)
+
+#    plotcx(psi)
+#    psi_fabs = np.abs(psi_f)
+#
+#    psi_fangle = unwrap_phase(np.angle(psi_f))
+#    psi_fu = psi_fabs * np.exp(1j*psi_fangle)
+    # applot(fftshift(psi_f))
+    return np.real(psi).astype(np.float32), np.imag(psi).astype(np.float32)
+
+def blr_probe3(N,rs_rad,fs_rad1,fs_rad2):
+    divs = 60
+    rs_mask = sector_mask((N,N),(N/2,N/2),rs_rad*N,(0,360))
+    rs_mask = rs_mask/norm(rs_mask,1)
+
+    fs_mask = np.zeros_like(rs_mask,dtype = np.float32)
+
+    for i in np.arange(0,divs,3):
+        fs_mask += sector_mask((N,N),(N/2,N/2),fs_rad1*N,(360.0/divs*i,360.0/divs*(i+1)))
+
+#    fs_mask1 = sector_mask((N,N),(N/2,N/2),fs_rad1*N,(0,360))
+    fs_mask3 = np.logical_not(sector_mask((N,N),(N/2,N/2),fs_rad2*N,(0,360)))
+    fs_mask = (fs_mask.astype(np.int) ) * fs_mask3.astype(np.int)
+    fs_mask = fs_mask/norm(fs_mask,1)
+    #riplot(rs_mask)
+    riplot(fs_mask)
 
     fs_mask = fftshift(fs_mask)
     phase = fftshift(nd.gaussian_filter(fftshift(np.pi*np.random.uniform(size=(N,N))),2))
@@ -193,15 +474,15 @@ def blr_probe2(N,rs_rad,fs_rad1,fs_rad2):
     psi = ifft2(psi_f,norm='ortho')
 #        plotcx(psi)
 #    applot(psi,'psi')
-    psir = psi.real
-    psii = psi.imag
+#    psir = psi.real
+#    psii = psi.imag
 #        psir = nd.gaussian_filter(psi.real,5)
 #        psii = nd.gaussian_filter(psi.imag,5)
-    psi = rs_mask * np.exp(1j*np.angle(psi))
-    psi = psi/norm(psi)
+#    psi = rs_mask * np.exp(1j*np.angle(psi))
+#    psi = psi/norm(psi)
 #        plotcx(psi)
 
-    psi_f = fft2(psi,norm='ortho')
+#    psi_f = fft2(psi,norm='ortho')
 
 
 #    from skimage.restoration import unwrap_phase
@@ -222,87 +503,13 @@ def blr_probe2(N,rs_rad,fs_rad1,fs_rad2):
 #
 #    psi_fangle = unwrap_phase(np.angle(psi_f))
 #    psi_fu = psi_fabs * np.exp(1j*psi_fangle)
-    applot(fftshift(psi_f))
-    return psi.real.astype(np.float32), psi.imag.astype(np.float32)
+    # applot(fftshift(psi_f))
+    return np.real(psi).astype(np.float32), np.imag(psi).astype(np.float32)
 
-def blr_probe3(N,rs_rad,fs_rad1,fs_rad2):
-    divs = 30
-    rs_mask = sector_mask((N,N),(N/2,N/2),rs_rad*N,(0,360))
-    rs_mask = rs_mask/norm(rs_mask,1)
-
-    fs_mask = np.zeros_like(rs_mask,dtype = np.float32)
-
-    for i in np.arange(0,divs,3):
-        fs_mask += sector_mask((N,N),(N/2,N/2),fs_rad1*N,(360.0/divs*i,360.0/divs*(i+1)))
-
-#    fs_mask1 = sector_mask((N,N),(N/2,N/2),fs_rad1*N,(0,360))
-    fs_mask3 = np.logical_not(sector_mask((N,N),(N/2,N/2),fs_rad2*N,(0,360)))
-    fs_mask = (fs_mask.astype(np.int) ) * fs_mask3.astype(np.int)
-    fs_mask = fs_mask/norm(fs_mask,1)
-    #riplot(rs_mask)
-    riplot(fs_mask)
-
-    fs_mask = fftshift(fs_mask)
-    phase = fftshift(nd.gaussian_filter(fftshift(np.pi*np.random.uniform(size=(N,N))),2))
-    psi_f = fs_mask * np.exp(2j*phase)
-#    riplot(fftshift(psi_f)        )
-
-    for i in range(50):
-        print i
-        psi = ifft2(psi_f,norm='ortho')
-#        plotcx(psi)
-    #    applot(psi,'psi')
-        psir = psi.real
-        psii = psi.imag
-#        psir = nd.gaussian_filter(psi.real,5)
-#        psii = nd.gaussian_filter(psi.imag,5)
-        psi = rs_mask * (psir + 1j* psii)
-        psi = psi/norm(psi)
-#        plotcx(psi)
-
-        psi_f = fft2(psi,norm='ortho')
-#        plotcx(psi_f)
-#        applot(psi_f,'psi_f')
-#        riplot(fs_mask,'fs_mask')
-#        plotcx(fftshift(psi_f))
-    #    psi_fangle = fftshift(nd.gaussian_filter(fftshift(np.angle(psi_f)),1))
-        psi_fangle = np.angle(psi_f)
-        psi_f = fs_mask * np.exp(1j*psi_fangle)
-        psi_f = psi_f/norm(psi_f)
-#        plotcx(psi_f)
-
-    psi = ifft2(psi_f,norm='ortho')
-#        plotcx(psi)
-#    applot(psi,'psi')
-    psir = psi.real
-    psii = psi.imag
-#        psir = nd.gaussian_filter(psi.real,5)
-#        psii = nd.gaussian_filter(psi.imag,5)
-    psi = rs_mask * np.exp(1j*np.angle(psi))
-    psi = psi/norm(psi)
-#        plotcx(psi)
-
-    psi_f = fft2(psi,norm='ortho')
-
-
-#    from skimage.restoration import unwrap_phase
-#    psi = ifft2(psi_f,norm='ortho')
-#    plotcx(psi)
-    applot(psi)
-
-#    psia = nd.gaussian_filter(np.abs(psi),5)
-#    psip = nd.gaussian_filter(np.angle(psi),5)
-#    psi2 = psia * np.exp(1j*psip)
-##    plotcx(psi2)
-#    angles = np.digitize(np.angle(psi2),np.arange(10)*np.pi/10) * np.pi/10
-#    psi3 = np.abs(psi2) * np.exp(1j*angles)
-#    plotcx(psi3)
-
-#    plotcx(psi)
-#    psi_fabs = np.abs(psi_f)
-#
-#    psi_fangle = unwrap_phase(np.angle(psi_f))
-#    psi_fu = psi_fabs * np.exp(1j*psi_fangle)
-    applot(fftshift(psi_f))
-    return psi.real.astype(np.float32), psi.imag.astype(np.float32)
-# blr_probe2(384)
+# blr_probe2(384,0.13,0.2,0.05)
+#pp = random_fzp(256,800)
+#focus = focused_probe(300e3, 256, 2.5, 3e-3, 3.5e3, C3_um = 1000, C5_mm=1, tx = 0,ty =0, Nedge = 15, plot=True)
+#f= focus[0] + 1j*focus[1]
+#plotcx(pp)
+#plotcx(np.log10(np.abs(fftshift(fft2(pp)))))
+#gr_probe(384)

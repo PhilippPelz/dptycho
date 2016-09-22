@@ -11,6 +11,7 @@ local _DEFAULT_PARAMS = {
   Np = 1,
   No = 1,
   object_solution = nil,
+  probe_solution = nil,
   probe = nil,
   fmask = nil,
   bg_solution = nil,

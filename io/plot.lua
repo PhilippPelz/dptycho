@@ -122,6 +122,19 @@ plot = argcheck{
                   py.eval('zplot(img,suptitle,savepath,cmap,title,show)',{img = {img1:abs(),img1:arg()}, suptitle=suptitle, savepath=savepath, cmap=cmap,title=title, show=show})
                 end
             }
+
+c.plotcx = argcheck{
+            nonamed=true,
+            name = "plot",
+            {name="self", type='table'},
+            {name="img", type='torch.ZCudaTensor'},
+            call =
+                function (self,img)
+                  local img1 = img:zfloat()
+                  py.eval('plotcx(img)',{img = {img1:re(),img1:im()}})
+                end
+            }
+
 c.plotReIm = argcheck{
             nonamed=true,
             name = "plot",

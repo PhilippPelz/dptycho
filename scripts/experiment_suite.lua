@@ -14,42 +14,29 @@ local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 local simul = require 'dptycho.simulation'
 local ptycho = require 'dptycho.core.ptycho'
+local ptychocore = require 'dptycho.core'
 
-function get_data(pot_path,dose,npos,probe_type)
+function get_data(pot_path,dose,overlap,N,E,probe)
+
+  local probe_int = probe:clone():norm()
+  probe_int:div(probe_int:max())
+  local probe_mask = torch.ge(probe_int:re(),1e-2):int()
+  -- plt:plot(probe_mask:float())
+
   local s = simul.simulator()
   local pot = s:load_potential(pot_path)
-  local pos = s:get_positions_raster(npos,500-N)
+  local pos = s:raster_positions_overlap(500-N,probe_mask,overlap)
   pos = pos:int() + 1
 
-  if probe_type == 1 then
-    local N = 256
-    local d = 2.0
-    local alpha_rad = 5e-3
-    local C3_um = 500
-    local defocus_nm = 1.8e3
-    local C5_mm = 800
-    local tx = 0
-    local ty = 0
-    local Nedge = 10
-    local plotit = true
-  if probe_type == 1 then
-    local probe = s:focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um , C5_mm, tx ,ty , Nedge , plotit)
-  elseif probe_type == 2 then
-    local probe = s:random_probe(N)
-  elseif probe_type == 3 then
-    local probe = s:random_probe3(N,0.10,0.2,0.10)
-  end
-
   local binning = 8
-  local E = 100e3
 
   local I = s:dp_multislice(pos,probe, N, binning, E, dose)
 
   local result = {}
-  result.a = I:float():sqrt()
+  result.a = I:cuda():sqrt()
   result.probe = probe
   result.object = s.T_proj
-  result.positions = pos
+  result.pos = pos
 
   return result
 end
@@ -59,12 +46,16 @@ function main()
   local bat = conn:battery('bayes_opt', '1.0')
   local hs = hypero.Sampler()
 
-  local doses = {}
-  local npos = {}
+  local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
+          56.23413252,   100.        ,   177.827941  ,   316.22776602,
+         562.34132519,  1000.}
+  local overlap = {0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9}
   local nu = {4e-1,3e-1,2e-1,5e-2}
 
   local par = ptycho.params.DEFAULT_PARAMS_TWF()
 
+  local N = 256
+  local E = 100e3
   par.Np = 1
   par.No = 1
   par.bg_solution = nil
@@ -115,27 +106,78 @@ function main()
   par.twf.nu = 2e-1
 
   par.experiment.z = 0.6
-  par.experiment.E = 100e3
+  par.experiment.E = E
   par.experiment.det_pix = 40e-6
-  par.experiment.N_det_pix = 256
+  par.experiment.N_det_pix = N
 
-  for d = 1,2 do
-    local data = get_data('/home/philipp/vol26.h5',1e8,300,1)
+  for probe_type = 3,3 do
+    local s = simul.simulator()
+    local probe = nil
+    local d = 2.0
 
-    par.pos = pos
-    par.dpos = dpos
-    par.dpos_solution = dpos_solution
-    par.object_solution = object_solution
+    if probe_type == 1 then
+
+      local alpha_rad = 6e-3
+      local C3_um = 500
+      local defocus_nm = 1.2e3
+      local C5_mm = 800
+      local tx = 0
+      local ty = 0
+      local Nedge = 5
+      local plotit = true
+
+      probe = s:random_fzp(N,800,3)
+      -- plt:plot(probe:zfloat(),'defocused RFZP')
+      probe:fftshift()
+      local prop = ptychocore.propagators.fresnel(N,d*1e-10,300e-9,u.physics(E).lambda)
+      prop:fftshift()
+      -- plt:plot(prop:zfloat(),'prop')
+      plt:plot(probe:zfloat(),'defocused RFZP')
+      -- for i=1,10 do
+      probe:cmul(prop)
+      probe:ifft()
+      probe:fftshift()
+      plt:plot(probe:zfloat(),'defocused RFZP')
+        -- probe:fft()
+      -- end
+      -- plt:plotcx(probe)
+      -- plt:plot(probe:zfloat(),'defocused RFZP')
+    elseif probe_type == 2 then
+      probe = s:fzp(N,800,3)
+      -- plt:plot(probe:zfloat():fftshift(),'FZP')
+      probe:fftshift()
+      local prop = ptychocore.propagators.fresnel(N,d*1e-10,300e-9,u.physics(E).lambda)
+      prop:fftshift()
+      probe:cmul(prop)
+      probe:ifft()
+      probe:fftshift()
+      -- plt:plot(probe:zfloat(),'defocused RFZP')
+    elseif probe_type == 3 then
+      probe = s:random_probe2(N,0.12,0.2,0.05)
+      -- plt:plot(probe:zfloat(),'band limited random')
+    end
+
+    -- print(overlap[1])
+    local data = get_data('/home/philipp/vol26.h5',2e6,overlap[1],N,E,probe)
+    par.pos = data.pos
+    pprint(data.pos)
+    par.dpos = data.pos:clone():add(-1,data.pos:clone():int())
+    par.object_solution = data.object
     par.probe_solution = probe
-    par.a = a
-    par.fmask = fmask
+    par.a = data.a
+    par.fmask = data.a:clone():fill(1)
 
-    local run_config = {{200,ptycho.TWF_engine}
-    -- ,{200,ptycho.TWF_engine}
-    }
+    local eng = ptycho.TWF_engine(par)
+    local dose = eng.electrons_per_angstrom2
 
-    local runner = ptycho.Runner(run_config,par)
-    runner:run()
+    u.printf('e-/A^2 : %f',dose)
+
+    -- local run_config = {{200,ptycho.TWF_engine}
+    -- -- ,{200,ptycho.TWF_engine}
+    -- }
+    --
+    -- local runner = ptycho.Runner(run_config,par)
+    -- runner:run()
   end
 end
 

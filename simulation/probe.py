@@ -157,12 +157,12 @@ def focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um = 1000, C5_mm=1, tx = 0,
     arr_real = fftshift(ifft2(arr))
     arr_real /= np.linalg.norm(arr_real)
     if plot:
-        applot(arr,'arr')
+        applot(fftshift(arr),'arr')
         applot(arr_real,'arr_real')
     return np.real(arr_real).astype(np.float32), np.imag(arr_real).astype(np.float32)
 
-# N=1024
-# a,b = focused_probe(300e3, N, 1, 6e-3, 1e3, C3_um = 0, C5_mm=0, tx = 0,ty =0, Nedge = 25, plot=False)
+#N=1024
+#a,b = focused_probe(300e3, N, 1, 6e-3, 1e3, C3_um = 0, C5_mm=0, tx = 0,ty =0, Nedge = 25, plot=True)
 # rs_mask1 = np.logical_not(sector_mask((N,N),(N/2,N/2),0.03*N,(0,360)))
 # p = a+1j*b
 # p *= rs_mask1

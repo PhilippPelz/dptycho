@@ -93,6 +93,9 @@ function engine:_init(par1)
   par1.O = self.O
   par1.P = self.P
 
+  self.O_mask_initialized = false
+  self.P_initialized = false
+
   local Ox, Oy = self.O:size(3), self.O:size(4)
   -- print(Ox,Oy)
   local x = torch.FloatTensor(Ox,1)
@@ -101,26 +104,35 @@ function engine:_init(par1)
   local y = torch.repeatTensor(torch.linspace(-Oy/2,Oy/2,Oy),Ox,1):float()
   self.r2_object = (x:pow(2) + y:pow(2))
 
-  self:calculate_statistics()
-  self.par = nil
   self:initialize_views()
+  self.par = nil
+  self:calculate_statistics()
 
   u.printram('after init')
   collectgarbage()
 end
 
 function engine:calculate_statistics()
-  self.max_power = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum(2):sum(3):max()
-  self.total_power = self.a_buffer1:cmul(self.a,self.fm):pow(2):sum()
+  if not self.O_mask_initialized then
+    if not self.P_initialized then
+      self:initialize_probe()
+    end
+    self:initialize_object_solution()
+    if #(self.O_denom_views) < 2 then
+      self:update_views()
+    end
+    self:calculateO_denom()
+  end
+
+  self.a_buffer1:cmul(self.a,self.fm):pow(2)
+  self.I_total = self.a_buffer1:sum()
+  self.I_max = self.a_buffer1:sum(2):sum(3):max()
   self.total_measurements = self.fm:sum()
   self.total_nonzero_measurements = torch.gt(self.a_buffer1:cmul(self.a,self.fm),0):sum()
-  self.power_threshold = 0.25 * self.fourier_relax_factor^2 * self.max_power / self.MM
+  self.power_threshold = 0.25 * self.fourier_relax_factor^2 * self.I_max / self.MM
   self.norm_a = self.a_buffer1:cmul(self.a,self.fm):norm(2)^2
-  local expected_obj_var = self.O:nElement() / self.total_power
+  local expected_obj_var = self.O:nElement() / self.I_total
   self.rescale_regul_amplitude = self.total_measurements / (8*self.O:nElement()*expected_obj_var)
-  local I = self.a:clone():pow(2)
-  self.I_max = I:sum(2):sum(3):max()
-  self.I_total = I:sum()
   self.I_mean = self.I_total/self.a:size(1)
   self.P_norm = self.P:normall(2)^2
   self.pixels_with_sufficient_exposure = self:calculate_pixels_with_sufficient_measurements()
@@ -133,7 +145,7 @@ end
 function engine:print_report()
   print(   '----------------------------------------------------')
   u.printf('K (number of diff. patterns)           : %d',self.K)
-  u.printf('N (object dimensions)                  : %d x %d',self.Nx,self.Ny)
+  u.printf('N (object dimensions)                  : %d x %d  (%2.1f x %2.1f Angstrom)',self.Nx,self.Ny,self.Nx*self.dx,self.Ny*self.dx)
   u.printf('M (probe size)                         : %d',self.M)
   u.printf('resolution (Angstrom)                  : %g',self.dx*1e10)
   print(   '----------------------------------------------------')
@@ -150,11 +162,10 @@ function engine:print_report()
   u.printf('nonzero measurements/# unknowns        : %g',
   self.total_nonzero_measurements/(self.pixels_with_sufficient_exposure + self.P:nElement()))
   u.printf('')
-  u.printf('maximum power                          : %g',self.max_power)
+  u.printf('max counts in pattern                  : %g',self.I_max)
   u.printf('rescale_regul_amplitude                : %g',self.rescale_regul_amplitude)
   u.printf('probe intensity                        : %g',self.P_norm)
   u.printf('total counts in this scan              : %g',self.I_total)
-  u.printf('max counts in pattern                  : %g',self.I_max)
   u.printf('mean counts                            : %g',self.I_mean)
   u.printf('counts per       pixel                 : %g',self.counts_per_pixel)
   u.printf('counts per valid pixel                 : %g',self.counts_per_valid_pixel)
@@ -169,6 +180,7 @@ end
 
 function engine:calculateO_denom()
   self.ops.calculateO_denom(self.O_denom,self.O_mask,self.O_denom_views,self.P,self.P_buffer_real,self.Pk_buffer_real,self.object_inertia,self.K,self.O_denom_regul_factor_start,self.O_denom_regul_factor_end,self.i,self.iterations,self.dpos)
+  self.O_mask_initialized = true
   -- plt:plot(self.O_denom[1][1]:float():log(),'O_denom')
 end
 
@@ -235,7 +247,7 @@ end
 function engine:update_views()
   for i=1,self.K do
     local slice = {{},{},{self.pos[i][1],self.pos[i][1]+self.M-1},{self.pos[i][2],self.pos[i][2]+self.M-1}}
-    -- pprint(slice)
+    pprint(slice)
     self.O_views[i] = self.O[slice]
     self.O_tmp_PF_views[i] = self.O_tmp_PFstore[slice]
     self.O_tmp_PQ_views[i] = self.O_tmp_PQstore[slice]
@@ -414,13 +426,18 @@ function engine:initialize_probe()
     self.P[1][i]:copyRe(Pre):copyIm(Pre)
     self.P[1][i]:cmul(self.P[1][1]:abs())
   end
+
   if self.copy_probe then
-    self.P:copy(self.probe_solution)
-  end
-  if not self.probe_solution then
+    if self.probe_solution:dim() == 2 then
+      self.P[1][1]:copy(self.probe_solution)
+    else
+      self.P:copy(self.probe_solution)
+    end
+  else
     self.P:zero()
     self.P[1]:add(300+0i)
   end
+
   if self.probe_support ~= 0 then
     local probe_size = self.P:size():totable()
     self.support = znn.SupportMask(probe_size,probe_size[#probe_size]*self.probe_support)
@@ -428,6 +445,7 @@ function engine:initialize_probe()
   else
     self.support = nil
   end
+
 end
 
 function engine:initialize_object()
@@ -874,12 +892,12 @@ function engine:save_data(filename)
     f:write('/data_unshift',self.a:float())
   end
 
-  f:write('/statistics/dose',torch.FloatTensor({self.electrons_per_angstrom2})
-  f:write('/statistics/MdivN',torch.FloatTensor({self.total_measurements/self.pixels_with_sufficient_exposure})
-  f:write('/statistics/counts_per_pixel',torch.FloatTensor({self.counts_per_valid_pixel})
-  f:write('/statistics/K',torch.FloatTensor({self.K})
-  f:write('/results/err_img',torch.FloatTensor({self.image_error[self.i]})
-  f:write('/results/err_rel',torch.FloatTensor({self.relative_error[self.i]})
+  f:write('/statistics/dose',torch.FloatTensor({self.electrons_per_angstrom2}))
+  f:write('/statistics/MdivN',torch.FloatTensor({self.total_measurements/self.pixels_with_sufficient_exposure}))
+  f:write('/statistics/counts_per_pixel',torch.FloatTensor({self.counts_per_valid_pixel}))
+  f:write('/statistics/K',torch.FloatTensor({self.K}))
+  f:write('/results/err_img',torch.FloatTensor({self.image_error[self.i]}))
+  f:write('/results/err_rel',torch.FloatTensor({self.relative_error[self.i]}))
 
   f:close()
 end
@@ -968,14 +986,7 @@ function engine:generate_data(filename,poisson_noise,save_data)
 end
 
 function engine:calculate_pixels_with_sufficient_measurements()
-  -- self.O_denom:fill(0)
-  -- local gt = self.P_buffer_real:normZ(self.P):div(self.P_buffer_real:max()):gt(1e-2)
-  -- local norm_P = gt[{{1},{1},{},{}}]
-  -- norm_P = norm_P:expandAs(self.O_denom_views[1])
-  -- for _, view in ipairs(self.O_denom_views) do
-  --   view:add(norm_P)
-  -- end
-  -- local m = self.O_denom:ge(4)
+  -- O_mask is populated in calculateO_denom currently
   return self.O_mask:sum()
 end
 

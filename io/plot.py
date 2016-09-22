@@ -6,6 +6,7 @@ from matplotlib.figure import Figure as MPLFigure
 from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanvas
 from matplotlib.backends.backend_gtkagg import NavigationToolbar2GTKAgg as NaviToolbar
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from pyE17.utils import imsave
 
 import numpy as np
 import time
@@ -94,6 +95,16 @@ def rgb2complex(rgb):
     Reverse to :any:`complex2rgb`
     """
     return hsv2complex(rgb2hsv(rgb))
+
+def plotcx(x):
+    print x
+    xre, xim = x
+    print xre.shape
+    print xim.shape
+    x1 = xre + 1j* xim
+    fig, (ax1) = plt.subplots(1,1,figsize=(8,8))
+    imax1 = ax1.imshow(imsave(x1), interpolation='nearest')
+    plt.show()
 
 def plot(img, title='Image', savePath=None, cmap='hot', show=True):
     fig, ax = plt.subplots()

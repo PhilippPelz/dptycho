@@ -172,6 +172,10 @@ function c:get_positions_raster(Npos,size)
   return py.eval('raster_positions(n,s)',{n=Npos,s=size}):float()
 end
 
+function c:raster_positions_overlap(size,probe_mask,overlap)
+  return py.eval('raster_positions_overlap(s,p,o)',{s=size,p=probe_mask,o=overlap}):float()
+end
+
 function c:focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um , C5_mm, tx ,ty , Nedge , plot)
   local C3 = C3_um or 1000
   local C5 = C5_mm or 1
@@ -203,6 +207,30 @@ function c:random_probe2(N,rs_rad,fs_rad1,fs_rad2)
 end
 function c:random_probe3(N,rs_rad,fs_rad1,fs_rad2)
   local pr, pi = table.unpack(py.eval('blr_probe3(N,rs_rad,fs_rad1,fs_rad2)',{N=N,rs_rad=rs_rad,fs_rad1=fs_rad1,fs_rad2=fs_rad2}))
+  -- plt:plot(pr)
+  -- plt:plot(pi)
+  local probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
+  return probe
+end
+
+function c:fzp(N,factor)
+  local pr, pi = table.unpack(py.eval('fzp(N,fac)',{N=N,fac=factor}))
+  -- plt:plot(pr)
+  -- plt:plot(pi)
+  local probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
+  return probe
+end
+
+function c:random_fzp(N,factor,sections)
+  local pr, pi = table.unpack(py.eval('random_fzp(N,fac,sec)',{N=N,fac=factor,sec=sections}))
+  -- plt:plot(pr)
+  -- plt:plot(pi)
+  local probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
+  return probe
+end
+
+function c:random_fzp2(N,factor,sections)
+  local pr, pi = table.unpack(py.eval('random_fzp2(N,fac,sec)',{N=N,fac=factor,sec=sections}))
   -- plt:plot(pr)
   -- plt:plot(pi)
   local probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())

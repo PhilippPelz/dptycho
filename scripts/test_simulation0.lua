@@ -45,16 +45,16 @@ local pot = s:load_potential('/home/philipp/vol26.h5')
 local pos = s:get_positions_raster(300,500-N)
 pos = pos:int() + 1
 
-local probe = s:focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um , C5_mm, tx ,ty , Nedge , plot)
+-- local probe = s:focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um , C5_mm, tx ,ty , Nedge , plot)
 -- local probe = s:random_probe(N)
--- local probe = s:random_probe3(N,0.10,0.2,0.10)
-plt:plot(probe:zfloat())
+local probe = s:random_probe2(N,0.10,0.2,0.10)
+-- plt:plot(probe:zfloat())
 local I = s:dp_multislice(pos,probe, N, binning, E, dose)
 -- local I = s:dp_projected(pos,probe, N, binning, E, dose)
 
-for i=40,45 do
-  plt:plot(I[i]:float(),'I')
-end
+-- for i=40,45 do
+--   plt:plot(I[i]:float(),'I')
+-- end
 -- local ms_out = s:exitwaves_multislice(pos,probe, N, E,dose)
 -- local pa_out = s:exitwaves_projected(pos,probe, N, E,dose)
 --

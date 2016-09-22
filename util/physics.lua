@@ -26,6 +26,7 @@ function m1:_init(V)
   -- print(self.lambda)
   self.relmass = self.me + self.el*V/(c^2)
   self.sigma = 2*math.pi*self.relmass*self.el*self.lambda/(self.h^2)
+  return self
 end
 
 function m1:real_space_resolution(z,dpix,Npix)
