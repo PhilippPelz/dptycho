@@ -46,6 +46,7 @@ function main()
   local bat = conn:battery('bayes_opt', '1.0')
   local hs = hypero.Sampler()
 
+  local dose = {2e6}
   local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
           56.23413252,   100.        ,   177.827941  ,   316.22776602,
          562.34132519,  1000.}
@@ -158,7 +159,7 @@ function main()
     end
 
     -- print(overlap[1])
-    local data = get_data('/home/philipp/vol26.h5',2e6,overlap[1],N,E,probe)
+    local data = get_data('/home/philipp/vol26.h5',3.6e6,overlap[1],N,E,probe)
     par.pos = data.pos
     pprint(data.pos)
     par.dpos = data.pos:clone():add(-1,data.pos:clone():int())
