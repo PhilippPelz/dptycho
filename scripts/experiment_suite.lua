@@ -44,7 +44,6 @@ end
 function main()
   local conn = hypero.connect()
   local bat = conn:battery('bayes_opt', '1.0')
-  local hs = hypero.Sampler()
 
   local dose = {1.5e6,2.8e6,4.8e6,8.4e6,1.5e7,2.6e7,4.6e7,8.5e7,1.45e8}
   local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
@@ -104,7 +103,7 @@ function main()
   par.twf.a_ub = 1e1
   par.twf.mu_max = 0.01
   par.twf.tau0 = 10
-  par.twf.nu = 2e-1
+
 
   par.calculate_dose_from_probe = true
 
@@ -113,52 +112,64 @@ function main()
   par.experiment.det_pix = 40e-6
   par.experiment.N_det_pix = N
 
-  for probe_type = 1,3 do
+  for probe_type = 3,3 do
     local s = simul.simulator()
     local probe = nil
     local d = 2.0
 
     if probe_type == 1 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_rfzp.h5','w')
-      local pr = f:read('/pr')
-      local pi = f:read('/pi')
+      local f = hdf5.open('/home/philipp/drop/Public/probe_rfzp.h5','r')
+      local pr = f:read('/pr'):all()
+      local pi = f:read('/pi'):all()
       probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
       f:close()
     elseif probe_type == 2 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_fzp.h5','w')
-      local pr = f:read('/pr')
-      local pi = f:read('/pi')
+      local f = hdf5.open('/home/philipp/drop/Public/probe_fzp.h5','r')
+      local pi = f:read('/pi'):all()
+      local pr = f:read('/pr'):all()
       probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
       f:close()
     elseif probe_type == 3 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_blr.h5','w')
-      local pr = f:read('/pr')
-      local pi = f:read('/pi')
+      local f = hdf5.open('/home/philipp/drop/Public/probe_blr.h5','r')
+      local pr = f:read('/pr'):all()
+      local pi = f:read('/pi'):all()
       probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
       f:close()
     end
 
-    -- print(overlap[1])
-    local data = get_data('/home/philipp/drop/Public/4V5F.h5',1.5e8,overlap[1],N,E,probe)
-    par.pos = data.pos
-    pprint(data.pos)
-    par.dpos = data.pos:clone():add(-1,data.pos:clone():int())
-    par.object_solution = data.object
-    par.probe_solution = probe
-    par.a = data.a
-    par.fmask = data.a:clone():fill(1)
+    for dose0 in ipairs(dose) do
+      for overlap0 in ipairs(overlap) do
+        local data = get_data('/home/philipp/drop/Public/4V5F.h5',dose0,overlap0,N,E,probe)
+        par.pos = data.pos
+        pprint(data.pos)
+        par.dpos = data.pos:clone():add(-1,data.pos:clone():int())
+        par.object_solution = data.object
+        par.probe_solution = probe
+        par.a = data.a
+        par.fmask = data.a:clone():fill(1)
 
-    local eng = ptycho.TWF_engine(par)
-    local dose = eng.electrons_per_angstrom2
+        for nu0 in ipairs(nu) do
+          par.twf.nu = nu0
 
-    u.printf('e-/A^2 : %f',dose)
+          local hex = bat:experiment()
 
-    -- local run_config = {{200,ptycho.TWF_engine}
-    -- -- ,{200,ptycho.TWF_engine}
-    -- }
-    --
-    -- local runner = ptycho.Runner(run_config,par)
-    -- runner:run()
+
+
+          local eng = ptycho.TWF_engine(par)
+          local dose = eng.electrons_per_angstrom2
+
+          eng:iterate(250)
+
+          local hp = {nu = par.twf.nu, dose = eng.electrons_per_angstrom2, }
+          local md = {hostname = 'work', dataset = '4V5F'}
+          local res = {img_err = eng.img_error:totable(), rel_err = eng.rel_error:totable()}
+
+          hex:setParam(hp)
+          hex:setMeta(md)
+          hex:setResult(res)
+        end
+      end -- end nu
+    end -- end dose
   end
 end
 

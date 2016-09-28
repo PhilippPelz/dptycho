@@ -13,6 +13,7 @@ set(CMAKE_C_TARGET_INCLUDE_PATH
   "/home/philipp/torch/install/include/TH"
   "/usr/local/cuda-7.5/include"
   "../znn/lib/THZNN"
+  "/usr/local/cuda/include"
   )
 set(CMAKE_CXX_TARGET_INCLUDE_PATH ${CMAKE_C_TARGET_INCLUDE_PATH})
 set(CMAKE_Fortran_TARGET_INCLUDE_PATH ${CMAKE_C_TARGET_INCLUDE_PATH})

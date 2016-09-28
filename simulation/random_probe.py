@@ -19,7 +19,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from pyE17.io.h5rw import h5read, h5write
 from scipy import sparse as sp
 from scipy.sparse import linalg as la
-from numpy.fft import fft2, fftshift, ifft2, fft, ifft
+from numpy.fft import fft2, ifftshift, fftshift, ifft2, fft, ifft
 from scipy import misc
 from numpy.linalg import norm
 
@@ -52,7 +52,7 @@ def sector_mask(shape,centre,radius,angle_range):
 
     return circmask*anglemask
 
-def applot(img, suptitle='Image', savePath=None, cmap=['hot','Blues_r'], title=['Abs','Phase'], show=True):
+def applot(img, suptitle='Image', savePath=None, cmap=['hot','hsv'], title=['Abs','Phase'], show=True):
     im1, im2 = np.abs(img), np.angle(img)
     fig, (ax1,ax2) = plt.subplots(1,2,figsize=(10, 13))
     div1 = make_axes_locatable(ax1)
@@ -244,7 +244,26 @@ def random_fzp2(N,a,sections):
     plotcx(fftshift(ifft2(res1)))
     plotcx(res1)
     return np.real(res1).astype(np.float32), np.imag(res1).astype(np.float32)
+def random_fzp21(N,a,sections):
+    rmax = N/2
+    res = np.zeros((N,N),dtype=np.float)
+    for n in np.arange(0,0.75*N/2,1):
+        for k in np.arange(0,sections+n):
+            angle_step = 360/(sections+n)
+            inner = np.logical_not(sector_mask((N,N),(N/2,N/2),sqrt(a*n),(angle_step*k,angle_step*(k+1))))
+            if n==0: inner = np.ones_like(inner)
+            outer = sector_mask((N,N),(N/2,N/2),sqrt(a*(n+1)),(angle_step*k,angle_step*(k+1)))
 
+            ring = inner.astype(np.float) * outer.astype(np.float) * np.random.randint(1,13)
+
+            res += ring
+#        riplot(res)
+        if sqrt(a*(n+4)) > rmax: break
+#    riplot(res,'rings')
+    res1 = sector_mask((N,N),(N/2,N/2),int(rmax),(0,360))*np.exp(1j*np.pi/12*res)
+    plotcx(fftshift(ifft2(res1)))
+    plotcx(res1)
+    return res1
 def gr_probe(N):
     xx,yy = np.mgrid[:N,:N]
     r2 = xx**2 + yy**2
@@ -344,15 +363,20 @@ def blr_probe(N):
     psi_fu = psi_fabs * np.exp(1j*psi_fangle)
     plotcx(fftshift(psi_fu))
     return np.real(psi).astype(np.float32), np.imag(psi).astype(np.float32)
-
-def blr_probe2(N,rs_rad,fs_rad1,fs_rad2):
+def build_checkerboard(w, h) :
+    re = np.r_[ w*[0,1] ]        # even-numbered rows
+    ro = np.r_[ w*[1,0] ]        # odd-numbered rows
+    return np.row_stack(h*(re, ro))
+def blr_probe2(N,rs_rad,fs_rad1,fs_rad2,do_plot=False):
     rs_mask = sector_mask((N,N),(N/2,N/2),rs_rad*N,(0,360))
+    # rs_mask = nd.gaussian_filter(rs_mask.astype(np.float),10)
     rs_mask = rs_mask/norm(rs_mask,1)
 
     fs_mask1 = sector_mask((N,N),(N/2,N/2),fs_rad1*N,(0,360))
     fs_mask2 = sector_mask((N,N),(N/2,N/2),fs_rad2*N,(0,360))
-    fs_mask3 = np.logical_not(sector_mask((N,N),(N/2,N/2),fs_rad2*N,(0,360)))
-    #riplot(fs_mask3)   + 2*fs_mask2.astype(np.int)
+    fs_mask3 = np.logical_not(sector_mask((N,N),(N/
+    2,N/2),0.05*N,(0,360)))
+    #riplot(fs_mask3)   + + 3*fs_mask2.astype(np.int)
     fs_mask = (fs_mask1.astype(np.int) ) * fs_mask3.astype(np.int)
     fs_mask = fs_mask/norm(fs_mask,1)
     sh = fs_mask.shape
@@ -362,51 +386,58 @@ def blr_probe2(N,rs_rad,fs_rad1,fs_rad2):
     #riplot(fs_mask)
 
     fs_mask = fftshift(fs_mask)
-    phase = fftshift(nd.gaussian_filter(fftshift(np.pi*np.random.uniform(size=(N,N))),2))
-    psi_f = fs_mask * np.exp(2j*phase)
-#    riplot(fftshift(psi_f)        )
-
-    for i in range(70):
+    phase = fftshift(np.angle(random_fzp21(N,100,5)))
+    psi_f = fftshift(fs_mask * np.exp(2j*phase))
+    rs_mask = fftshift(rs_mask)
+    fs_mask = fftshift(fs_mask)
+    if do_plot:
+        applot(psi_f,'psi_f init')
+    it = 150
+    for i in range(it):
         # print i
-        psi = ifft2(psi_f,norm='ortho')
-#        plotcx(psi)
-    #    applot(psi,'psi')
+        psi = fft2(psi_f,norm='ortho')
+
+        # plotcx(psi)
+        if do_plot:
+            applot(psi,'psi')
         psir = psi.real
         psii = psi.imag
 #        psir = nd.gaussian_filter(psi.real,5)
 #        psii = nd.gaussian_filter(psi.imag,5)
-        psi = rs_mask * (psir + 1j* psii)
+        psi = rs_mask *(psir + 1j* psii)# np.exp(1j*np.angle(psi))#(psir + 1j* psii)
         psi = psi/norm(psi)
-#        plotcx(psi)
+        if do_plot:
+            applot(psi,'psi masked')
 
-        psi_f = fft2(psi,norm='ortho')
-#        plotcx(psi_f)
-#        applot(psi_f,'psi_f')
-#        riplot(fs_mask,'fs_mask')
+
+        psi_f = ifft2(psi,norm='ortho')
+        if do_plot:
+            applot(psi_f,'psi_f')
 #        plotcx(fftshift(psi_f))
-    #    psi_fangle = fftshift(nd.gaussian_filter(fftshift(np.angle(psi_f)),1))
+#        psi_fangle = fftshift(nd.gaussian_filter(fftshift(np.angle(psi_f)),1))
+#        psi_fangle = nd.zoom(nd.zoom(np.angle(psi_f),0.5),2)
         psi_fangle = np.angle(psi_f)
+        # riplot(psi_fangle)
+        # psi_fangle[b] += np.pi/2
+        # riplot(psi_fangle)
         psi_f = fs_mask * np.exp(1j*psi_fangle)
+        # phase = fftshift(nd.gaussian_filter(fftshift(np.angle(psi_f)),1))
+        # psi_f = np.abs(psi_f) * np.exp(1j*phase)
         psi_f = psi_f/norm(psi_f)
-#        plotcx(psi_f)
+        # plotcx(fftshift(psi_f))
+        if do_plot:
+            applot(psi_f,'psi_f masked')
+            
+    bins = 25
+    digi = np.digitize(np.angle(psi_f),np.linspace(0,1,bins)*2*np.pi)
+    riplot(digi,'digi')
+    psi_f = np.abs(psi_f) * np.exp(1j*digi*1/bins*2.0*np.pi)
+    psi = fft2(psi_f,norm='ortho')
 
-#    psi = ifft2(psi_f,norm='ortho')
-##        plotcx(psi)
-##    applot(psi,'psi')
-#    psir = psi.real
-#    psii = psi.imag
-##        psir = nd.gaussian_filter(psi.real,5)
-##        psii = nd.gaussian_filter(psi.imag,5)
-#    psi = rs_mask * np.exp(1j*np.angle(psi))
-#    psi = psi/norm(psi)
-##        plotcx(psi)
-#
-#    psi_f = fft2(psi,norm='ortho')
-#    psi_f_angle = nd.zoom(nd.zoom(fftshift(np.angle(psi_f)),0.5),2)
-#    psi_f = np.abs(psi_f)    * np.exp(1j*fftshift(psi_f_angle))
 
-#    from skimage.restoration import unwrap_phase
-    psi = ifft2(psi_f,norm='ortho')
+    
+    # psi_f = np.abs(psi_f) * np.exp(1j*nd.zoom(nd.zoom(np.angle(psi_f),0.5),2))
+    # psi = fft2(psi_f,norm='ortho')
 
     # applot(psi)
 
@@ -418,14 +449,17 @@ def blr_probe2(N,rs_rad,fs_rad1,fs_rad2):
 #    psi3 = np.abs(psi2) * np.exp(1j*angles)
 #    plotcx(psi3)
 
-    plotcx(fftshift(psi_f))
-    plotcx(psi)
+    plotcx(psi_f)
+    plotcx(fftshift(psi))
+    plotcx(fft2(psi))
+    
 #    psi_fabs = np.abs(psi_f)
 #
 #    psi_fangle = unwrap_phase(np.angle(psi_f))
 #    psi_fu = psi_fabs * np.exp(1j*psi_fangle)
     # applot(fftshift(psi_f))
     return np.real(psi).astype(np.float32), np.imag(psi).astype(np.float32)
+
 
 def blr_probe3(N,rs_rad,fs_rad1,fs_rad2):
     divs = 60
@@ -445,7 +479,7 @@ def blr_probe3(N,rs_rad,fs_rad1,fs_rad2):
     riplot(fs_mask)
 
     fs_mask = fftshift(fs_mask)
-    phase = fftshift(nd.gaussian_filter(fftshift(np.pi*np.random.uniform(size=(N,N))),2))
+    phase = np.ones_like(fs_mask)#fftshift(nd.gaussian_filter(fftshift(np.pi*np.random.uniform(size=(N,N))),2))
     psi_f = fs_mask * np.exp(2j*phase)
 #    riplot(fftshift(psi_f)        )
 
@@ -508,7 +542,50 @@ def blr_probe3(N,rs_rad,fs_rad1,fs_rad2):
     # applot(fftshift(psi_f))
     return np.real(psi).astype(np.float32), np.imag(psi).astype(np.float32)
 
-# blr_probe2(384,0.13,0.2,0.05)
+def rgb2hsv(rgb):
+    """
+    Reverse to :any:`hsv2rgb`
+    """
+    eps = 1e-6
+    rgb=np.asarray(rgb).astype(float)
+    maxc = rgb.max(axis=-1)
+    minc = rgb.min(axis=-1)
+    v = maxc
+    s = (maxc-minc) / (maxc+eps)
+    s[maxc<=eps]=0.0
+    rc = (maxc-rgb[:,:,0]) / (maxc-minc+eps)
+    gc = (maxc-rgb[:,:,1]) / (maxc-minc+eps)
+    bc = (maxc-rgb[:,:,2]) / (maxc-minc+eps)
+    
+    h =  4.0+gc-rc
+    maxgreen = (rgb[:,:,1] == maxc)
+    h[maxgreen] = 2.0+rc[maxgreen]-bc[maxgreen]
+    maxred = (rgb[:,:,0] == maxc)
+    h[maxred] = bc[maxred]-gc[maxred]
+    h[minc==maxc]=0.0
+    h = (h/6.0) % 1.0
+
+    return np.asarray((h, s, v))
+
+def hsv2complex(cin):
+    """
+    Reverse to :any:`complex2hsv`
+    """
+    h,s,v = cin
+    return v * np.exp(np.pi*2j*(h-.5)) /v.max()
+
+def rgb2complex(rgb):
+    """
+    Reverse to :any:`complex2rgb`
+    """
+    return hsv2complex(rgb2hsv(rgb))
+blr_probe2(128,0.2,0.25,0.17)
+#im = nd.imread('/home/philipp/test.png')
+#imcx = rgb2complex(im)
+#imcx = nd.zoom(imcx.real,0.2) + 1j* nd.zoom(imcx.imag,0.2)
+#applot(imcx)
+#applot(fftshift(fft2(imcx)))
+#print im.shape
 #pp = random_fzp(256,800)
 #focus = focused_probe(300e3, 256, 2.5, 3e-3, 3.5e3, C3_um = 1000, C5_mm=1, tx = 0,ty =0, Nedge = 15, plot=True)
 #f= focus[0] + 1j*focus[1]

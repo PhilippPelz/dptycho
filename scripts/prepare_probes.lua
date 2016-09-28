@@ -16,7 +16,7 @@ local simul = require 'dptycho.simulation'
 local ptycho = require 'dptycho.core.ptycho'
 local ptychocore = require 'dptycho.core'
 
-local probe_type = 1
+local probe_type = 3
 local s = simul.simulator()
 local N = 256
 local E = 100e3
@@ -65,7 +65,9 @@ elseif probe_type == 3 then
   probe = s:random_probe2(N,0.12,0.2,0.05)
   plt:plot(probe:zfloat(),'band limited random')
 end
-local f = hdf5.open('/home/philipp/drop/Public/probe_rfzp.h5','w')
+local f = hdf5.open('/home/philipp/drop/Public/probe_blr.h5','w')
+print('1')
 f:write('/pr',probe:re():float())
+print('2')
 f:write('/pi',probe:im():float())
 f:close()

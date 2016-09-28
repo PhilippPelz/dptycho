@@ -69,6 +69,7 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
     "/home/philipp/projects/dptycho/core/netbuilder.lua"
     "/home/philipp/projects/dptycho/core/init.lua"
     "/home/philipp/projects/dptycho/core/potential.lua"
+    "/home/philipp/projects/dptycho/core/propagators.lua"
     )
 endif()
 
@@ -106,6 +107,7 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
     "/home/philipp/projects/dptycho/util/init.lua"
     "/home/philipp/projects/dptycho/util/tabular_schedule.lua"
     "/home/philipp/projects/dptycho/util/stats.lua"
+    "/home/philipp/projects/dptycho/util/physics.lua"
     "/home/philipp/projects/dptycho/util/allocator.lua"
     )
 endif()

@@ -906,8 +906,10 @@ function engine:save_data(filename)
   f:write('/statistics/MdivN',torch.FloatTensor({self.total_measurements/self.pixels_with_sufficient_exposure}))
   f:write('/statistics/counts_per_pixel',torch.FloatTensor({self.counts_per_valid_pixel}))
   f:write('/statistics/K',torch.FloatTensor({self.K}))
-  f:write('/results/err_img',torch.FloatTensor({self.img_error[self.i]}))
-  f:write('/results/err_rel',torch.FloatTensor({self.rel_error[self.i]}))
+  f:write('/results/err_img_final',torch.FloatTensor({self.img_error[self.i]}))
+  f:write('/results/err_rel_final',torch.FloatTensor({self.rel_error[self.i]}))
+  f:write('/results/err_img',torch.FloatTensor({self.img_error}))
+  f:write('/results/err_rel',torch.FloatTensor({self.rel_error}))
 
   f:close()
 end
