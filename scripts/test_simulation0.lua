@@ -41,7 +41,7 @@ local support = znn.SupportMask(probe_size,probe_size[#probe_size]*0.2)
 -- plt:plotReIm(probe:zfloat())
 -- probe = support:forward(probe)
 
-local pot = s:load_potential('/home/philipp/vol26.h5')
+local pot = s:load_potential('/home/philipp/drop/Public/4V5F.h5')
 local pos = s:get_positions_raster(300,500-N)
 pos = pos:int() + 1
 

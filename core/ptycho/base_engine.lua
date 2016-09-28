@@ -125,7 +125,13 @@ function engine:calculate_statistics()
   end
 
   self.a_buffer1:cmul(self.a,self.fm):pow(2)
-  self.I_total = self.a_buffer1:sum()
+  if self.calculate_dose_from_probe then
+    self.I_total = self.K * self.P_buffer:copy(self.P):norm():re():sum()
+    self.I_diff_total = self.a_buffer1:sum()
+    self.elastic_percentage = self.I_diff_total / self.I_total
+  else
+    self.I_total = self.a_buffer1:sum()
+  end
   self.I_max = self.a_buffer1:sum(2):sum(3):max()
   self.total_measurements = self.fm:sum()
   self.total_nonzero_measurements = torch.gt(self.a_buffer1:cmul(self.a,self.fm),0):sum()
@@ -145,7 +151,7 @@ end
 function engine:print_report()
   print(   '----------------------------------------------------')
   u.printf('K (number of diff. patterns)           : %d',self.K)
-  u.printf('N (object dimensions)                  : %d x %d  (%2.1f x %2.1f Angstrom)',self.Nx,self.Ny,self.Nx*self.dx,self.Ny*self.dx)
+  u.printf('N (object dimensions)                  : %d x %d  (%2.1f x %2.1f Angstrom)',self.Nx,self.Ny,self.Nx*self.dx*1e10,self.Ny*self.dx*1e10)
   u.printf('M (probe size)                         : %d',self.M)
   u.printf('resolution (Angstrom)                  : %g',self.dx*1e10)
   print(   '----------------------------------------------------')
@@ -169,6 +175,10 @@ function engine:print_report()
   u.printf('mean counts                            : %g',self.I_mean)
   u.printf('counts per       pixel                 : %g',self.counts_per_pixel)
   u.printf('counts per valid pixel                 : %g',self.counts_per_valid_pixel)
+  if self.calculate_dose_from_probe then
+    u.printf('percentage of elastically scattered e- : %g %%',self.elastic_percentage * 100)
+  end
+  u.printf('')
   u.printf('e- / Angstrom^2                        : %g',self.electrons_per_angstrom2)
   print(   '----------------------------------------------------')
 end
@@ -896,8 +906,8 @@ function engine:save_data(filename)
   f:write('/statistics/MdivN',torch.FloatTensor({self.total_measurements/self.pixels_with_sufficient_exposure}))
   f:write('/statistics/counts_per_pixel',torch.FloatTensor({self.counts_per_valid_pixel}))
   f:write('/statistics/K',torch.FloatTensor({self.K}))
-  f:write('/results/err_img',torch.FloatTensor({self.image_error[self.i]}))
-  f:write('/results/err_rel',torch.FloatTensor({self.relative_error[self.i]}))
+  f:write('/results/err_img',torch.FloatTensor({self.img_error[self.i]}))
+  f:write('/results/err_rel',torch.FloatTensor({self.rel_error[self.i]}))
 
   f:close()
 end

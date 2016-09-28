@@ -46,10 +46,10 @@ function main()
   local bat = conn:battery('bayes_opt', '1.0')
   local hs = hypero.Sampler()
 
-  local dose = {2e6}
+  local dose = {1.5e6,2.8e6,4.8e6,8.4e6,1.5e7,2.6e7,4.6e7,8.5e7,1.45e8}
   local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
           56.23413252,   100.        ,   177.827941  ,   316.22776602,
-         562.34132519,  1000.}
+         562.34132519}
   local overlap = {0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9}
   local nu = {4e-1,3e-1,2e-1,5e-2}
 
@@ -106,60 +106,40 @@ function main()
   par.twf.tau0 = 10
   par.twf.nu = 2e-1
 
+  par.calculate_dose_from_probe = true
+
   par.experiment.z = 0.6
   par.experiment.E = E
   par.experiment.det_pix = 40e-6
   par.experiment.N_det_pix = N
 
-  for probe_type = 3,3 do
+  for probe_type = 1,3 do
     local s = simul.simulator()
     local probe = nil
     local d = 2.0
 
     if probe_type == 1 then
-
-      local alpha_rad = 6e-3
-      local C3_um = 500
-      local defocus_nm = 1.2e3
-      local C5_mm = 800
-      local tx = 0
-      local ty = 0
-      local Nedge = 5
-      local plotit = true
-
-      probe = s:random_fzp(N,800,3)
-      -- plt:plot(probe:zfloat(),'defocused RFZP')
-      probe:fftshift()
-      local prop = ptychocore.propagators.fresnel(N,d*1e-10,300e-9,u.physics(E).lambda)
-      prop:fftshift()
-      -- plt:plot(prop:zfloat(),'prop')
-      plt:plot(probe:zfloat(),'defocused RFZP')
-      -- for i=1,10 do
-      probe:cmul(prop)
-      probe:ifft()
-      probe:fftshift()
-      plt:plot(probe:zfloat(),'defocused RFZP')
-        -- probe:fft()
-      -- end
-      -- plt:plotcx(probe)
-      -- plt:plot(probe:zfloat(),'defocused RFZP')
+      local f = hdf5.open('/home/philipp/drop/Public/probe_rfzp.h5','w')
+      local pr = f:read('/pr')
+      local pi = f:read('/pi')
+      probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
+      f:close()
     elseif probe_type == 2 then
-      probe = s:fzp(N,800,3)
-      -- plt:plot(probe:zfloat():fftshift(),'FZP')
-      probe:fftshift()
-      local prop = ptychocore.propagators.fresnel(N,d*1e-10,300e-9,u.physics(E).lambda)
-      prop:fftshift()
-      probe:cmul(prop)
-      probe:ifft()
-      probe:fftshift()
-      -- plt:plot(probe:zfloat(),'defocused RFZP')
+      local f = hdf5.open('/home/philipp/drop/Public/probe_fzp.h5','w')
+      local pr = f:read('/pr')
+      local pi = f:read('/pi')
+      probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
+      f:close()
     elseif probe_type == 3 then
-      probe = s:random_probe2(N,0.12,0.2,0.05)
-      -- plt:plot(probe:zfloat(),'band limited random')
+      local f = hdf5.open('/home/philipp/drop/Public/probe_blr.h5','w')
+      local pr = f:read('/pr')
+      local pi = f:read('/pi')
+      probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
+      f:close()
     end
 
     -- print(overlap[1])
-    local data = get_data('/home/philipp/vol26.h5',3.6e6,overlap[1],N,E,probe)
+    local data = get_data('/home/philipp/drop/Public/4V5F.h5',1.5e8,overlap[1],N,E,probe)
     par.pos = data.pos
     pprint(data.pos)
     par.dpos = data.pos:clone():add(-1,data.pos:clone():int())

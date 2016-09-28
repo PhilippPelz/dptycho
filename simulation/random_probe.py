@@ -183,8 +183,8 @@ def focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um = 1000, C5_mm=1, tx = 0,
     return np.real(arr_real).astype(np.float32), np.imag(arr_real).astype(np.float32)
 
 def fzp(N,a):
-    rmax = N/2
-
+    rmax = 0.45*N
+    r = 0
     res = np.zeros((N,N),dtype=np.float)
     for n in np.arange(0,0.75*N/2,2):
         inner = np.logical_not(sector_mask((N,N),(N/2,N/2),sqrt(a*n),(0,360)))
@@ -195,11 +195,12 @@ def fzp(N,a):
 
         res += ring
 #        riplot(res)
-        if sqrt(a*(n+4)) > rmax: break
+        if sqrt(a*(n+4)) > rmax:
+            break
 #    riplot(res,'rings')
-    res1 = 1*np.exp(1j*np.pi/4*res)
-    # plotcx(res1)
-#    applot(res1,'fzp')
+    res1 = sector_mask((N,N),(N/2,N/2),int(rmax),(0,360))*np.exp(1j*np.pi/4*res)
+    plotcx(fftshift(ifft2(res1)))
+    plotcx(res1)
     return np.real(res1).astype(np.float32), np.imag(res1).astype(np.float32)
 
 def random_fzp(N,a,sections):
@@ -218,9 +219,9 @@ def random_fzp(N,a,sections):
 #        riplot(res)
         if sqrt(a*(n+4)) > rmax: break
 #    riplot(res,'rings')
-    res1 = 1*np.exp(1j*np.pi/12*res)
-    # plotcx(res1)
-#    applot(res1,'fzp')
+    res1 = sector_mask((N,N),(N/2,N/2),int(rmax),(0,360))*np.exp(1j*np.pi/12*res)
+    plotcx(fftshift(ifft2(res1)))
+    plotcx(res1)
     return np.real(res1).astype(np.float32), np.imag(res1).astype(np.float32)
 
 def random_fzp2(N,a,sections):
@@ -239,10 +240,10 @@ def random_fzp2(N,a,sections):
 #        riplot(res)
         if sqrt(a*(n+4)) > rmax: break
 #    riplot(res,'rings')
-    res1 = 1*np.exp(1j*np.pi/12*res)
+    res1 = sector_mask((N,N),(N/2,N/2),int(rmax),(0,360))*np.exp(1j*np.pi/12*res)
+    plotcx(fftshift(ifft2(res1)))
+    plotcx(res1)
     return np.real(res1).astype(np.float32), np.imag(res1).astype(np.float32)
-    # plotcx(res1)
-#    applot(res1,'fzpreturn np.real(res1).astype(np.float32), np.imag(res1).astype(np.float32)return res1
 
 def gr_probe(N):
     xx,yy = np.mgrid[:N,:N]
@@ -406,7 +407,7 @@ def blr_probe2(N,rs_rad,fs_rad1,fs_rad2):
 
 #    from skimage.restoration import unwrap_phase
     psi = ifft2(psi_f,norm='ortho')
-#    plotcx(psi)
+
     # applot(psi)
 
 #    psia = nd.gaussian_filter(np.abs(psi),5)
@@ -417,7 +418,8 @@ def blr_probe2(N,rs_rad,fs_rad1,fs_rad2):
 #    psi3 = np.abs(psi2) * np.exp(1j*angles)
 #    plotcx(psi3)
 
-#    plotcx(psi)
+    plotcx(fftshift(psi_f))
+    plotcx(psi)
 #    psi_fabs = np.abs(psi_f)
 #
 #    psi_fangle = unwrap_phase(np.angle(psi_f))
@@ -487,7 +489,7 @@ def blr_probe3(N,rs_rad,fs_rad1,fs_rad2):
 
 #    from skimage.restoration import unwrap_phase
 #    psi = ifft2(psi_f,norm='ortho')
-#    plotcx(psi)
+    # plotcx(psi_f)
     # applot(psi)
 
 #    psia = nd.gaussian_filter(np.abs(psi),5)
@@ -498,7 +500,7 @@ def blr_probe3(N,rs_rad,fs_rad1,fs_rad2):
 #    psi3 = np.abs(psi2) * np.exp(1j*angles)
 #    plotcx(psi3)
 
-#    plotcx(psi)
+    # plotcx(psi)
 #    psi_fabs = np.abs(psi_f)
 #
 #    psi_fangle = unwrap_phase(np.angle(psi_f))

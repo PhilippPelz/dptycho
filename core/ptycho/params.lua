@@ -43,6 +43,7 @@ local _DEFAULT_PARAMS = {
   margin = 0,
   background_correction_start = 1e5,
 
+  calculate_dose_from_probe = false,
   stopping_threshold = 1e-5,
 
   save_interval = 5,

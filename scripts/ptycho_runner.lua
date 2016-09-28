@@ -76,7 +76,7 @@ par.probe_lowpass_fwhm = function(it) return nil end
 
 par.object_highpass_fwhm = function(it) return nil end
 par.object_inertia = 0
-par.object_init = 'const'
+par.object_init = 'trunc'
 par.object_init_truncation_threshold = 94
 
 par.P_Q_iterations = 10
@@ -90,7 +90,7 @@ par.save_path = '/tmp/'
 par.save_raw_data = true
 par.run_label = 'ptycho2'
 
-
+par.calculate_dose_from_probe = true
 par.O_denom_regul_factor_start = 0
 par.O_denom_regul_factor_end = 0
 
@@ -109,7 +109,7 @@ par.twf.a_lb = 1e-3
 par.twf.a_ub = 1e1
 par.twf.mu_max = 0.01
 par.twf.tau0 = 10
-par.twf.nu = 2e-1
+par.twf.nu = 3e-1
 
 par.experiment.z = 0.4
 par.experiment.E = 100e3

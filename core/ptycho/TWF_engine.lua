@@ -324,7 +324,7 @@ function TWF_engine:iterate(steps)
     self:maybe_plot()
     self:maybe_save_data()
 
-    if i>1 and math.abs(self.rel_error[i] - self.rel_error[i-1]) < self.stopping_threshold then break end
+    if i>1 and math.abs(self.img_error[i] - self.img_error[i-1]) < self.stopping_threshold then break end
     -- grad = fun_compute_grad_TPWFP_Real(z, y, Params, A, At, Masks, n1_LR, n2_LR, fmaskpro);
     -- z = z - muf(t) * grad;             % Gradient update
 
