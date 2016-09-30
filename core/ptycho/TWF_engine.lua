@@ -6,6 +6,7 @@ local znn = require 'dptycho.znn'
 local plt = plot()
 local optim = require 'optim'
 local fn = require 'fn'
+require 'sys'
 
 local TWF_engine, super = classic.class(...,base_engine)
 
@@ -39,6 +40,9 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     self:allocate_probe(Np,M)
 
     self.O_denom0 = torch.CudaTensor(1,1,Nx,Ny)
+    print('allocateBuffers')
+    pprint(self.O)
+    pprint(self.O_denom0)
     self.O_denom = self.O_denom0:expandAs(self.O)
     self.O_mask0 = torch.CudaTensor(1,1,Nx,Ny)
     self.O_mask = self.O_mask0:expandAs(self.O)
@@ -278,10 +282,12 @@ function TWF_engine:iterate(steps)
   local valid_gradients = 0
   local mod_error, overlap_error, relative_error, probe_error, mod_updates, im_error = -1,-1,nil, nil, 0
   u.printf('%-10s%-15s%-15s%-13s%-15s%-15s%-15s%-15s%-15s%-15s','iteration','L','R','R (%)','||dL/dO||','||dL/dP||','mu', 'e_rel', 'e_img','valid')
-  print('----------------------------------------------------------------------------------------------------------------------')
+  print('---------------------------------------------------------------------------------------------------------------------------------')
 
   self.counter = 0
-
+  local t = sys.clock()
+  sys.tic()
+  local it_no_progress = 0
   for i = 1, steps do
     self:update_iteration_dependent_parameters(i)
 
@@ -319,18 +325,25 @@ function TWF_engine:iterate(steps)
     self.img_error[i] = self:image_error()
 
     local rel = 100.0*self.R_error[i]/(self.L_error[i]+self.R_error[i])
-    u.printf('%-10d%-15g%-15g%-10.2g%%  %-15g%-15g%-15g%-15g%-15g',i,self.L_error[i],self.R_error[i],rel,dL_dO_1norm,self.dL_dP:normall(1),self:mu(i),self.rel_error[i],self.img_error[i],valid_gradients)
+    u.printf('%-10d%-15g%-15g%-10.2g%%  %-15g%-15g%-15g%-15g%-15g%-15g',i,self.L_error[i],self.R_error[i],rel,dL_dO_1norm,self.dL_dP:normall(1),self:mu(i),self.rel_error[i],self.img_error[i],valid_gradients)
 
     self:maybe_plot()
     self:maybe_save_data()
 
-    if i>1 and math.abs(self.img_error[i] - self.img_error[i-1]) < self.stopping_threshold then break end
+    if i>1 and math.abs(self.img_error[i] - self.img_error[i-1]) < self.stopping_threshold then
+      it_no_progress = it_no_progress + 1
+    end
+    if it_no_progress == 5 then
+      break
+    end
     -- grad = fun_compute_grad_TPWFP_Real(z, y, Params, A, At, Masks, n1_LR, n2_LR, fmaskpro);
     -- z = z - muf(t) * grad;             % Gradient update
 
   end
-  self:save_data(self.save_path .. self.run_label .. '_TWF_' .. (steps+1))
-  self.do_plot = true
+  t = sys.toc()
+  self.time = t
+  self:save_data(self.save_path .. self.run_label .. '_TWF_' .. (self.i+1))
+  -- self.do_plot = true
   self:maybe_plot()
   plt:shutdown_reconstruction_plot()
   collectgarbage()

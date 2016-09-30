@@ -62,7 +62,7 @@ elseif probe_type == 2 then
   probe:fftshift()
   plt:plot(probe:zfloat(),'defocused FZP')
 elseif probe_type == 3 then
-  probe = s:random_probe2(N,0.12,0.2,0.05)
+  probe = s:random_probe2(N,0.11,0.25,0.17)
   plt:plot(probe:zfloat(),'band limited random')
 end
 local f = hdf5.open('/home/philipp/drop/Public/probe_blr.h5','w')

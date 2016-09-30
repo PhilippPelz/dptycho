@@ -445,7 +445,7 @@ function engine:initialize_probe()
     end
   else
     self.P:zero()
-    self.P[1]:add(300+0i)
+    self.P[1][1]:add(300+0i)
   end
 
   if self.probe_support ~= 0 then
@@ -455,7 +455,6 @@ function engine:initialize_probe()
   else
     self.support = nil
   end
-
 end
 
 function engine:initialize_object()
@@ -474,6 +473,7 @@ function engine:initialize_object()
     self.O:polar(torch.CudaTensor(O:size()):fill(1),angle:cuda())
     -- z:view_3D():ifftBatched()
     -- self:merge_frames(z,self.P,self.O,self.O_views,true)
+    self.O_init = self.O:zfloat()
     plt:plot(self.O[1][1]:zfloat(),'O initialization')
   elseif self.object_init == 'gcl' then
       u.printf('gcl initialization is not implement yet')
@@ -534,9 +534,9 @@ function engine:allocate_probe(Np,M)
 end
 
 function engine:allocate_object(No,Nx,Ny)
-  if self.O == nil then
-    self.O = torch.ZCudaTensor.new(No,1,Nx,Ny)
-  end
+  -- if self.O == nil then
+  self.O = torch.ZCudaTensor.new(No,1,Nx,Ny)
+  -- end
 end
 -- total memory requirements:
 -- 1 x object complex
@@ -858,21 +858,24 @@ end
 
 function engine:maybe_save_data()
   if self.do_save_data then
-    self:save_data(self.save_path .. 'ptycho_' .. self.i)
+    self:save_data(self.save_path .. '_it_' .. self.i)
   end
 end
 
 function engine:save_data(filename)
   u.printf('Saving at iteration %03d to file %s',self.i,filename .. '.h5')
-  local f = hdf5.open(filename .. '.h5','w')
-  f:write('/pr',self.P:zfloat():re())
-  f:write('/pi',self.P:zfloat():im())
+  local f = hdf5.open(filename .. '.h5')
+  local options = hdf5.DataSetOptions()
+  options:setChunked(1,1,500, 500)
+  options:setDeflate(8)
 
+  f:write('/pr',self.P:zfloat():re(),options)
+  f:write('/pi',self.P:zfloat():im(),options)
 
   if self.slice then
     local O = self.O[self.slice]:zfloat()
-    f:write('/or',O:re())
-    f:write('/oi',O:im())
+    f:write('/or',O:re(),options)
+    f:write('/oi',O:im(),options)
 
     if self.object_solution then
       local s = self.object_solution[self.slice]
@@ -881,14 +884,18 @@ function engine:save_data(filename)
       f:write('/soli',s:im())
     end
   else
-    f:write('/or',self.O:zfloat():re())
-    f:write('/oi',self.O:zfloat():im())
+    f:write('/or',self.O:zfloat():re(),options)
+    f:write('/oi',self.O:zfloat():im(),options)
 
     if self.object_solution then
       local s = self.object_solution:zfloat()
       f:write('/solr',s:re())
       f:write('/soli',s:im())
     end
+  end
+  if self.O_init then
+    f:write('/oinitr',self.O_init:re(),options)
+    f:write('/oiniti',self.O_init:im(),options)
   end
 
   if self.bg_solution then
@@ -899,18 +906,23 @@ function engine:save_data(filename)
   f:write('/scan_info/dpos',self.dpos)
   -- f:write('/parameters',self.par)
   if self.save_raw_data then
-    f:write('/data_unshift',self.a:float())
+    options:setChunked(10,500, 500)
+    f:write('/data_unshift',self.a:float(),options)
   end
+
+
 
   f:write('/statistics/dose',torch.FloatTensor({self.electrons_per_angstrom2}))
   f:write('/statistics/MdivN',torch.FloatTensor({self.total_measurements/self.pixels_with_sufficient_exposure}))
   f:write('/statistics/counts_per_pixel',torch.FloatTensor({self.counts_per_valid_pixel}))
   f:write('/statistics/K',torch.FloatTensor({self.K}))
-  f:write('/results/err_img_final',torch.FloatTensor({self.img_error[self.i]}))
-  f:write('/results/err_rel_final',torch.FloatTensor({self.rel_error[self.i]}))
-  f:write('/results/err_img',torch.FloatTensor({self.img_error}))
-  f:write('/results/err_rel',torch.FloatTensor({self.rel_error}))
-
+  f:write('/results/err_img_final',torch.FloatTensor({self.img_error[self.i-1]}))
+  f:write('/results/err_rel_final',torch.FloatTensor({self.rel_error[self.i-1]}))
+  f:write('/results/err_img',self.img_error:narrow(1,1,self.i))
+  f:write('/results/err_rel',self.rel_error:narrow(1,1,self.i))
+  if self.time then
+    f:write('/results/time_elapsed',torch.FloatTensor({self.time}))
+  end
   f:close()
 end
 

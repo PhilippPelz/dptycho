@@ -34,7 +34,7 @@ function get_data(pot_path,dose,overlap,N,E,probe)
 
   local result = {}
   result.a = I:cuda():sqrt()
-  result.probe = probe
+  result.probe = probe:view(1,1,probe:size(1),probe:size(2))
   result.object = s.T_proj
   result.pos = pos
 
@@ -45,11 +45,12 @@ function main()
   local conn = hypero.connect()
   local bat = conn:battery('bayes_opt', '1.0')
 
-  local dose = {1.5e6,2.8e6,4.8e6,8.4e6,1.5e7,2.6e7,4.6e7,8.5e7,1.45e8}
+  -- local dose = {1.5e6,2.8e6,4.8e6,8.4e6,1.5e7,2.6e7,4.6e7,8.5e7,1.45e8}
+  local dose = {1.45e8,8.5e7,4.6e7,2.6e7,1.5e7,8.4e6,4.8e6,2.8e6,1.5e6}
   local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
           56.23413252,   100.        ,   177.827941  ,   316.22776602,
          562.34132519}
-  local overlap = {0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9}
+  local overlap = {0.45,0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9}
   local nu = {4e-1,3e-1,2e-1,5e-2}
 
   local par = ptycho.params.DEFAULT_PARAMS_TWF()
@@ -59,9 +60,9 @@ function main()
   par.Np = 1
   par.No = 1
   par.bg_solution = nil
-  par.plot_every = 20
+  par.plot_every = 300
   par.plot_start = 1
-  par.show_plots = true
+  par.show_plots = false
   par.beta = 0.9
   par.fourier_relax_factor = 8e-2
   par.position_refinement_start = 250
@@ -88,9 +89,8 @@ function main()
   par.background_correction_start = 1e5
 
   par.save_interval = 250
-  par.save_path = '/tmp/'
   par.save_raw_data = true
-  par.run_label = 'ptycho2'
+  par.save_path = '/home/philipp/drop/Public/sim/'
 
   par.O_denom_regul_factor_start = 0
   par.O_denom_regul_factor_end = 0
@@ -104,10 +104,9 @@ function main()
   par.twf.mu_max = 0.01
   par.twf.tau0 = 10
 
-
   par.calculate_dose_from_probe = true
 
-  par.experiment.z = 0.6
+  par.experiment.z = 0.56
   par.experiment.E = E
   par.experiment.det_pix = 40e-6
   par.experiment.N_det_pix = N
@@ -136,37 +135,44 @@ function main()
       probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
       f:close()
     end
-
-    for dose0 in ipairs(dose) do
-      for overlap0 in ipairs(overlap) do
-        local data = get_data('/home/philipp/drop/Public/4V5F.h5',dose0,overlap0,N,E,probe)
+    local ID = 1
+    for i,dose0 in ipairs(dose) do
+      for j,overlap0 in ipairs(overlap) do
+        local sample = '4V5F'
+        -- print(dose0)
+        local data = get_data('/home/philipp/drop/Public/'..sample..'.h5',dose0,overlap0,N,E,probe)
         par.pos = data.pos
-        pprint(data.pos)
-        par.dpos = data.pos:clone():add(-1,data.pos:clone():int())
-        par.object_solution = data.object
-        par.probe_solution = probe
-        par.a = data.a
+        par.dpos = data.pos:clone():add(-1,data.pos:clone():int()):float()
+        par.object_solution = data.object:clone()
+        par.probe_solution = data.probe:clone()
         par.fmask = data.a:clone():fill(1)
 
-        for nu0 in ipairs(nu) do
+        for k,nu0 in ipairs(nu) do
+          local nu = string.gsub(string.format('%g',nu0),',','p')
+          local str = string.format('%05d_s_%s_ov_%d_d_%d_nu_%s',ID,sample,overlap0*100,dose0,nu)
+          par.run_label = str
           par.twf.nu = nu0
+          par.a = data.a:clone()
+          -- print()
+          -- print('a sum')
+          -- print(par.a:sum())
+          -- print()
 
           local hex = bat:experiment()
 
-
-
           local eng = ptycho.TWF_engine(par)
-          local dose = eng.electrons_per_angstrom2
-
           eng:iterate(250)
-
-          local hp = {nu = par.twf.nu, dose = eng.electrons_per_angstrom2, }
+          local hp = {nu = par.twf.nu, dose = eng.electrons_per_angstrom2, total_counts = eng.I_total, counts_per_valid_pixel = eng.counts_per_valid_pixel, MoverN = eng.total_nonzero_measurements/eng.pixels_with_sufficient_exposure, overlap = overlap0 }
           local md = {hostname = 'work', dataset = '4V5F'}
-          local res = {img_err = eng.img_error:totable(), rel_err = eng.rel_error:totable()}
+          local res = {img_err = eng.img_error:totable(), rel_err = eng.rel_error:totable(), final_img_error = eng.img_error[#eng.img_error], final_rel_error = eng.rel_error[#eng.rel_error]}
 
           hex:setParam(hp)
           hex:setMeta(md)
           hex:setResult(res)
+
+          eng = nil
+          ID = ID + 1
+          collectgarbage()
         end
       end -- end nu
     end -- end dose

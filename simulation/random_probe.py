@@ -375,7 +375,7 @@ def blr_probe2(N,rs_rad,fs_rad1,fs_rad2,do_plot=False):
     fs_mask1 = sector_mask((N,N),(N/2,N/2),fs_rad1*N,(0,360))
     fs_mask2 = sector_mask((N,N),(N/2,N/2),fs_rad2*N,(0,360))
     fs_mask3 = np.logical_not(sector_mask((N,N),(N/
-    2,N/2),0.05*N,(0,360)))
+    2,N/2),0.03*N,(0,360)))
     #riplot(fs_mask3)   + + 3*fs_mask2.astype(np.int)
     fs_mask = (fs_mask1.astype(np.int) ) * fs_mask3.astype(np.int)
     fs_mask = fs_mask/norm(fs_mask,1)
@@ -384,20 +384,25 @@ def blr_probe2(N,rs_rad,fs_rad1,fs_rad2,do_plot=False):
 #    fs_mask[:,sh[0]/2-1:sh[0]/2+1] = 0
     #riplot(rs_mask)
     #riplot(fs_mask)
+    
+#     h = fftshift( ifft2( ifftshift( H ) ) );
+#     H = fftshift( fft2( ifftshift( h ) ) );
 
     fs_mask = fftshift(fs_mask)
-    phase = fftshift(np.angle(random_fzp21(N,100,5)))
+#    phase = fftshift(np.angle(random_fzp21(N,130,5)))
+    phase = 2 * np.pi * np.random.uniform(size=(N,N))
     psi_f = fftshift(fs_mask * np.exp(2j*phase))
-    rs_mask = fftshift(rs_mask)
-    fs_mask = fftshift(fs_mask)
+#    rs_mask = fftshift(rs_mask)
+#    fs_mask = fftshift(fs_mask)
+    psi_f = ifftshift(psi_f)
     if do_plot:
         applot(psi_f,'psi_f init')
-    it = 150
+    it = 50
     for i in range(it):
-        # print i
-        psi = fft2(psi_f,norm='ortho')
+#        print i
+        psi = fftshift(ifft2(psi_f,norm='ortho'))
 
-        # plotcx(psi)
+        
         if do_plot:
             applot(psi,'psi')
         psir = psi.real
@@ -406,11 +411,12 @@ def blr_probe2(N,rs_rad,fs_rad1,fs_rad2,do_plot=False):
 #        psii = nd.gaussian_filter(psi.imag,5)
         psi = rs_mask *(psir + 1j* psii)# np.exp(1j*np.angle(psi))#(psir + 1j* psii)
         psi = psi/norm(psi)
+#        plotcx(psi)
         if do_plot:
             applot(psi,'psi masked')
 
 
-        psi_f = ifft2(psi,norm='ortho')
+        psi_f = fft2(ifftshift(psi),norm='ortho')
         if do_plot:
             applot(psi_f,'psi_f')
 #        plotcx(fftshift(psi_f))
@@ -424,40 +430,36 @@ def blr_probe2(N,rs_rad,fs_rad1,fs_rad2,do_plot=False):
         # phase = fftshift(nd.gaussian_filter(fftshift(np.angle(psi_f)),1))
         # psi_f = np.abs(psi_f) * np.exp(1j*phase)
         psi_f = psi_f/norm(psi_f)
-        # plotcx(fftshift(psi_f))
+#        plotcx(psi_f)
         if do_plot:
             applot(psi_f,'psi_f masked')
             
-    bins = 25
-    digi = np.digitize(np.angle(psi_f),np.linspace(0,1,bins)*2*np.pi)
-    riplot(digi,'digi')
-    psi_f = np.abs(psi_f) * np.exp(1j*digi*1/bins*2.0*np.pi)
-    psi = fft2(psi_f,norm='ortho')
+    psi = fftshift(ifft2(psi_f,norm='ortho'))
+#    applot(psi,'final psi')
+#    psi_f = fft2(ifftshift(psi)) 
+#    applot(psi_f,'final psi_f')
+#    psi_fangle = np.angle(psi_f)
+#    psi_f = fs_mask * np.exp(1j*psi_fangle)
+##    applot(psi_f,'final psi_f masked')
+#    psi_f = ifftshift(psi_f)
+#    applot(psi_f,'final psi_f masked shifted')
+#    psi = ifft2(psi_f,norm='ortho')
+#    plotcx(psi)
+#    bins = 150
+#    digi = np.digitize(np.angle(psi_f),np.linspace(-1,1,bins)*2*np.pi)
+#    riplot(digi,'digi')
+#    psi_f = np.abs(psi_f) * np.exp(1j*digi*1/bins*2.0*np.pi)
+#    psi = fft2(psi_f,norm='ortho')
 
 
     
     # psi_f = np.abs(psi_f) * np.exp(1j*nd.zoom(nd.zoom(np.angle(psi_f),0.5),2))
     # psi = fft2(psi_f,norm='ortho')
-
-    # applot(psi)
-
-#    psia = nd.gaussian_filter(np.abs(psi),5)
-#    psip = nd.gaussian_filter(np.angle(psi),5)
-#    psi2 = psia * np.exp(1j*psip)
-##    plotcx(psi2)
-#    angles = np.digitize(np.angle(psi2),np.arange(10)*np.pi/10) * np.pi/10
-#    psi3 = np.abs(psi2) * np.exp(1j*angles)
-#    plotcx(psi3)
-
-    plotcx(psi_f)
-    plotcx(fftshift(psi))
-    plotcx(fft2(psi))
+#    psi = fftshift(psi)
+    plotcx(fftshift(psi_f))
+    plotcx(psi)
+    plotcx(fftshift( fft2( ifftshift( psi ) ) ))
     
-#    psi_fabs = np.abs(psi_f)
-#
-#    psi_fangle = unwrap_phase(np.angle(psi_f))
-#    psi_fu = psi_fabs * np.exp(1j*psi_fangle)
-    # applot(fftshift(psi_f))
     return np.real(psi).astype(np.float32), np.imag(psi).astype(np.float32)
 
 
@@ -579,7 +581,7 @@ def rgb2complex(rgb):
     Reverse to :any:`complex2rgb`
     """
     return hsv2complex(rgb2hsv(rgb))
-blr_probe2(128,0.2,0.25,0.17)
+#blr_probe2(256,0.11,0.25,0.17)
 #im = nd.imread('/home/philipp/test.png')
 #imcx = rgb2complex(im)
 #imcx = nd.zoom(imcx.real,0.2) + 1j* nd.zoom(imcx.imag,0.2)

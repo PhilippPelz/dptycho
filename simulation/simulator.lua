@@ -29,6 +29,7 @@ function c:load_potential(filename)
 end
 
 function c:scale_probe_intensity(probe, total_dose, n_exposures)
+  u.printf('n_exposures                   : %g',n_exposures)
   local poisson_noise = total_dose / n_exposures
   u.printf('poisson noise                 : %g',poisson_noise)
   local P_norm = probe:normall(2)^2
@@ -49,7 +50,7 @@ function c:exitwaves_multislice(pos,in_psi, view_size, E, total_dose)
   local v_proj = self.v:sum(1)[1]
   -- plt:plot(v_proj,'proj potential')
   self.T_proj = torch.ZCudaTensor(v_proj:size()):polar(v_proj:im():mul(-self.physics.sigma*self.dz):exp(),v_proj:re():mul(self.physics.sigma*self.dz))
-  -- plt:plot(self.T,'proj T')
+  -- plt:plot(self.T_proj,'proj T')
 
   self:scale_probe_intensity(in_psi,total_dose,pos:size(1))
 
@@ -62,11 +63,20 @@ function c:exitwaves_multislice(pos,in_psi, view_size, E, total_dose)
 
   for slice = 1, self.v:size(1) do
     for i, view in ipairs(views) do
+      -- if slice == 15 then
+      --   plt:plot(view[slice]:zfloat(),'view[' .. i)
+      -- end
       out_psi[i]:cmul(view[slice])
     end
     out_psi:fftBatched()
+    -- if true then
+    --   plt:plot(out_psi[74]:zfloat(),'out_psi')
+    -- end
     out_psi:cmul(P)
     out_psi:ifftBatched()
+    -- if true then
+    --   plt:plot(out_psi[22]:zfloat(),'out_psi')
+    -- end
   end
   -- for i, view in ipairs(views) do
   --   plt:plot(out_psi[i],'out_psi '..i)
@@ -93,6 +103,7 @@ function c:exitwaves_projected(pos,in_psi, view_size, E, total_dose)
 end
 
 function c:dp_multislice(pos,in_psi, view_size, binning, E, total_dose)
+  u.printf('total_dose                   : %g',total_dose)
   local out_psi = self:exitwaves_multislice(pos,in_psi, view_size, E, total_dose)
   local mtf, dqe = self:get_detector_MTF_DQE('K2',binning,view_size)
   out_psi:fftBatched()

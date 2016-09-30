@@ -100,6 +100,9 @@ RETURN:
 - `z`                     : the new frames
 ]]
 function m.static.Q(z,mul_split,merge_memory_views,zk_buffer,k_to_batch_index,batch_copy_func,batches,K,dpos)
+  -- pprint(mul_split)
+  -- pprint(merge_memory_views[1])
+  -- pprint(z)
   for k, view in ipairs(merge_memory_views) do
     if batches > 2 then xlua.progress(k,K) end
     batch_copy_func(k)
