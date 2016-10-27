@@ -88,7 +88,8 @@ def focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um = 1000, C5_mm=1, tx = 0,
     tilt_y = 0
 
     phi = {
-                '22':33.0,
+                '11':30,
+                '22':0,
                 '33':0.0,
                 '44':0.0,
                 '55':0.0,
@@ -100,18 +101,24 @@ def focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um = 1000, C5_mm=1, tx = 0,
                 '51':0.0,
                 '62':0.0
             }
-    a_dtype = {'names':['20', '22',
+
+    a_dtype = {'names':['10', '11','20', '22',
                              '31','33',
                              '40', '42', '44',
                              '51', '53', '55',
                              '60', '62', '64', '66'],
-                    'formats':['f8']*14}
+                    'formats':['f8']*16}
     a0 = np.zeros(1,a_dtype)
+    a0['10']=0
+    a0['11']=0
     a0['20']=defocus_nm  # defocus: -60 nm
+    a0['22']=0
+    a0['31']=0
+    a0['33']=0
     a0['22']=2.3
     a0['40']=C3_um # C3/spherical aberration: 1000 um
-    a0['42']=2.28
-    a0['44']=0.06
+    a0['42']=0
+    a0['44']=0
     a0['60']=C5_mm    # C5/Chromatic aberration: 1 mm
 
     dk = 1.0/(N*d)
@@ -126,6 +133,7 @@ def focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um = 1000, C5_mm=1, tx = 0,
     #riplot(ktheta,'ktheta')
     scaled_a = a0.copy().view(np.float64)
     scales =np.array([10, 10,           #a_2x, nm->A
+                      10, 10,           #a_2x, nm->A
                       10, 10,             #a_3x, nm->A
                       1E4, 1E4, 1E4,      #a_4x, um->A
                       1E4, 1E4, 1E4,      #a_5x, um->A
@@ -135,7 +143,7 @@ def focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um = 1000, C5_mm=1, tx = 0,
     a = scaled_a.view(a_dtype)
 
     cos = np.cos
-    chi = 2.0*np.pi/lam*(1.0/2*(a['22']*cos(2*(kphi-phi['22']))+a['20'])*ktheta**2 +
+    chi = 2.0*np.pi/lam*(1.0*(a['11']*cos(2*(kphi-phi['11']))+a['10'])*ktheta +                  1.0/2*(a['22']*cos(2*(kphi-phi['22']))+a['20'])*ktheta**2 +
             1.0/3*(a['33']*cos(3*(kphi-phi['33']))+a['31']*cos(1*(kphi-phi['31'])))*ktheta**3 +
             1.0/4*(a['44']*cos(4*(kphi-phi['44']))+a['42']*cos(2*(kphi-phi['42']))+a['40'])*ktheta**4 +
             1.0/5*(a['55']*cos(5*(kphi-phi['55']))+a['53']*cos(3*(kphi-phi['53']))+a['51']*cos(1*(kphi-phi['51'])))*ktheta**5 +
@@ -153,7 +161,12 @@ def focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um = 1000, C5_mm=1, tx = 0,
     # add in the complex part
     # MATLAB: probe = probe.*exp(i*chi);
     arr*=np.exp(1j*chi);
+    rs_mask1 = np.logical_not(sector_mask((N,N),(N/2,N/2),0.05*N,(0,360)))
+    # print 'riplot'
+    # riplot(rs_mask1)
+    # arr*=rs_mask1
     arr = fftshift(arr)
+
     arr_real = fftshift(ifft2(arr))
     arr_real /= np.linalg.norm(arr_real)
     if plot:

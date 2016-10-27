@@ -287,7 +287,7 @@ function TWF_engine:iterate(steps)
     self.dL_dz, valid_gradients = self.L:updateGradInput(self.z,self.a)
 
     self.old_O = self.O:clone()
-    local O,L,k = optim.cg(fn.partial(self.optim_func_object,self),self.O,self.optim_config,self.optim_state)
+    local O,L,k = self.optimizer(fn.partial(self.optim_func_object,self),self.O,self.optim_config,self.optim_state)
     local dL_dO_1norm = self.dL_dO:normall(1)
     -- plt:plot(self.O[1][1]:zfloat(),'O 1')
     -- print()
@@ -326,6 +326,8 @@ function TWF_engine:iterate(steps)
       it_no_progress = it_no_progress + 1
     end
     if it_no_progress == 3 then
+<<<<<<< HEAD
+=======
       -- it_no_progress = it_no_progress + 1
       -- self.optim_config = {}
       -- -- self.optim_config.maxIter = 10
@@ -340,6 +342,7 @@ function TWF_engine:iterate(steps)
       -- self.optim_config.momentum = 0.9
       -- self.optim_config.dampening = nil
       -- self.optimizer = optim.nag
+>>>>>>> 66d6b6f3f38b74856e0ae9de328ac8468a93dbc2
       break
     end
     -- grad = fun_compute_grad_TPWFP_Real(z, y, Params, A, At, Masks, n1_LR, n2_LR, fmaskpro);

@@ -31,8 +31,10 @@ require 'dptycho.znn.ConvParams'
 require 'dptycho.znn.ConvFFT2D'
 require 'dptycho.znn.FFT'
 require 'dptycho.znn.TruncatedPoissonLikelihood'
+require 'dptycho.znn.EuclideanLoss'
 require 'dptycho.znn.PoissonLikelihood'
 require 'dptycho.znn.SpatialSmoothnessCriterion'
+require 'dptycho.znn.TVCriterion'
 
 -- collapses all dimensions from 1 up to ndim-2 into a single dimension
 -- good to perform batched ffts

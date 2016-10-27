@@ -86,6 +86,82 @@ TH_API void THNN_CudaTruncatedPoissonLikelihood_GradientFactor(THCState *state, 
   }
 }
 
+template <typename T>
+struct EuclideanLoss : public thrust::unary_function<T, float> {
+  __host__ __device__ float operator()(T x) {
+    // thrust::get<0>(x) F[psi]
+    // thrust::get<1>(x) a
+    // thrust::get<2>(x) mask
+    float a_model = thrust::get<0>(x);
+    float a = (float)thrust::get<1>(x);
+    float m = (float)thrust::get<2>(x);
+    float da = (a_model - a );
+    return m*da*da;
+  }
+};
+
+TH_API void THNN_CudaEuclideanLoss_updateOutput(THCState *state, THCudaTensor *input, THCudaTensor *target, THCudaTensor *mask, THCudaTensor *output)
+{
+  THAssert(THCudaTensor_checkGPU(state, 1, target));
+  THAssert(THCudaTensor_checkGPU(state, 1, mask));
+  THAssert(THCudaTensor_checkGPU(state, 1, output));
+  THAssert(THCudaTensor_checkGPU(state, 1, input));
+  THArgCheck(THCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, target), 2,
+    "input and target need to have the same number of elements"
+  );
+
+  long size = THCudaTensor_nElement(state, input);
+
+  input = THCudaTensor_newContiguous(state, input);
+  target = THCudaTensor_newContiguous(state, target);
+  mask = THCudaTensor_newContiguous(state, mask);
+
+  thrust::device_ptr<float> input_data(THCudaTensor_data(state, input));
+  thrust::device_ptr<float> target_data(THCudaTensor_data(state, target));
+  thrust::device_ptr<float> mask_data(THCudaTensor_data(state, mask));
+
+  float sum = thrust::transform_reduce(
+    #if CUDA_VERSION >= 7000
+        thrust::cuda::par.on(THCState_getCurrentStream(state)),
+    #endif
+           thrust::make_zip_iterator(
+               thrust::make_tuple(input_data, target_data, mask_data)),
+           thrust::make_zip_iterator(
+               thrust::make_tuple(input_data + size , target_data + size, mask_data + size)),
+           EuclideanLoss<thrust::tuple<float, float, float> >(),
+           float(0), thrust::plus<float>());
+
+  THCudaTensor_free(state, input);
+  THCudaTensor_free(state, target);
+  THCudaTensor_free(state, mask);
+
+  THCudaTensor_set1d(state, output, 0, sum);
+}
+
+struct EuclideanLoss_GradientFactor_functor
+{
+  __host__ __device__ void operator()(float *a_model, float *a, float *m) const
+  {
+    if(*a < 1e-6 && *a_model < 1e-6){
+      *a = (*m);
+    } else {
+      *a = (*m) * (1- (*a_model) / (*a + 1e-9));
+    }
+  }
+};
+
+TH_API void THNN_CudaEuclideanLoss_GradientFactor(THCState *state, THCudaTensor *input, THCudaTensor *target, THCudaTensor *mask)
+{
+  THAssert(THCudaTensor_checkGPU(state, 1, input));
+  THAssert(THCudaTensor_checkGPU(state, 2, target, mask));
+  THArgCheck(THCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, target), 2, "sizes do not match (input,target)");
+  THArgCheck(THCudaTensor_nElement(state, input) == THCudaTensor_nElement(state, mask), 3, "sizes do not match (input,mask)");
+
+  if (!THCudaTensor_pointwiseApply3(state, input, target, mask, EuclideanLoss_GradientFactor_functor())) {
+    THArgCheck(false, 2, CUTORCH_DIM_WARNING);
+  }
+}
+
 struct mse_functor
 {
   __host__ __device__ float operator()(const float &x, const float &y) const

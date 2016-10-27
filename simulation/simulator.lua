@@ -10,6 +10,7 @@ require 'hdf5'
 local c = classic.class(...)
 
 function c:_init()
+  -- print(u.script_path())
   local pyfile = u.read_file(u.script_path() .. '/mtfdqe.py')
   local pyfile2 = u.read_file(u.script_path() .. '/probe.py')
   local pyfile3 = u.read_file(u.script_path() .. '/random_probe.py')
@@ -24,6 +25,8 @@ function c:load_potential(filename)
   self.dz = f:read('/dz'):all()[1]
   local vr = f:read('/vreal'):all():cuda()
   local vi = f:read('/vimag'):all():cuda()
+  u.printf('dx = %g',self.dx)
+  u.printf('dz = %g',self.dz)
   self.v =  torch.ZCudaTensor(vr:size()):copyIm(vi):copyRe(vr)
   return self.v
 end
@@ -107,6 +110,19 @@ function c:dp_multislice(pos,in_psi, view_size, binning, E, total_dose)
   u.printf('total_dose                   : %g',total_dose)
   local out_psi = self:exitwaves_multislice(pos,in_psi, view_size, E, total_dose)
   local mtf, dqe = self:get_detector_MTF_DQE('K2',binning,view_size)
+
+  -- local sample = out_psi[94]:clone()
+  -- sample:fftshift()
+  -- sample:fft()
+  -- sample:fftshift()
+  -- sample:norm()
+  -- local f = hdf5.open('/home/philipp/drop/Public/sample_int.h5')
+
+  -- local dp = u.stats.poisson(sample:re():float())
+  -- f:write('/int',dp)
+  -- f:close()
+  -- plt:plot(dp:float(),'sample diff')
+
   out_psi:fftBatched()
   local I_noisy = self:simulate_detector(out_psi,mtf:cuda(),dqe:cuda(),total_dose)
   return I_noisy
@@ -131,14 +147,14 @@ function c:simulate_detector(in_psi, mtf, dqe, total_dose)
   mtf:mul(mtf:nElement()/mtf:sum())
   local sqrt_nnps = mtf:clone():pow(2):cdiv(dqe)
   sqrt_nnps:mul(sqrt_nnps:nElement()/sqrt_nnps:sum())
-  u.printf('sum(nnps)=%g elem(nnps)=%d',sqrt_nnps:sum(),sqrt_nnps:nElement())
+  -- u.printf('sum(nnps)=%g elem(nnps)=%d',sqrt_nnps:sum(),sqrt_nnps:nElement())
   sqrt_nnps:sqrt()
   local sqrt_nnps_exp = sqrt_nnps:view(1,in_psi:size(2),in_psi:size(3)):expandAs(in_psi)
   local mtf_exp = mtf:view(1,in_psi:size(2),in_psi:size(3)):expandAs(in_psi)
   local dqe_exp = dqe:view(1,in_psi:size(2),in_psi:size(3)):expandAs(in_psi)
   local I = in_psi:norm()
   local Isum = I:sum(2):sum(3)
-  pprint(Isum)
+  -- pprint(Isum)
   -- print(I:normall(1))
   for i=1,I:size(1) do
       I[i]:fftshift()
@@ -203,6 +219,7 @@ function c:focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um , C5_mm, tx ,ty ,
 
   return probe
 end
+
 function c:random_probe(N)
   local pr, pi = table.unpack(py.eval('blr_probe(N)',{N=N}))
   -- plt:plot(pr)
@@ -249,8 +266,15 @@ function c:random_fzp2(N,factor,sections)
   return probe
 end
 
+--1.Ruskin, R. S., Yu, Z. & Grigorieff, N. Quantitative characterization of electron detectors for transmission electron microscopy. J. Struct. Biol. 184, 385–393 (2013).
 function c:get_detector_MTF_DQE(detector_type,binning,size)
   local mtf,dqe = table.unpack(py.eval('MTF_DQE_2D(t,b,s,path)',{t=detector_type,b=binning,s=size,path=u.script_path()}))
+  return mtf,dqe
+end
+
+-- 1.McMullan, G., Faruqi, A. R., Clare, D. & Henderson, R. Comparison of optimal performance at 300 keV of three direct electron detectors for use in low dose electron microscopy. Ultramicroscopy 147, 156–163 (2014).
+function c:get_detector_MTF_DQE2(detector_type,binning,size)
+  local mtf,dqe = table.unpack(py.eval('MTF_DQE_2D2(t,b,s,path)',{t=detector_type,b=binning,s=size,path=u.script_path()}))
   return mtf,dqe
 end
 

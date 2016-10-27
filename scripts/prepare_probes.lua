@@ -16,10 +16,10 @@ local simul = require 'dptycho.simulation'
 local ptycho = require 'dptycho.core.ptycho'
 local ptychocore = require 'dptycho.core'
 
-local probe_type = 3
+local probe_type =5
 local s = simul.simulator()
 local N = 256
-local E = 100e3
+local E = 200e3
 local d = 2.0
 if probe_type == 1 then
 
@@ -45,7 +45,7 @@ if probe_type == 1 then
     -- probe:view(1,probe:size(1),probe:size(2)):fftBatched()
   -- end
   probe:fftshift()
-  plt:plot(probe:zfloat(),'defocused FZP')
+  plt:plot(probe:zfloat(),'defocused RFZP')
 elseif probe_type == 2 then
   probe = s:fzp(N,300,3)
   -- plt:plot(probe:zfloat():fftshift(),'FZP')
@@ -64,8 +64,22 @@ elseif probe_type == 2 then
 elseif probe_type == 3 then
   probe = s:random_probe2(N,0.11,0.25,0.17)
   plt:plot(probe:zfloat(),'band limited random')
+elseif probe_type == 4 then
+  probe = s:random_probe2(N,0.11,0.4,0.3)
+  plt:plot(probe:zfloat(),'cone band limited random')
+elseif probe_type == 5 then
+  local alpha_rad = 6e-3
+  local C3_um = 2
+  local defocus_nm = 1.2e3
+  local C5_mm = 0
+  local tx = 0
+  local ty = 0
+  local Nedge = 5
+  local plotit = true
+  probe = s:focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um , C5_mm, tx ,ty , Nedge , plot)
+  plt:plot(probe:zfloat(),'defocus')
 end
-local f = hdf5.open('/home/philipp/drop/Public/probe_blr.h5','w')
+local f = hdf5.open('/home/philipp/drop/Public/probe_def.h5','w')
 print('1')
 f:write('/pr',probe:re():float())
 print('2')

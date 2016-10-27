@@ -426,18 +426,21 @@ function m.truncated_spectral_estimate_power_it(z,P,O_denom,truncation_threshold
     -- plt:plot(O_buffer[1][1]/:zfloat(),string.format('O %d',1))
 
     local normest = math.sqrt(a:sum()/a:nElement())
+    -- print(9*normest^2)
     local a_max = u.percentile(a:float(),truncation_threshold)
     local T_a = a_buffer:gt(a,a_max)
-    -- local T_a = a_buffer:le(a,9*normest^2)
-
+    -- local T_a = a_buffer:le(a,15*normest^2)
+    -- for i=20,30 do
+    --   plt:plotcompare({a[i]:float(), T_a[i]:float()},{'a',string.format('Ta[%d]',1)})
+    -- end
     local T_a_exp = T_a:cmul(a):view(K,1,1,M,M):expand(K,No,Np,M,M)
 
-    -- for i=20,23 do
-    --   plt:plotcompare({a[i]:float():log(), T_a[i]:float()},{'a',string.format('Ta[%d]',1)})
+    -- for i=20,30 do
+    --   plt:plotcompare({a[i]:float(), T_a[i]:float()},{'a',string.format('Ta[%d]',1)})
     -- end
     -- :view(K,1,1,M,M):expand(K,No,Np,M,M)
     local O = O_buffer
-    for tt = 1,50 do
+    for tt = 1,70 do
       local z = A()
       -- plt:plot(z[1][1][1]:zfloat(),string.format('z1 %d',tt))
       -- plt:plot(z[20][1][1]:zfloat(),string.format('z20 before %d',tt))
@@ -445,9 +448,9 @@ function m.truncated_spectral_estimate_power_it(z,P,O_denom,truncation_threshold
       -- plt:plot(z[1][1][1]:zfloat(),string.format('z1 %d',tt))
       -- plt:plot(z[20][1][1]:zfloat(),string.format('z20 after  %d',tt))
       O = At(z)
-      O:div(O:max())
+      O:div(O:normall(2))
       -- if tt % 200 == 0 then
-      --   plt:plot(O[1][1]:clone():cmul(O_mask):zfloat(),string.format('O %d',tt))
+      -- plt:plot(O[1][1]:zfloat(),string.format('O %d',tt))
       -- end
     end
 

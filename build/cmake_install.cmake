@@ -82,6 +82,7 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
     "/home/philipp/projects/dptycho/core/ptycho/ops_subpixel.lua"
     "/home/philipp/projects/dptycho/core/ptycho/Runner.lua"
     "/home/philipp/projects/dptycho/core/ptycho/base_engine_shifted.lua"
+    "/home/philipp/projects/dptycho/core/ptycho/RWF_engine.lua"
     "/home/philipp/projects/dptycho/core/ptycho/DM_engine_subpix.lua"
     "/home/philipp/projects/dptycho/core/ptycho/ops.lua"
     "/home/philipp/projects/dptycho/core/ptycho/base_engine.lua"
@@ -109,7 +110,12 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
     "/home/philipp/projects/dptycho/util/stats.lua"
     "/home/philipp/projects/dptycho/util/physics.lua"
     "/home/philipp/projects/dptycho/util/allocator.lua"
+    "/home/philipp/projects/dptycho/util/stats.py"
     )
+endif()
+
+if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/util" TYPE FILE FILES "/home/philipp/projects/dptycho/util/stats.py")
 endif()
 
 if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
@@ -131,12 +137,14 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
     "/home/philipp/projects/dptycho/znn/Source.lua"
     "/home/philipp/projects/dptycho/znn/ComplexAbs.lua"
     "/home/philipp/projects/dptycho/znn/Square.lua"
+    "/home/philipp/projects/dptycho/znn/TVCriterion.lua"
     "/home/philipp/projects/dptycho/znn/VolumetricConvolutionFixedFilter.lua"
     "/home/philipp/projects/dptycho/znn/ConvFFT2D.lua"
     "/home/philipp/projects/dptycho/znn/TruncatedPoissonLikelihood.lua"
     "/home/philipp/projects/dptycho/znn/AddConst.lua"
     "/home/philipp/projects/dptycho/znn/WSECriterion.lua"
     "/home/philipp/projects/dptycho/znn/THZNN.lua"
+    "/home/philipp/projects/dptycho/znn/EuclideanLoss.lua"
     "/home/philipp/projects/dptycho/znn/Sqrt.lua"
     "/home/philipp/projects/dptycho/znn/Sum.lua"
     "/home/philipp/projects/dptycho/znn/WeightedL1Cost.lua"
@@ -144,6 +152,36 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
     "/home/philipp/projects/dptycho/znn/CMulModule.lua"
     "/home/philipp/projects/dptycho/znn/ConvParams.lua"
     )
+endif()
+
+if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/simulation" TYPE FILE FILES
+    "/home/philipp/projects/dptycho/simulation/simulator.lua"
+    "/home/philipp/projects/dptycho/simulation/init.lua"
+    )
+endif()
+
+if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/simulation" TYPE FILE FILES
+    "/home/philipp/projects/dptycho/simulation/random_probe.py"
+    "/home/philipp/projects/dptycho/simulation/mtfdqe.py"
+    "/home/philipp/projects/dptycho/simulation/probe.py"
+    )
+endif()
+
+if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/scripts" TYPE FILE FILES
+    "/home/philipp/projects/dptycho/scripts/experiment_suite.lua"
+    "/home/philipp/projects/dptycho/scripts/test_simulation.lua"
+    "/home/philipp/projects/dptycho/scripts/prepare_probes.lua"
+    "/home/philipp/projects/dptycho/scripts/ptycho_runner.lua"
+    "/home/philipp/projects/dptycho/scripts/test_simulation0.lua"
+    "/home/philipp/projects/dptycho/scripts/figure_averaging.lua"
+    )
+endif()
+
+if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/test" TYPE FILE FILES "/home/philipp/projects/dptycho/test/test.lua")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)

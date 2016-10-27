@@ -8,20 +8,19 @@ local optim = require 'optim'
 local fn = require 'fn'
 require 'sys'
 
-local TWF_engine, super = classic.class(...,base_engine)
+local RWF_engine, super = classic.class(...,base_engine)
 
-function TWF_engine:_init(par)
-  u.printf('========================== TWF engine ==========================')
+function RWF_engine:_init(par)
+  u.printf('========================== RWF engine ==========================')
   super._init(self,par)
-  self.L = znn.TruncatedPoissonLikelihood(self.twf.a_h,self.twf.a_lb,self.twf.a_ub, self.z, self.fm, self.a_buffer1, self.a_buffer2, self.z1_buffer_real, self.K, self.No, self.Np, self.M, self.Nx, self.Ny, self.twf.diagnostics,self.twf.do_truncate)
-  if self.regularizer then
-    self.R = self.regularizer(self.O_tmp,self.dR_dO,self.rescale_regul_amplitude*self.twf.nu,self.O_tmp_real1,self.O_tmp_real2)
-  end
+  self.L = znn.EuclideanLoss(self.twf.a_h,self.twf.a_lb,self.twf.a_ub, self.z, self.fm, self.a_buffer1, self.a_buffer2, self.z1_buffer_real, self.K, self.No, self.Np, self.M, self.Nx, self.Ny, true,self.twf.do_truncate)
+  self.R = self.regularizer(self.O_tmp,self.dR_dO,self.rescale_regul_amplitude*self.twf.nu,self.O_tmp_real1,self.O_tmp_real2)
+
   -- we deal with intensities in the MAP framework
-  self.a:pow(2)
+  -- self.a:pow(2)
 end
 
-function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
+function RWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     local frames_memory = 0
     local Fsize_bytes ,Zsize_bytes = 4,8
 
@@ -146,11 +145,11 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     self.O_buffer = self.dR_dO
 end
 
-function TWF_engine:sufficient_space(storage,offset,elements)
+function RWF_engine:sufficient_space(storage,offset,elements)
   return elements < (#storage - offset)
 end
 
-function TWF_engine:initialize_views()
+function RWF_engine:initialize_views()
   self.O_views = {}
   self.O_denom_views = {}
   self.dL_dO_views = {}
@@ -160,7 +159,7 @@ function TWF_engine:initialize_views()
   end
 end
 
-function TWF_engine:update_views()
+function RWF_engine:update_views()
   for i=1,self.K do
     local slice = {{},{},{self.pos[i][1],self.pos[i][1]+self.M-1},{self.pos[i][2],self.pos[i][2]+self.M-1}}
     -- pprint(slice)
@@ -175,7 +174,7 @@ function TWF_engine:update_views()
   end
 end
 
-function TWF_engine:calculate_dL_dP(dL_dP)
+function RWF_engine:calculate_dL_dP(dL_dP)
   self:refine_probe_internal(dL_dP,self.zk_buffer_merge_frames,self.zk_buffer_2,self.P_buffer_real)
 end
 
@@ -183,7 +182,7 @@ end
 --  3 x sizeof(z[k]) el C
 --  2 x sizeof(P) el C
 --  1 x sizeof(P) el R
-function TWF_engine:refine_probe_internal(P_update_buffer, z_buffer1, z_buffer2, P_real_buffer)
+function RWF_engine:refine_probe_internal(P_update_buffer, z_buffer1, z_buffer2, P_real_buffer)
   local new_P = P_update_buffer
   local oview_conj = z_buffer1
   local oview_conj_shifted = z_buffer2
@@ -214,27 +213,27 @@ function TWF_engine:refine_probe_internal(P_update_buffer, z_buffer1, z_buffer2,
   return math.sqrt(P_norm/self.Np)
 end
 
-function TWF_engine:mu(it)
+function RWF_engine:mu(it)
   return math.min(1-math.exp(-it/self.twf.tau0),self.twf.mu_max) / self.a:nElement()
   -- return 1e-34
 end
 
-function TWF_engine:get_errors()
+function RWF_engine:get_errors()
   return {self.rel_error:narrow(1,1,self.i), self.L_error:narrow(1,1,self.i),self.R_error:narrow(1,1,self.i)}
 end
 
-function TWF_engine:get_error_labels()
+function RWF_engine:get_error_labels()
   return {'NRMSE','L','R'}
 end
 
-function TWF_engine:allocate_error_history()
+function RWF_engine:allocate_error_history()
   self.rel_error = torch.FloatTensor(self.iterations):fill(1)
   self.img_error = torch.FloatTensor(self.iterations):fill(1)
   self.R_error = torch.FloatTensor(self.iterations):fill(1)
   self.L_error = torch.FloatTensor(self.iterations):fill(1)
 end
 
-function TWF_engine.optim_func_object(self,O)
+function RWF_engine.optim_func_object(self,O)
   self.counter = self.counter + 1
   -- u.printf('calls: %d',self.counter)
   -- u.printf('||O_old-O|| = %2.8g',self.old_O:clone():add(-1,self.O):normall(2)^2)
@@ -249,24 +248,23 @@ function TWF_engine.optim_func_object(self,O)
   -- calculate dL_dO
   self:merge_frames(self.dL_dz,self.P,self.dL_dO, self.dL_dO_views)
   -- plt:plot(self.dL_dO[1][1]:zfloat(),'O 1')
-  if self.regularizer then
-    self.R_error[self.i] = self.R:updateOutput(self.O)
-    self.dR_dO = self.R:updateGradInput(self.O)
-    self.dL_dO:add(self.dR_dO)
-  end
+
+  self.R_error[self.i] = self.R:updateOutput(self.O)
+  self.dR_dO = self.R:updateGradInput(self.O)
+  self.dL_dO:add(self.dR_dO)
   -- plt:plot(self.dR_dO[1][1]:zfloat(),'self.dR_dO')
 
   return L, self.dL_dO
 end
 
-function TWF_engine.optim_func_probe(self,P)
+function RWF_engine.optim_func_probe(self,P)
   local L = self.L:updateOutput(self.z,self.a)
   self.dL_dz, valid_gradients = self.L:updateGradInput(self.z,self.a)
   self:calculate_dL_dP(self.dL_dP)
   return L, self.dL_dP
 end
 
-function TWF_engine:iterate(steps)
+function RWF_engine:iterate(steps)
   self:before_iterate()
   u.printf('rel error : %g',self:relative_error())
   self.iterations = steps
@@ -287,7 +285,7 @@ function TWF_engine:iterate(steps)
     self.dL_dz, valid_gradients = self.L:updateGradInput(self.z,self.a)
 
     self.old_O = self.O:clone()
-    local O,L,k = optim.cg(fn.partial(self.optim_func_object,self),self.O,self.optim_config,self.optim_state)
+    local O,L,k = self.optimizer(fn.partial(self.optim_func_object,self),self.O,self.optim_config,self.optim_state)
     local dL_dO_1norm = self.dL_dO:normall(1)
     -- plt:plot(self.O[1][1]:zfloat(),'O 1')
     -- print()
@@ -355,4 +353,4 @@ function TWF_engine:iterate(steps)
   collectgarbage()
 end
 
-return TWF_engine
+return RWF_engine

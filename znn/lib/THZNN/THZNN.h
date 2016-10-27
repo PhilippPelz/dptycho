@@ -6,12 +6,17 @@
 
 TH_API void THNN_CudaTruncatedPoissonLikelihood_updateOutput(THCState *state, THCudaTensor *input, THCudaTensor *target, THCudaTensor *mask, THCudaTensor *output);
 TH_API void THNN_CudaTruncatedPoissonLikelihood_GradientFactor(THCState *state, THCudaTensor *input, THCudaTensor *target, THCudaTensor *mask);
+
+TH_API void THNN_CudaEuclideanLoss_updateOutput(THCState *state, THCudaTensor *input, THCudaTensor *target, THCudaTensor *mask, THCudaTensor *output);
+TH_API void THNN_CudaEuclideanLoss_GradientFactor(THCState *state, THCudaTensor *input, THCudaTensor *target, THCudaTensor *mask);
+
 TH_API void THNN_CudaWSECriterion_updateOutput(THCState *state, THCudaTensor *input, THCudaTensor *target, THCudaTensor *output, float weight);
 TH_API void THNN_CudaWSECriterion_updateGradInput(THCState *state,
                                                   THCudaTensor *input,
                                                   THCudaTensor *target,
                                                   THCudaTensor *gradInput,
                                                   float weight);
+
 TH_API void THNN_CudaInvSigma(THCState *state, THCudaTensor *self_,
                               THCudaTensor *src1, float sigma);
 TH_API void THNN_ZCudaP_Mod(THCState *state, THZCudaTensor *self_,
@@ -36,3 +41,4 @@ TH_API void THNN_CudaBatchedBilinearInterpolation(THCState *state,
                                                   THCudaTensor *self_,
                                                   THCudaTensor *src1,
                                                   float shiftx, float shifty);
+ 

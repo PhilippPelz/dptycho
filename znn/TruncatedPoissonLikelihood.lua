@@ -63,7 +63,7 @@ function TruncatedPoissonLikelihood:calculateXsi(z,I_target)
     self.lhs:le(self.rhs,self.a_ub)
     E_1:cmul(self.lhs)
     if self.diagnostics then
-      -- u.printf('Percent filfilling condition     1: %2.2f',E_1:sum()/E_1:nElement()*100.0)
+      u.printf('Percent filfilling condition     1: %2.2f',E_1:sum()/E_1:nElement()*100.0)
       -- local rhs = self.rhs:float()
       -- print(rhs:max(),rhs:min())
       -- plt:hist(self.rhs:float():view(self.rhs:nElement()),'rhs, cond 1')
@@ -87,7 +87,7 @@ function TruncatedPoissonLikelihood:calculateXsi(z,I_target)
     -- E_2, condition for numerator
     self.valid_gradients:le(self.lhs,self.rhs)
     if self.diagnostics then
-      -- u.printf('Percent filfilling condition     2: %2.2f',self.valid_gradients:sum()/self.valid_gradients:nElement()*100.0)
+      u.printf('Percent filfilling condition     2: %2.2f',self.valid_gradients:sum()/self.valid_gradients:nElement()*100.0)
       -- plt:hist(self.rhs:float():view(self.rhs:nElement()),'rhs')
       -- plt:hist(self.lhs:float():view(self.lhs:nElement()),'lhs')
     end
@@ -114,7 +114,7 @@ function TruncatedPoissonLikelihood:updateGradInput(z, I_target)
   if self.do_truncate then
     self.gradInput:cmul(vg_expanded)
   end
-  return self.gradInput, (self.valid_gradients:sum()/self.valid_gradients:nElement()*100.0)
+  return self.gradInput, self.valid_gradients:sum()
 end
 
 function TruncatedPoissonLikelihood:__call__(input, target)
