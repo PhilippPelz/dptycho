@@ -166,9 +166,9 @@ def raster_positions_overlap(size,probe_mask,overlap):
             ov[pos[0,0]:pos[0,0]+sh[0],pos[0,1]:pos[0,1]+sh[1]] += probe_mask
             ov[pos[1,0]:pos[1,0]+sh[0],pos[1,1]:pos[1,1]+sh[1]] *= probe_mask
 
-    #        f, ax = plt.subplots(1,1,figsize=(10,7))
-    #        ax.imshow(ov)
-    #        plt.show()
+            # f, ax = plt.subplots(1,1,figsize=(10,7))
+            # ax.imshow(ov)
+            # plt.show()
 
             ovlap =  ov.sum()/float(probe_mask.sum())
             # print ovlap#, posv.sha1pe[0]

@@ -2,11 +2,13 @@ local nn = require 'nn'
 local plot = require 'dptycho.io.plot'
 local plt = plot()
 require 'pprint'
-local c, parent = torch.class('znn.SpatialSmoothnessCriterion', 'nn.Criterion')
+local c, parent = torch.class('znn.TVCriterion', 'nn.Criterion')
 
-function c:__init(tmp,grad,amp)
+function c:__init(tmp,grad,amp,tmp_real,tmp_real2)
    parent.__init(self)
    self.tmp = tmp:squeeze(2)
+   self.tmp_real = tmp_real
+   self.tmp_real2 = tmp_real2
    self.gradInput = grad
    self.amplitude = amp
 end
@@ -18,34 +20,48 @@ function c:updateOutput(input, target)
   local inp = input:squeeze(2) --squeeze away the probe dimension
   -- pprint(inp)
   -- pprint(d)
-  local a = d:dx_bw(inp):normall(2)
+  local a = d:dx_bw(inp):normall(1)
   local b = d:dy_bw(inp):normall(1)
-  local c = d:dx_fw(inp):normall(2)
-  local e = d:dy_fw(inp):normall(2)
+  local c = d:dx_fw(inp):normall(1)
+  local e = d:dy_fw(inp):normall(1)
   self.output = self.amplitude*(a+b+c+e)
   return self.output
 end
 
 function c:updateGradInput(input, target)
-  -- plt:plot(input[1][1]:zfloat(),'input')
-  self.gradInput:zero()
+  local d_abs = self.tmp_real
   local d = self.tmp
-  local inp = input:squeeze(2) --squeeze away the probe dimension
-  d:zero()
-  d:dx_bw(inp)
-  -- plt:plot(d[1]:zfloat(),'dx_bw')
+  local mask = self.tmp_real2
+  local eps = 1e-10
+
+  self.gradInput:zero()
+
+  d:dx_bw(input)
+  d_abs:absZ(d)
+  mask:lt(d_abs,eps)
+  d_abs:maskedFill(mask,eps)
+  d:cdiv(d_abs)
   self.gradInput:add(d)
-  d:zero()
-  d:dy_bw(inp)
-  -- plt:plot(d[1]:zfloat(),'dy_bw')
+
+  d:dy_bw(input)
+  d_abs:absZ(d)
+  mask:lt(d_abs,eps)
+  d_abs:maskedFill(mask,eps)
+  d:cdiv(d_abs)
   self.gradInput:add(d)
-  d:zero()
-  d:dx_fw(inp)
-  -- plt:plot(d[1]:zfloat(),'dx_fw')
+
+  d:dx_fw(input)
+  d_abs:absZ(d)
+  mask:lt(d_abs,eps)
+  d_abs:maskedFill(mask,eps)
+  d:cdiv(d_abs)
   self.gradInput:add(-1,d)
-  d:zero()
-  d:dy_fw(inp)
-  -- plt:plot(d[1]:zfloat(),'dy_fw')
+
+  d:dy_fw(input)
+  d_abs:absZ(d)
+  mask:lt(d_abs,eps)
+  d_abs:maskedFill(mask,eps)
+  d:cdiv(d_abs)
   self.gradInput:add(-1,d)
 
   self.gradInput:mul(self.amplitude)

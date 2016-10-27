@@ -44,19 +44,18 @@ end
 
 function main()
   local conn = hypero.connect()
-  local bat = conn:battery('bayes_opt 4v6x 200 gradients', '1.0')
+  local bat = conn:battery('bayes_opt 4hhb 200 blr averaging', '1.0')
 
-  local dose = {1e7}
-  -- local dose = {4.8e6}6e5,1.5e6,2.8e6,4.8e6,8.4e6,1.5e7,2.6e7,4.6e7,8.5e7,1.45e8
+  local dose = {6e5,1.5e6}
+  local name = {'4','12'}--1e6,2e6,2.5e6
+  -- local dose = {4.8e6} 6e5,1.5e6,2.8e6,4.8e6,8.4e6,1.5e7,2.6e7,4.6e7,8.5e7,1.45e8
   -- local dose = {1.45e8,8.5e7,4.6e7,2.6e7,1.5e7,8.4e6,4.8e6,2.8e6,1.5e6}
   local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
           56.23413252,   100.        ,   177.827941  ,   316.22776602,
          562.34132519}
   local overlap = {0.72}--,0.7,0.75,0.8}0.45,0.5,0.55,0.6,
   -- local overlap = {0.45}
-  local nu = {10e-2,5e-2,1e-2,5e-3}--4e-2,2e-1,1e-1,
-  local lr = {1e-4,5e-4}
-  local momentum = {0,0.99,0.95}
+  local nu = {5e-2}--4e-2,2e-1,1e-1,
 
   local par = ptycho.params.DEFAULT_PARAMS_TWF()
 
@@ -65,7 +64,7 @@ function main()
   par.Np = 1
   par.No = 1
   par.bg_solution = nil
-  par.plot_every = 6000
+  par.plot_every = 700
   par.plot_start = 1
   par.show_plots = false
   par.beta = 0.9
@@ -76,7 +75,7 @@ function main()
   par.fm_support_radius = function(it) return nil end
   par.fm_mask_radius = function(it) return nil end
 
-  par.probe_update_start = 6000
+  par.probe_update_start = 700
   par.probe_support = 0.5
   par.probe_regularization_amplitude = function(it) return nil end
   par.probe_inertia = 0
@@ -85,7 +84,7 @@ function main()
   par.object_highpass_fwhm = function(it) return nil end
   par.object_inertia = 0
   par.object_init = 'trunc'
-  par.object_init_truncation_threshold = 59
+  par.object_init_truncation_threshold = 94
 
   par.P_Q_iterations = 10
   par.copy_probe = true
@@ -93,9 +92,9 @@ function main()
   par.margin = 0
   par.background_correction_start = 1e5
 
-  par.save_interval = 6000
+  par.save_interval = 700
   par.save_raw_data = true
-  par.save_path = '/home/philipp/projects/papers/lowdose/data/gradient_steps/'--'/home/philipp/drop/Public/sim/'
+
 
   par.O_denom_regul_factor_start = 0
   par.O_denom_regul_factor_end = 0
@@ -104,67 +103,17 @@ function main()
   par.O = nil
 
   par.twf.a_h = 50
-  par.twf.a_lb = 1e-4
-  par.twf.a_ub = 2e1
+  par.twf.a_lb = 1e-3
+  par.twf.a_ub = 1e0
   par.twf.mu_max = 0.01
   par.twf.tau0 = 10
-  par.twf.do_truncate = true
-  par.twf.diagnostics = true
-
-  for w,lr0 in ipairs(lr) do
-    for q,mom0 in ipairs(lr) do
-
-  -- config for sgd
-  -- par.optim_config = {}
-  -- par.optim_state = {}
-  -- par.optim_config.learningRate = lr0
-  -- par.optim_config.learningRateDecay = mom0
-  -- par.optim_config.weightDecay = 0
-  -- par.optim_config.momentum = 0
-
-  -- config for L-BFGS
-  -- par.optim_config = {}
-  -- par.optim_state = {}
-  -- par.optim_config.maxIter = 10
-  -- par.optim_config.maxEval = par.optim_config.maxIter*1.25
-  -- par.optim_config.tolFun = 1e-5
-  -- par.optim_config.tolX = 1e-9
-  -- par.optim_config.nCorrection = 5
-  -- par.optim_config.lineSearch = optim.lswolfe
-  --
-  -- par.optim_config.lineSearchOptions = {}
-  -- par.optim_config.lineSearchOptions.c1 = 1e-4
-  -- par.optim_config.lineSearchOptions.c2 = 0.9
-  -- par.optim_config.lineSearchOptions.tolX = 1e-9
-  -- par.optim_config.lineSearchOptions.maxIter = 20
-  -- par.optim_config.lineSearchOptions.verbose = false
-  --
-  -- par.optim_config.learningRate = 1
-  -- par.optim_config.verbose = false
-
-  -- config for nag
-  -- par.optim_config = {}
-  -- par.optim_state = {}
-  -- par.optim_config.learningRate = 1e-8
-  -- par.optim_config.learningRateDecay = 3e-2
-  -- par.optim_config.weightDecay = 0
-  -- par.optim_config.momentum = 0.9
-  -- par.optim_config.dampening = nil
-
-  -- config for cg
-  par.optim_config = {}
-  par.optim_config.maxIter = 10
-  par.optim_config.sig = 0.5
-  par.optim_config.red = 1e8
-  par.optim_config.break_on_success = true
-  par.optim_config.verbose = false
-  par.optim_state = {}
+  par.twf.do_truncate = false
 
   par.regularizer = znn.SpatialSmoothnessCriterion
-  par.optimizer = optim.cg -- nag sgd cg
+  par.optimizer = optim.cg
 
   par.calculate_dose_from_probe = true
-  par.stopping_threshold = 1e-5
+  par.stopping_threshold = 1e-6
 
   par.experiment.z = 0.56
   par.experiment.E = E
@@ -181,7 +130,6 @@ function main()
       local pr = f:read('/pr'):all()
       local pi = f:read('/pi'):all()
       probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
-      -- plt:plot(probe:zfloat(),'probe_rfzp')
       f:close()
     elseif probe_type == 2 then
       local f = hdf5.open('/home/philipp/drop/Public/probe_fzp.h5','r')
@@ -196,26 +144,13 @@ function main()
       probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
       -- plt:plot(probe:zfloat(),'probe')
       f:close()
-    elseif probe_type == 4 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_coneblr.h5','r')
-      local pr = f:read('/pr'):all()
-      local pi = f:read('/pi'):all()
-      probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
-      -- plt:plot(probe:zfloat(),'defocused probe')
-      f:close()
-    elseif probe_type == 5 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_def.h5','r')
-      local pr = f:read('/pr'):all()
-      local pi = f:read('/pi'):all()
-      probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
-      -- plt:plot(probe:zfloat(),'defocused probe')
-      f:close()
     end
-    local ID = 12
-    -- for l=1,20 do
+    local ID = 1
+    for l=1,10 do
     for i,dose0 in ipairs(dose) do
+      par.save_path = '/home/philipp/projects/papers/lowdose/data/4hhb/figure_averaging/'..name[i]..'/'--'/home/philipp/drop/Public/sim/'
       for j,overlap0 in ipairs(overlap) do
-        local sample = '4V6X_200'
+        local sample = '4HHB_200'
         -- print(dose0)
         local data = get_data('/home/philipp/drop/Public/'..sample..'.h5',dose0,overlap0,N,E,probe)
         par.pos = data.pos
@@ -227,18 +162,20 @@ function main()
         for k,nu0 in ipairs(nu) do
 
             local nu = string.gsub(string.format('%g',nu0),',','p')
-            local str = string.format('%05d_s_%s_ov_%d_d_%d_nu_%s_run_%d',ID,sample,overlap0*100,dose0,nu,1)
+            local str = string.format('%05d_s_%s_ov_%d_d_%d_nu_%s_run_%d',ID,sample,overlap0*100,dose0,nu,l)
             par.run_label = str
             par.twf.nu = 3e-2
             par.a = data.a:clone()
+            -- print()
+            -- print('a sum')
             -- print(par.a:sum())
             -- print()
 
             local hex = bat:experiment()
 
             local eng = ptycho.TWF_engine(par)
-            eng:iterate(3000)
-            local hp = {run_label = str, nu = nu0, dose = eng.electrons_per_angstrom2, total_counts = eng.I_total, counts_per_valid_pixel = eng.counts_per_valid_pixel, MoverN = eng.total_nonzero_measurements/eng.pixels_with_sufficient_exposure, overlap = overlap0, probe_type = probe_type, method = 'cg', learningRate = par.optim_config.learningRate, learningRateDecay = par.optim_config.learningRateDecay, momentum = par.optim_config.momentum}
+            eng:iterate(500)
+            local hp = {run_label = str, nu = nu0, dose = eng.electrons_per_angstrom2, total_counts = eng.I_total, counts_per_valid_pixel = eng.counts_per_valid_pixel, MoverN = eng.total_nonzero_measurements/eng.pixels_with_sufficient_exposure, overlap = overlap0, probe_type = probe_type}
             local md = {hostname = 'work', dataset = sample}
             local res = { final_img_error = eng.img_error[eng.i], final_rel_error = eng.rel_error[eng.i], img_err = eng.img_error:totable(), rel_err = eng.rel_error:totable()}
 
@@ -249,13 +186,11 @@ function main()
             eng = nil
             ID = ID + 1
             collectgarbage()
-          -- end
+          end
         end
       end -- end nu
     end -- end dose
   end
-end
-end
 end
 
 main()

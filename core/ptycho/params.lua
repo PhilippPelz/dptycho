@@ -2,6 +2,8 @@ local classic = require 'classic'
 local u = require "dptycho.util"
 local ptycho = require("dptycho.core.ptycho")
 local m = classic.module(...)
+local znn = require 'dptycho.znn'
+local optim = require 'optim'
 
 local _DEFAULT_PARAMS = {
   pos = torch.FloatTensor(),
@@ -51,6 +53,9 @@ local _DEFAULT_PARAMS = {
   save_raw_data = false,
   run_label = 'ptycho',
 
+  regularizer = znn.SpatialSmoothnessCriterion,
+  optimizer = optim.cg,
+
   O_denom_regul_factor_start = 1e-6,
   O_denom_regul_factor_end = 1e-9,
   twf = {
@@ -59,7 +64,9 @@ local _DEFAULT_PARAMS = {
     a_ub = 25,
     mu_max = 0.01,
     tau0 = 330,
-    nu = 1e-2
+    nu = 1e-2,
+    do_truncate = false,
+    diagnostics = false
   },
   experiment = {
     z = 0.5,
