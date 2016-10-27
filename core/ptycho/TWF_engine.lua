@@ -333,7 +333,7 @@ function TWF_engine:iterate(steps)
     if i>1 and math.abs(self.img_error[i] - self.img_error[i-1]) < self.stopping_threshold then
       it_no_progress = it_no_progress + 1
     end
-    if it_no_progress == 5 then
+    if it_no_progress == 3 then
       break
     end
     -- grad = fun_compute_grad_TPWFP_Real(z, y, Params, A, At, Masks, n1_LR, n2_LR, fmaskpro);

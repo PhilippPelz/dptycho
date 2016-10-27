@@ -53,7 +53,7 @@ function c:exitwaves_multislice(pos,in_psi, view_size, E, total_dose)
   -- plt:plot(self.T_proj,'proj T')
 
   self:scale_probe_intensity(in_psi,total_dose,pos:size(1))
-
+  -- plt:plot(in_psi,'in_psi')
   local views = s.create_views(self.T, pos, view_size,1)
   local P0 = prop.fresnel(view_size,self.dx,self.dz,self.physics.lambda)
   P0:fftshift()
@@ -63,11 +63,12 @@ function c:exitwaves_multislice(pos,in_psi, view_size, E, total_dose)
 
   for slice = 1, self.v:size(1) do
     for i, view in ipairs(views) do
-      -- if slice == 15 then
+      -- if i == 74 then
       --   plt:plot(view[slice]:zfloat(),'view[' .. i)
       -- end
       out_psi[i]:cmul(view[slice])
     end
+    -- print(slice)
     out_psi:fftBatched()
     -- if true then
     --   plt:plot(out_psi[74]:zfloat(),'out_psi')
