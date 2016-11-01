@@ -62,15 +62,48 @@ def MTF_DQE_2D(cam,binning,s,path):
         mtf2D = fftshift(mtfq)
         dqe2D = fftshift(filter.gaussian_filter(dqeq,3))
 
-        # f, ax = plt.subplots(1,1,figsize=(10,7))
-        # cax = ax.imshow(mtf2D)
-        # plt.colorbar(cax)
-        # plt.show()
-        #
-        # f, ax = plt.subplots(1,1,figsize=(10,7))
-        # cax = ax.imshow(dqe2D)
-        # plt.colorbar(cax)
-        # plt.show()
+        f, ax = plt.subplots(1,1,figsize=(10,7))
+        cax = ax.imshow(mtf2D)
+        plt.colorbar(cax)
+        plt.show()
+
+        f, ax = plt.subplots(1,1,figsize=(10,7))
+        cax = ax.imshow(dqe2D)
+        plt.colorbar(cax)
+        plt.show()
+
+        return mtf2D, dqe2D
+
+def MTF_DQE_2D2(cam,binning,s,path):
+    if cam == 'K2':
+        df = pd.read_csv(path + '/K2Count3eps20.csv')
+        dqe = df['DQE'].values
+        mtf = df['MTF'].values
+        q = df['Frequency'].values
+
+        size = np.array((3840,3712))
+        bsize = size / binning
+        dqef = i.interp1d(q,dqe,kind='quadratic')
+        mtff = i.interp1d(q,mtf,kind='quadratic')
+
+        xx,yy = np.mgrid[-s/2:s/2,-s/2:s/2]
+        rr = np.sqrt(xx**2 + yy**2)
+        qq = rr / np.max(size)
+
+        mtfq = mtff(qq)
+        dqeq = np.ones_like(mtfq) * 0.8
+        mtf2D = fftshift(mtfq)
+        dqe2D = fftshift(filter.gaussian_filter(dqeq,3))
+
+        f, ax = plt.subplots(1,1,figsize=(10,7))
+        cax = ax.imshow(mtf2D)
+        plt.colorbar(cax)
+        plt.show()
+
+        f, ax = plt.subplots(1,1,figsize=(10,7))
+        cax = ax.imshow(dqe2D)
+        plt.colorbar(cax)
+        plt.show()
 
         return mtf2D, dqe2D
 
@@ -199,6 +232,6 @@ def raster_positions_overlap(size,probe_mask,overlap):
 
 
 
-# N = 256
+N = 256
 # raster_positions_overlap(384,sector_mask((N,N),(N/2,N/2),0.2*N,(0,360)), 0.50)
-# MTF_DQE_2D('K2',4,512)
+MTF_DQE_2D2('K2',4,N,'/home/philipp/projects/dptycho/simulation/')

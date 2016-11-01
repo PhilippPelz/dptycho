@@ -56,7 +56,7 @@ function c:exitwaves_multislice(pos,in_psi, view_size, E, total_dose)
   -- plt:plot(self.T_proj,'proj T')
 
   self:scale_probe_intensity(in_psi,total_dose,pos:size(1))
-
+  -- plt:plot(in_psi,'in_psi')
   local views = s.create_views(self.T, pos, view_size,1)
   local P0 = prop.fresnel(view_size,self.dx,self.dz,self.physics.lambda)
   P0:fftshift()
@@ -66,11 +66,12 @@ function c:exitwaves_multislice(pos,in_psi, view_size, E, total_dose)
 
   for slice = 1, self.v:size(1) do
     for i, view in ipairs(views) do
-      -- if slice == 15 then
+      -- if i == 74 then
       --   plt:plot(view[slice]:zfloat(),'view[' .. i)
       -- end
       out_psi[i]:cmul(view[slice])
     end
+    -- print(slice)
     out_psi:fftBatched()
     -- if true then
     --   plt:plot(out_psi[74]:zfloat(),'out_psi')
@@ -265,8 +266,15 @@ function c:random_fzp2(N,factor,sections)
   return probe
 end
 
+--1.Ruskin, R. S., Yu, Z. & Grigorieff, N. Quantitative characterization of electron detectors for transmission electron microscopy. J. Struct. Biol. 184, 385–393 (2013).
 function c:get_detector_MTF_DQE(detector_type,binning,size)
   local mtf,dqe = table.unpack(py.eval('MTF_DQE_2D(t,b,s,path)',{t=detector_type,b=binning,s=size,path=u.script_path()}))
+  return mtf,dqe
+end
+
+-- 1.McMullan, G., Faruqi, A. R., Clare, D. & Henderson, R. Comparison of optimal performance at 300 keV of three direct electron detectors for use in low dose electron microscopy. Ultramicroscopy 147, 156–163 (2014).
+function c:get_detector_MTF_DQE2(detector_type,binning,size)
+  local mtf,dqe = table.unpack(py.eval('MTF_DQE_2D2(t,b,s,path)',{t=detector_type,b=binning,s=size,path=u.script_path()}))
   return mtf,dqe
 end
 
