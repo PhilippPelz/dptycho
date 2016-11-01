@@ -52,6 +52,12 @@ function main()
   local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
           56.23413252,   100.        ,   177.827941  ,   316.22776602,
          562.34132519}
+ local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
+         56.23413252,   100.        ,   177.827941  ,   316.22776602,
+        562.34132519}
+  local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
+          56.23413252,   100.        ,   177.827941  ,   316.22776602,
+         562.34132519}
   local overlap = {0.72}--,0.7,0.75,0.8}0.45,0.5,0.55,0.6,
   -- local overlap = {0.45}
   local nu = {10e-2,5e-2,1e-2,5e-3}--4e-2,2e-1,1e-1,
@@ -84,7 +90,7 @@ function main()
 
   par.object_highpass_fwhm = function(it) return nil end
   par.object_inertia = 0
-  par.object_init = 'trunc'
+  par.object_init = 'rand'
   par.object_init_truncation_threshold = 59
 
   par.P_Q_iterations = 10
@@ -171,7 +177,7 @@ function main()
   par.experiment.det_pix = 40e-6
   par.experiment.N_det_pix = N
 
-  for probe_type = 3,3 do
+  for probe_type = 2,2 do
     local s = simul.simulator()
     local probe = nil
     local d = 2.0
