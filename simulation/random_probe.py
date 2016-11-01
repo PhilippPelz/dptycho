@@ -546,3 +546,22 @@ def rgb2complex(rgb):
 # p = r + 1j*i
 # plotcx(fftshift( fft2( ifftshift( p ) ) ),os.path.dirname(file1) + '/fzp_probe_fourier')
 # plotcx(p,os.path.dirname(file1) + '/fzp_probe')
+def taperarray(N,edge):
+    xx,yy = np.mgrid[0:N,0:N]
+    xx1 = np.flipud(xx)
+    xx2 = np.minimum(xx,xx1)
+    yy1 = np.fliplr(yy)
+    yy2 = np.minimum(yy,yy1)
+    rr = np.minimum(xx2,yy2).astype(np.float)
+    
+    rr[rr<=edge] /= edge    
+    rr[rr>edge] = 1
+    rr *= np.pi/2
+    rr = np.sin(rr)
+    print xx2
+    fig, ax = plt.subplots()
+    imax = ax.imshow(rr)
+    plt.colorbar(imax)
+    plt.show()
+    
+taperarray(50,10)
