@@ -13,6 +13,7 @@ from scipy import interpolate as i
 from scipy.ndimage import filters as filter
 from math import *
 import scipy.io
+import scipy.ndimage
 
 def sector_mask(shape,centre,radius,angle_range):
     """
@@ -84,31 +85,31 @@ def MTF_DQE_2D2(cam,binning,s,path):
 
         size = np.array((3712,3712))
         bsize = size / binning
-        dqef = i.interp1d(q,dqe,kind='quadratic')
-        mtff = i.interp1d(q,mtf,kind='quadratic')
+        dqef = i.interp1d(q,dqe,kind='cubic')
+        mtff = i.interp1d(q,mtf,kind='cubic')
 
         xx,yy = np.mgrid[-s/2:s/2,-s/2:s/2]
         rr = np.sqrt(xx**2 + yy**2)
-        qq = rr / (np.max(size)/2)
+        qq = rr / (s/2)
 
         mtfq = mtff(qq)
         dqeq = dqef(qq)
 
-        # scipy.io.savemat('/home/philipp/Dropbox/Public/InSilicoTEM/code/MTFs/DQE_K2Summit_300.mat', mdict={'dqe': mtfq})
-        # scipy.io.savemat('/home/philipp/Dropbox/Public/InSilicoTEM/code/MTFs/MTF_K2Summit_300.mat', mdict={'mtf': dqeq})
+        scipy.io.savemat('/home/philipp/drop/Public/InSilicoTEM/code/MTFs/DQE_K2Summit_300.mat', mdict={'dqe': dqeq})
+        scipy.io.savemat('/home/philipp/drop/Public/InSilicoTEM/code/MTFs/MTF_K2Summit_300.mat', mdict={'mtf': mtfq})
 
         mtf2D = fftshift(mtfq)
         dqe2D = fftshift(dqeq)
 
-        # f, ax = plt.subplots(1,1,figsize=(10,7))
-        # cax = ax.imshow(mtf2D)
-        # plt.colorbar(cax)
-        # plt.show()
-        #
-        # f, ax = plt.subplots(1,1,figsize=(10,7))
-        # cax = ax.imshow(dqe2D)
-        # plt.colorbar(cax)
-        # plt.show()
+        f, ax = plt.subplots(1,1,figsize=(10,7))
+        cax = ax.imshow(mtf2D)
+        plt.colorbar(cax)
+        plt.show()
+
+        f, ax = plt.subplots(1,1,figsize=(10,7))
+        cax = ax.imshow(dqe2D)
+        plt.colorbar(cax)
+        plt.show()
 
         return mtf2D, dqe2D
 
@@ -237,6 +238,6 @@ def raster_positions_overlap(size,probe_mask,overlap):
 
 
 
-# N = 3712
+N = 256
 # raster_positions_overlap(384,sector_mask((N,N),(N/2,N/2),0.2*N,(0,360)), 0.50)
-# MTF_DQE_2D2('K2',1,N,'/home/philipp/projects/dptycho/simulation/')
+MTF_DQE_2D2('K2',1,N,'/home/philipp/projects/dptycho/simulation/')
