@@ -46,7 +46,7 @@ function main()
   local conn = hypero.connect()
   local bat = conn:battery('bayes_opt 4v6x 200 gradients', '1.0')
 
-  local dose = {4.8e6}
+  local dose = {4.9e6}
   -- local dose = {4.8e6}6e5,1.5e6,2.8e6,4.8e6,8.4e6,1.5e7,2.6e7,4.6e7,8.5e7,1.45e8
   -- local dose = {1.45e8,8.5e7,4.6e7,2.6e7,1.5e7,8.4e6,4.8e6,2.8e6,1.5e6}
   local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
@@ -60,10 +60,11 @@ function main()
          562.34132519}
   local overlap = {0.6}--,0.7,0.75,0.8}0.45,0.5,0.55,0.6,
   -- local overlap = {0.45}
-  local nu = {10e-2,5e-2,1e-2,5e-3}--4e-2,2e-1,1e-1,
-  local lr = {1e-4,5e-4}
-  local momentum = {0,0.99,0.95}
-
+  local nu = {10e-2}--{10e-2,5e-2,1e-2,5e-3}--4e-2,2e-1,1e-1,
+  local lr = {1e-4}--{1e-4,5e-4}
+  local momentum = {0}--{0,0.99,0.95}
+  local ID = 55
+  for l=1,30 do
   local par = ptycho.params.DEFAULT_PARAMS_TWF()
 
   local N = 256
@@ -221,8 +222,8 @@ function main()
       -- plt:plot(probe:zfloat(),'defocused probe')
       f:close()
     end
-    local ID = 12
-    -- for l=1,20 do
+
+
     for i,dose0 in ipairs(dose) do
       for j,overlap0 in ipairs(overlap) do
         local sample = '4V6X_200'
@@ -256,7 +257,7 @@ function main()
             local hex = bat:experiment()
 
             local eng = ptycho.BM3D_TWF_engine(par)
-            eng:iterate(99)
+            eng:iterate(43)
             local hp = {run_label = str, nu = nu0, dose = eng.electrons_per_angstrom2, total_counts = eng.I_total, counts_per_valid_pixel = eng.counts_per_valid_pixel, MoverN = eng.total_nonzero_measurements/eng.pixels_with_sufficient_exposure, overlap = overlap0, probe_type = probe_type, method = 'cg', learningRate = par.optim_config.learningRate, learningRateDecay = par.optim_config.learningRateDecay, momentum = par.optim_config.momentum}
             local md = {hostname = 'work', dataset = sample}
             local res = { final_img_error = eng.img_error[eng.i], final_rel_error = eng.rel_error[eng.i], img_err = eng.img_error:totable(), rel_err = eng.rel_error:totable()}
@@ -273,6 +274,7 @@ function main()
       end -- end nu
     end -- end dose
   end
+end
 end
 end
 end
