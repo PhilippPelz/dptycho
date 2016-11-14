@@ -53,6 +53,10 @@ local _DEFAULT_PARAMS = {
   save_raw_data = false,
   run_label = 'ptycho',
 
+  start_denoising = 5,
+  denoise_interval = 2,
+  sigma_denoise = 25,
+
   regularizer = znn.SpatialSmoothnessCriterion,
   optimizer = optim.cg,
 

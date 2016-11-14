@@ -22,6 +22,146 @@ def DTF2D(N):
   W = fft(np.eye(N))
   W2D = np.kron(W,W)/N
   return W2D.real, W2D.imag
+
+def rgb2hsv1(rgb):
+    """
+    Reverse to :any:`hsv2rgb`
+    """
+    eps = 1e-6
+    rgb=np.asarray(rgb).astype(float)
+
+    #print 'rgb shape'
+    #print rgb.shape
+
+    maxc = rgb.max(axis=0)
+    minc = rgb.min(axis=0)
+    v = maxc
+    s = (maxc-minc) / (maxc+eps)
+    s[maxc<=eps]=0.0
+    rc = (maxc-rgb[0,:,:]) / (maxc-minc+eps)
+    gc = (maxc-rgb[1,:,:]) / (maxc-minc+eps)
+    bc = (maxc-rgb[2,:,:]) / (maxc-minc+eps)
+
+    h =  4.0+gc-rc
+    maxgreen = (rgb[1,:,:] == maxc)
+    h[maxgreen] = 2.0+rc[maxgreen]-bc[maxgreen]
+    maxred = (rgb[0,:,:] == maxc)
+    h[maxred] = bc[maxred]-gc[maxred]
+    h[minc==maxc]=0.0
+    h = (h/6.0) % 1.0
+
+    return np.asarray((h, s, v))
+
+def hsv2complex1(cin):
+    """
+    Reverse to :any:`complex2hsv`
+    """
+    h,s,v = cin
+    return v * np.exp(np.pi*2j*(h-.5)) /v.max()
+
+
+
+def complex2hsv(cin, vmin=None, vmax=None):
+    """\
+    Transforms a complex array into an RGB image,
+    mapping phase to hue, amplitude to value and
+    keeping maximum saturation.
+
+    Parameters
+    ----------
+    cin : ndarray
+        Complex input. Must be two-dimensional.
+
+    vmin,vmax : float
+        Clip amplitude of input into this interval.
+
+    Returns
+    -------
+    rgb : ndarray
+        Three dimensional output.
+
+    See also
+    --------
+    complex2rgb
+    hsv2rgb
+    hsv2complex
+    """
+    # HSV channels
+    h = .5*np.angle(cin)/np.pi + .5
+    s = np.ones(cin.shape)
+
+    v = abs(cin)
+    if vmin is None: vmin = 0.
+    if vmax is None: vmax = v.max()
+    #print vmin, vmax
+    assert vmin < vmax
+    v = (v.clip(vmin,vmax)-vmin)/(vmax-vmin)
+
+    return np.asarray((h,s,v))
+
+def complex2rgb(r,i):
+    """
+    Executes `complex2hsv` and then `hsv2rgb`
+
+    See also
+    --------
+    complex2hsv
+    hsv2rgb
+    rgb2complex
+    """
+    cin = r + 1j * i
+    return hsv2rgb(complex2hsv(cin))
+
+def hsv2rgb(hsv):
+    """\
+    HSV (Hue,Saturation,Value) to RGB (Red,Green,Blue) transformation.
+
+    Parameters
+    ----------
+    hsv : array-like
+        Input must be two-dimensional. **First** axis is interpreted
+        as hue,saturation,value channels.
+
+    Returns
+    -------
+    rgb : ndarray
+        Three dimensional output. **First** axis is interpreted as
+        red, green, blue channels.
+
+    See also
+    --------
+    complex2rgb
+    complex2hsv
+    rgb2hsv
+    """
+    # HSV channels
+    h,s,v = hsv
+
+    i = (6.*h).astype(int)
+    f = (6.*h) - i
+    p = v*(1. - s)
+    q = v*(1. - s*f)
+    t = v*(1. - s*(1.-f))
+    i0 = (i%6 == 0)
+    i1 = (i == 1)
+    i2 = (i == 2)
+    i3 = (i == 3)
+    i4 = (i == 4)
+    i5 = (i == 5)
+
+    rgb = np.zeros((3,) + h.shape , dtype=h.dtype)
+    rgb[0,:,:] = 255*(i0*v + i1*q + i2*p + i3*p + i4*t + i5*v)
+    rgb[1,:,:] = 255*(i0*t + i1*v + i2*v + i3*q + i4*p + i5*p)
+    rgb[2,:,:] = 255*(i0*p + i1*p + i2*t + i3*v + i4*v + i5*q)
+
+    return rgb.astype(np.float32)
+
+def rgb2complex1(rgb):
+    """
+    Reverse to :any:`complex2rgb`
+    """
+    cout = hsv2complex1(rgb2hsv1(rgb))
+    return (cout.real.astype(np.float32),cout.imag.astype(np.float32))
 ]=])
 
 
@@ -242,6 +382,26 @@ end
 
 function m.meshgrid(x,y)
 
+end
+
+function m.complex2rgb(cx)
+  local r = cx:re()
+  local i  = cx:im()
+  local rgb = py.eval('complex2rgb(r,i)',{r=r,i=i})
+  return rgb
+end
+
+function m.rgb2complex(rgb1)
+  local x = py.eval('rgb2complex1(rgb1)',{rgb1=rgb1})
+  local r,i = table.unpack(x)
+  -- local s = r:size():totable()
+  --
+  -- local f = torch.FloaTensor(s[1],s[2],2)
+  -- f[{{},{},{1}}]:copy(r)
+  -- f[{{},{},{2}}]:copy(i)
+
+  local cx = torch.ZFloatTensor.new(r,i)
+  return cx
 end
 
 function m.printf(s,...)

@@ -553,15 +553,15 @@ def taperarray(N,edge):
     yy1 = np.fliplr(yy)
     yy2 = np.minimum(yy,yy1)
     rr = np.minimum(xx2,yy2).astype(np.float)
-    
-    rr[rr<=edge] /= edge    
+
+    rr[rr<=edge] /= edge
     rr[rr>edge] = 1
     rr *= np.pi/2
     rr = np.sin(rr)
     print xx2
     fig, ax = plt.subplots()
-    imax = ax.imshow(rr)
-    plt.colorbar(imax)
-    plt.show()
-    
-taperarray(50,10)
+    # imax = ax.imshow(rr)
+    # plt.colorbar(imax)
+    # plt.show()
+
+# taperarray(50,10)
