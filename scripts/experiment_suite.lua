@@ -44,9 +44,9 @@ end
 
 function main()
   local conn = hypero.connect()
-  local bat = conn:battery('bayes_opt 4v6x 200 gradients', '1.0')
+  local bat = conn:battery('bayes_opt 4v6x 200 avg', '1.0')
 
-  local dose = {4.9e6}
+  local dose = {2.9e6}
   -- local dose = {4.8e6}6e5,1.5e6,2.8e6,4.8e6,8.4e6,1.5e7,2.6e7,4.6e7,8.5e7,1.45e8
   -- local dose = {1.45e8,8.5e7,4.6e7,2.6e7,1.5e7,8.4e6,4.8e6,2.8e6,1.5e6}
   local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
@@ -63,12 +63,12 @@ function main()
   local nu = {10e-2}--{10e-2,5e-2,1e-2,5e-3}--4e-2,2e-1,1e-1,
   local lr = {1e-4}--{1e-4,5e-4}
   local momentum = {0}--{0,0.99,0.95}
-  local ID = 55
-  for l=1,30 do
+  local ID = 1
+  for l=1,40 do
   local par = ptycho.params.DEFAULT_PARAMS_TWF()
 
   local N = 256
-  local E = 100e3
+  local E = 300e3
   par.Np = 1
   par.No = 1
   par.bg_solution = nil
@@ -102,7 +102,7 @@ function main()
 
   par.save_interval = 6000
   par.save_raw_data = true
-  par.save_path = '/home/philipp/projects/papers/lowdose/data/gradient_steps/'--'/home/philipp/drop/Public/sim/'
+  par.save_path = '/home/philipp/papers/lowdose/data/figure5_averaging/4v6x/5/'--'/home/philipp/drop/Public/sim/'
 
   par.O_denom_regul_factor_start = 0
   par.O_denom_regul_factor_end = 0
@@ -177,7 +177,7 @@ function main()
   par.calculate_dose_from_probe = true
   par.stopping_threshold = 1e-5
 
-  par.experiment.z = 0.56
+  par.experiment.z = 1.1
   par.experiment.E = E
   par.experiment.det_pix = 40e-6
   par.experiment.N_det_pix = N
@@ -257,7 +257,7 @@ function main()
             local hex = bat:experiment()
 
             local eng = ptycho.BM3D_TWF_engine(par)
-            eng:iterate(43)
+            eng:iterate(49)
             local hp = {run_label = str, nu = nu0, dose = eng.electrons_per_angstrom2, total_counts = eng.I_total, counts_per_valid_pixel = eng.counts_per_valid_pixel, MoverN = eng.total_nonzero_measurements/eng.pixels_with_sufficient_exposure, overlap = overlap0, probe_type = probe_type, method = 'cg', learningRate = par.optim_config.learningRate, learningRateDecay = par.optim_config.learningRateDecay, momentum = par.optim_config.momentum}
             local md = {hostname = 'work', dataset = sample}
             local res = { final_img_error = eng.img_error[eng.i], final_rel_error = eng.rel_error[eng.i], img_err = eng.img_error:totable(), rel_err = eng.rel_error:totable()}
