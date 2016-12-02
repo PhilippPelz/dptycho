@@ -17,7 +17,8 @@ function TWF_engine:_init(par)
   super._init(self,par)
   self.L = znn.TruncatedPoissonLikelihood(self.twf.a_h,self.twf.a_lb,self.twf.a_ub, self.z, self.fm, self.a_buffer1, self.a_buffer2, self.z1_buffer_real, self.K, self.No, self.Np, self.M, self.Nx, self.Ny, self.twf.diagnostics,self.twf.do_truncate)
   if self.regularizer then
-    self.R = self.regularizer(self.O_tmp,self.dR_dO,self.rescale_regul_amplitude*self.twf.nu,self.O_tmp_real1,self.O_tmp_real2)
+    -- self.regularization_params.amplitude = self.rescale_regul_amplitude*self.twf.nu
+    self.R = self.regularizer(self.O_tmp,self.dR_dO,self.regularization_params,self.O_tmp_real1,self.O_tmp_real2)
   end
   -- we deal with intensities in the MAP framework
   self.a:pow(2)
@@ -251,8 +252,8 @@ function TWF_engine.optim_func_object(self,O)
   -- calculate dL_dO
   self:merge_frames(self.dL_dz,self.P,self.dL_dO, self.dL_dO_views)
   -- plt:plot(self.dL_dO[1][1]:zfloat(),'O 1')
-  if self.regularizer then
-    self.R_error[self.i] = self.R:updateOutput(self.O)
+  if self.regularizer and self.do_regularize then
+    self.R_error[self.i] = self.R:updateOutput(self.O,self.i-self.regularization_params.start_denoising)
     self.dR_dO = self.R:updateGradInput(self.O)
     self.dL_dO:add(self.dR_dO)
   end
@@ -311,28 +312,28 @@ function TWF_engine:iterate(steps)
       self:calculateO_denom()
     end
 
-    if self.denoise then
-      local factor = 1
-      local O = self.O[1][1]:zfloat()
-      pprint(O)
-      local rgb = u.complex2rgb(O)
-      rgb:div(rgb:max())
-      pprint(rgb)
-      u.printf('rgb max: %g',rgb:max())
-      local absmax = self.O[1][1]:abs():max()
-      local O_basic = rgb:clone():zero()
-      local O_denoised = rgb:clone():zero()
-      image.save(string.format('rgb%d.png',i),rgb)
-      -- plt:plot(O,'noisy')
-      bm3d.bm3d(self.sigma_denoise*factor,rgb,O_basic,O_denoised)
-      u.printf('O_denoised max: %g',O_denoised:max())
-      -- image.save(string.format('denoised%d.png',i),O_denoised:clone())
-      local cx = u.rgb2complex(O_denoised)
-      -- plt:plot(cx,'denoised')
-      cx:mul(absmax)
-      self.O[1][1]:copy(cx)
-      self.optim_state = {}
-    end
+    -- if self.denoise then
+    --   local factor = 1
+    --   local O = self.O[1][1]:zfloat()
+    --   pprint(O)
+    --   local rgb = u.complex2rgb(O)
+    --   rgb:div(rgb:max())
+    --   pprint(rgb)
+    --   u.printf('rgb max: %g',rgb:max())
+    --   local absmax = self.O[1][1]:abs():max()
+    --   local O_basic = rgb:clone():zero()
+    --   local O_denoised = rgb:clone():zero()
+    --   image.save(string.format('rgb%d.png',i),rgb)
+    --   -- plt:plot(O,'noisy')
+    --   bm3d.bm3d(self.sigma_denoise*factor,rgb,O_basic,O_denoised)
+    --   u.printf('O_denoised max: %g',O_denoised:max())
+    --   -- image.save(string.format('denoised%d.png',i),O_denoised:clone())
+    --   local cx = u.rgb2complex(O_denoised)
+    --   -- plt:plot(cx,'denoised')
+    --   cx:mul(absmax)
+    --   self.O[1][1]:copy(cx)
+    --   self.optim_state = {}
+    -- end
 
     self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
 

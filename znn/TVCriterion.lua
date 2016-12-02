@@ -4,13 +4,13 @@ local plt = plot()
 require 'pprint'
 local c, parent = torch.class('znn.TVCriterion', 'nn.Criterion')
 
-function c:__init(tmp,grad,amp,tmp_real,tmp_real2)
+function c:__init(tmp,grad,par,tmp_real,tmp_real2)
    parent.__init(self)
    self.tmp = tmp:squeeze(2)
    self.tmp_real = tmp_real
    self.tmp_real2 = tmp_real2
    self.gradInput = grad
-   self.amplitude = amp
+   self.amplitude = par.amplitude
 end
 
 function c:updateOutput(input, target)

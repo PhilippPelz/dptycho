@@ -857,11 +857,12 @@ function engine:update_iteration_dependent_parameters(it)
     local savepath = self.save_path .. title
     plt:plot(self.fm_mask[1][1]:float(),title,savepath,self.show_plots)
   end
-  if it > self.start_denoising and it % self.denoise_interval == 0 then
+  if it > self.regularization_params.start_denoising then
     self.denoise = true
   else
     self.denoise = false
   end
+  self.do_regularize = self.denoise
 end
 
 function engine:maybe_save_data()

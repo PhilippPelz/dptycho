@@ -8,6 +8,7 @@ znn = classic.module(...)
 --znn:class("ConvSlice")
 --m.Sum = require 'Sum'
 
+require 'dptycho.znn.BM3D_MSE_Criterion'
 require 'dptycho.znn.SupportMask'
 require 'dptycho.znn.Threshold'
 require 'dptycho.znn.MultiCriterionVariableWeights'
@@ -35,6 +36,7 @@ require 'dptycho.znn.EuclideanLoss'
 require 'dptycho.znn.PoissonLikelihood'
 require 'dptycho.znn.SpatialSmoothnessCriterion'
 require 'dptycho.znn.TVCriterion'
+
 
 -- collapses all dimensions from 1 up to ndim-2 into a single dimension
 -- good to perform batched ffts

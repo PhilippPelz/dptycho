@@ -89,6 +89,7 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
     "/home/philipp/projects/dptycho/core/ptycho/TWF_engine_subpix.lua"
     "/home/philipp/projects/dptycho/core/ptycho/params.lua"
     "/home/philipp/projects/dptycho/core/ptycho/RAAR_engine.lua"
+    "/home/philipp/projects/dptycho/core/ptycho/BM3D_TWF_engine.lua"
     "/home/philipp/projects/dptycho/core/ptycho/ops_general.lua"
     )
 endif()
@@ -127,6 +128,7 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
     "/home/philipp/projects/dptycho/znn/init.lua"
     "/home/philipp/projects/dptycho/znn/PoissonLikelihood.lua"
     "/home/philipp/projects/dptycho/znn/SpatialSmoothnessCriterion.lua"
+    "/home/philipp/projects/dptycho/znn/BM3D_MSE_Criterion.lua"
     "/home/philipp/projects/dptycho/znn/ConvSlice.lua"
     "/home/philipp/projects/dptycho/znn/FFT.lua"
     "/home/philipp/projects/dptycho/znn/TracePenalty.lua"

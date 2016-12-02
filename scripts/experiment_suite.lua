@@ -110,10 +110,6 @@ function main()
   par.P = nil
   par.O = nil
 
-  par.start_denoising = 15
-  par.denoise_interval = 20
-  par.sigma_denoise = 0.05
-
   par.twf.a_h = 50
   par.twf.a_lb = 1e-4
   par.twf.a_ub = 2e1
@@ -171,8 +167,14 @@ function main()
   par.optim_config.verbose = false
   par.optim_state = {}
 
-  par.regularizer = nil--znn.SpatialSmoothnessCriterion
+  par.regularizer = znn.BM3D_MSE_Criterion--znn.SpatialSmoothnessCriterion
   par.optimizer = optim.cg -- nag sgd cg
+
+  par.regularization_params = {}
+  par.regularization_params.amplitude = 1e-2
+  par.regularization_params.start_denoising = 15
+  par.regularization_params.denoise_interval = 5
+  par.regularization_params.sigma_denoise = 0.05
 
   par.calculate_dose_from_probe = true
   par.stopping_threshold = 1e-5
