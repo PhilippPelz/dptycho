@@ -422,7 +422,9 @@ function m.truncated_spectral_estimate_power_it(z,P,O_denom,truncation_threshold
       return O_buffer
     end
 
-    O_buffer:copy(torch.ZFloatTensor(O_buffer:size()):randn())
+    local t = torch.randn(O_buffer:nElement()*2):float()
+    local zt = torch.ZFloatTensor(t:resize(O_buffer:nElement(),2))
+    O_buffer:copy(zt)
     -- plt:plot(O_buffer[1][1]/:zfloat(),string.format('O %d',1))
 
     local normest = math.sqrt(a:sum()/a:nElement())

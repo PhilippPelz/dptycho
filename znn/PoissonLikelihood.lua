@@ -98,6 +98,8 @@ function  PoissonLikelihood:calculateXsi(z,I_target)
 
   -- in-place calculation of I_model <-- fm * (1 - I_target/I_model)
   self.I_model.THNN. TruncatedPoissonLikelihood_GradientFactor(self.I_model:cdata(),I_target:cdata(),self.mask:cdata())
+  -- self.I_model.THNN. TruncatedPoissonLikelihood_GradientFactor(I_target:cdata(),self.I_model:cdata(),self.mask:cdata())
+
   -- gradinput is set to z, thats why only in-place multiply
   -- z * 2 * fm * (1 - I_target/I_model)
   self.gradInput:cmul(self.I_model:expandAs(self.gradInput))

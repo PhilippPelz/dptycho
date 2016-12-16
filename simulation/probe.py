@@ -10,6 +10,8 @@ from matplotlib import pyplot as plt
 import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from numpy.fft import ifft2, fft2, fftshift
+import scipy.ndimage as nd
+
 def sector_mask(shape,centre,radius,angle_range):
     """
     Return a boolean mask for a circular sector. The start/stop angles in
@@ -165,17 +167,42 @@ def focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um = 1000, C5_mm=1, tx = 0,
     # print 'riplot'
     # riplot(rs_mask1)
     # arr*=rs_mask1
+    arr =np.pad(arr,arr.shape,'constant', constant_values=0)
     arr = fftshift(arr)
-
+    
     arr_real = fftshift(ifft2(arr))
     arr_real /= np.linalg.norm(arr_real)
+    arr_real = nd.zoom(arr_real.real,0.5) + 1j * nd.zoom(arr_real.imag,0.5)
+    
     if plot:
         applot(fftshift(arr),'arr')
         applot(arr_real,'arr_real')
     return np.real(arr_real).astype(np.float32), np.imag(arr_real).astype(np.float32)
-
-#N=1024
-#a,b = focused_probe(300e3, N, 1, 6e-3, 1e3, C3_um = 0, C5_mm=0, tx = 0,ty =0, Nedge = 25, plot=True)
+def plotcx(x, savePath=None):
+    fig, (ax1) = plt.subplots(1,1,figsize=(8,8))
+    imax1 = ax1.imshow(imsave(x), interpolation='nearest')
+    ax1.set_xticks([]) 
+    ax1.set_yticks([]) 
+    ax1.add_patch(
+        patches.Rectangle(
+            (170, 220),   # (x,y)
+            50,          # width
+            7,          # height
+            facecolor="white"
+        )
+        )
+    if savePath is not None:
+        # print 'saving'
+        fig.savefig(savePath + '.png', dpi=400)
+    plt.show()
+    
+N=256
+r,i = focused_probe(300e3, N, 1, 9e-3, 12e2, C3_um = 0, C5_mm=0, tx = 0,ty =0, Nedge = 5, plot=True)
+pr = r+1j*i
+fpr = fftshift( fft2( ifftshift( pr ) ) )
+plotcx(fpr)
+plotcx(pr)
+#h5write('/home/philipp/drop/Public/probe_def4.h5',{'pr' : r, 'pi':i})
 # rs_mask1 = np.logical_not(sector_mask((N,N),(N/2,N/2),0.03*N,(0,360)))
 # p = a+1j*b
 # p *= rs_mask1

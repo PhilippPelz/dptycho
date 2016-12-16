@@ -6,10 +6,11 @@ require 'hypero'
 local classic = require 'classic'
 local u = require 'dptycho.util'
 local plot = require 'dptycho.io.plot'
+local plt = plot()
 local builder = require 'dptycho.core.netbuilder'
 local optim = require "optim"
 local znn = require "dptycho.znn"
-local plt = plot()
+
 local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 local simul = require 'dptycho.simulation'
@@ -44,9 +45,9 @@ end
 
 function main()
   local conn = hypero.connect()
-  local bat = conn:battery('bayes_opt 4v6x 200 avg', '1.0')
+  local bat = conn:battery('bayes_opt 4hhb 300 avg', '1.0')
 
-  local dose = {2.9e6}
+  local dose = {6e6}
   -- local dose = {4.8e6}6e5,1.5e6,2.8e6,4.8e6,8.4e6,1.5e7,2.6e7,4.6e7,8.5e7,1.45e8
   -- local dose = {1.45e8,8.5e7,4.6e7,2.6e7,1.5e7,8.4e6,4.8e6,2.8e6,1.5e6}
   local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
@@ -58,13 +59,13 @@ function main()
   local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
           56.23413252,   100.        ,   177.827941  ,   316.22776602,
          562.34132519}
-  local overlap = {0.6}--,0.7,0.75,0.8}0.45,0.5,0.55,0.6,
+  local overlap = {0.87}--,0.7,0.75,0.8}0.45,0.5,0.55,0.6,
   -- local overlap = {0.45}
   local nu = {10e-2}--{10e-2,5e-2,1e-2,5e-3}--4e-2,2e-1,1e-1,
   local lr = {1e-4}--{1e-4,5e-4}
   local momentum = {0}--{0,0.99,0.95}
-  local ID = 1
-  for l=1,40 do
+  local ID =5
+  for l=1,1 do
   local par = ptycho.params.DEFAULT_PARAMS_TWF()
 
   local N = 256
@@ -102,7 +103,7 @@ function main()
 
   par.save_interval = 6000
   par.save_raw_data = true
-  par.save_path = '/home/philipp/papers/lowdose/data/figure5_averaging/4v6x/5/'--'/home/philipp/drop/Public/sim/'
+  par.save_path = '/home/philipp/drop/Philipp/mypapers/lowdose/data/probe/1/'
 
   par.O_denom_regul_factor_start = 0
   par.O_denom_regul_factor_end = 0
@@ -167,13 +168,13 @@ function main()
   par.optim_config.verbose = false
   par.optim_state = {}
 
-  par.regularizer = znn.BM3D_MSE_Criterion--znn.SpatialSmoothnessCriterion
+  par.regularizer = znn.BM3D_MSE_Criterion--znn.SpatialSmoothnessCriterion--znn.BM3D_MSE_Criterion --znn.SpatialSmoothnessCriterion--znn.BM3D_MSE_Criterion--znn.SpatialSmoothnessCriterion
   par.optimizer = optim.cg -- nag sgd cg
 
   par.regularization_params = {}
-  par.regularization_params.amplitude = 1e-2
+  par.regularization_params.amplitude = 1e-1
   par.regularization_params.start_denoising = 15
-  par.regularization_params.denoise_interval = 5
+  par.regularization_params.denoise_interval = 8
   par.regularization_params.sigma_denoise = 0.05
 
   par.calculate_dose_from_probe = true
@@ -184,7 +185,7 @@ function main()
   par.experiment.det_pix = 40e-6
   par.experiment.N_det_pix = N
 
-  for probe_type = 3,3 do
+  for probe_type = 5,5 do
     local s = simul.simulator()
     local probe = nil
     local d = 2.0
@@ -203,7 +204,7 @@ function main()
       probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
       f:close()
     elseif probe_type == 3 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_blr.h5','r')
+      local f = hdf5.open('/home/philipp/drop/Public/probe_blr2.h5','r')
       local pr = f:read('/pr'):all()
       local pi = f:read('/pi'):all()
       probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
@@ -217,7 +218,7 @@ function main()
       -- plt:plot(probe:zfloat(),'defocused probe')
       f:close()
     elseif probe_type == 5 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_def.h5','r')
+      local f = hdf5.open('/home/philipp/drop/Public/probe_def4.h5','r')
       local pr = f:read('/pr'):all()
       local pi = f:read('/pi'):all()
       probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())

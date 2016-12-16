@@ -255,9 +255,14 @@ function TWF_engine.optim_func_object(self,O)
   if self.regularizer and self.do_regularize then
     self.R_error[self.i] = self.R:updateOutput(self.O,self.i-self.regularization_params.start_denoising)
     self.dR_dO = self.R:updateGradInput(self.O)
-    self.dL_dO:add(self.dR_dO)
+    -- print('self.dR_dO')
+    -- pprint(self.dR_dO)
+    -- plt:plot(self.dR_dO[1][1]:zfloat(),'self.dR_dO 0')
+    -- plt:plot(self.dL_dO[1][1]:zfloat(),'self.dL_dO 0')
+    self.dL_dO:add(1,self.dR_dO)
+    -- plt:plot(self.dL_dO[1][1]:zfloat(),'self.dL_dO 1')
   end
-  -- plt:plot(self.dR_dO[1][1]:zfloat(),'self.dR_dO')
+
 
   return L, self.dL_dO
 end
@@ -351,7 +356,7 @@ function TWF_engine:iterate(steps)
     if i>1 and math.abs(self.img_error[i] - self.img_error[i-1]) < self.stopping_threshold then
       it_no_progress = it_no_progress + 1
     end
-    if it_no_progress == 10 then
+    if it_no_progress == 5 then
       -- it_no_progress = it_no_progress + 1
       -- self.optim_config = {}
       -- -- self.optim_config.maxIter = 10

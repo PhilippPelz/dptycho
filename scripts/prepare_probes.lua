@@ -16,7 +16,7 @@ local simul = require 'dptycho.simulation'
 local ptycho = require 'dptycho.core.ptycho'
 local ptychocore = require 'dptycho.core'
 
-local probe_type =5
+local probe_type =2
 local s = simul.simulator()
 local N = 256
 local E = 200e3
@@ -47,10 +47,10 @@ if probe_type == 1 then
   probe:fftshift()
   plt:plot(probe:zfloat(),'defocused RFZP')
 elseif probe_type == 2 then
-  probe = s:fzp(N,300,3)
+  probe = s:fzp(N,1024,3000)
   -- plt:plot(probe:zfloat():fftshift(),'FZP')
   probe:fftshift()
-  local prop = ptychocore.propagators.fresnel(N,d*1e-10,700e-9,u.physics(E).lambda)
+  local prop = ptychocore.propagators.fresnel(N,d*1e-10,900e-9,u.physics(E).lambda)
   prop:fftshift()
   -- for i=1,10 do
   probe:cmul(prop)
@@ -79,7 +79,7 @@ elseif probe_type == 5 then
   probe = s:focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um , C5_mm, tx ,ty , Nedge , plot)
   plt:plot(probe:zfloat(),'defocus')
 end
-local f = hdf5.open('/home/philipp/drop/Public/probe_def.h5','w')
+local f = hdf5.open('/home/philipp/drop/Public/probe_fzp2.h5','w')
 print('1')
 f:write('/pr',probe:re():float())
 print('2')
