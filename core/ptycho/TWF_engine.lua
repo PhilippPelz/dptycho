@@ -287,7 +287,7 @@ function TWF_engine:iterate(steps)
     self.dL_dz, valid_gradients = self.L:updateGradInput(self.z,self.a)
 
     self.old_O = self.O:clone()
-    local O,L,k = optim.cg(fn.partial(self.optim_func_object,self),self.O,self.optim_config,self.optim_state)
+    local O,L,k = self.optimizer(fn.partial(self.optim_func_object,self),self.O,self.optim_config,self.optim_state)
     local dL_dO_1norm = self.dL_dO:normall(1)
     -- plt:plot(self.O[1][1]:zfloat(),'O 1')
     -- print()

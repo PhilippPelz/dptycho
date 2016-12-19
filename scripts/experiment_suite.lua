@@ -21,7 +21,7 @@ function get_data(pot_path,dose,overlap,N,E,probe)
 
   local probe_int = probe:clone():norm()
   probe_int:div(probe_int:max())
-  local probe_mask = torch.ge(probe_int:re(),1e-2):int()
+  local probe_mask = torch.ge(probe_int:re(),0.8e-2):int()
   -- plt:plot(probe_mask:float())
 
   local s = simul.simulator()
@@ -45,9 +45,9 @@ end
 
 function main()
   local conn = hypero.connect()
-  local bat = conn:battery('bayes_opt 4hhb 300 avg', '1.0')
+  local bat = conn:battery('bayes_opt 4v6x 300', '1.0')
 
-  local dose = {6e6}
+  local dose = {6e8}
   -- local dose = {4.8e6}6e5,1.5e6,2.8e6,4.8e6,8.4e6,1.5e7,2.6e7,4.6e7,8.5e7,1.45e8
   -- local dose = {1.45e8,8.5e7,4.6e7,2.6e7,1.5e7,8.4e6,4.8e6,2.8e6,1.5e6}
   local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
@@ -59,12 +59,12 @@ function main()
   local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
           56.23413252,   100.        ,   177.827941  ,   316.22776602,
          562.34132519}
-  local overlap = {0.87}--,0.7,0.75,0.8}0.45,0.5,0.55,0.6,
+  local overlap = {0.70}--,0.7,0.75,0.8}0.45,0.5,0.55,0.6,
   -- local overlap = {0.45}
   local nu = {10e-2}--{10e-2,5e-2,1e-2,5e-3}--4e-2,2e-1,1e-1,
-  local lr = {1e-4}--{1e-4,5e-4}
+  local lr = {2.5e-5}--{1e-4,5e-4}
   local momentum = {0}--{0,0.99,0.95}
-  local ID =5
+  local ID =1
   for l=1,1 do
   local par = ptycho.params.DEFAULT_PARAMS_TWF()
 
@@ -73,7 +73,7 @@ function main()
   par.Np = 1
   par.No = 1
   par.bg_solution = nil
-  par.plot_every = 300
+  par.plot_every = 30000
   par.plot_start = 1
   par.show_plots = false
   par.beta = 0.9
@@ -92,8 +92,8 @@ function main()
 
   par.object_highpass_fwhm = function(it) return nil end
   par.object_inertia = 0
-  par.object_init = 'rand'
-  par.object_init_truncation_threshold = 59
+  par.object_init = 'trunc'
+  par.object_init_truncation_threshold = 81
 
   par.P_Q_iterations = 10
   par.copy_probe = true
@@ -101,9 +101,9 @@ function main()
   par.margin = 0
   par.background_correction_start = 1e5
 
-  par.save_interval = 6000
+  par.save_interval = 60000
   par.save_raw_data = true
-  par.save_path = '/home/philipp/drop/Philipp/mypapers/lowdose/data/probe/1/'
+  par.save_path = '/home/philipp/drop/Philipp/mypapers/lowdose/data/figure4_gradient_steps/'
 
   par.O_denom_regul_factor_start = 0
   par.O_denom_regul_factor_end = 0
@@ -116,19 +116,19 @@ function main()
   par.twf.a_ub = 2e1
   par.twf.mu_max = 0.01
   par.twf.tau0 = 10
-  par.twf.do_truncate = false
-  par.twf.diagnostics = true
+  par.twf.do_truncate = true
+  par.twf.diagnostics = false
 
   for w,lr0 in ipairs(lr) do
     for q,mom0 in ipairs(momentum) do
 
   -- config for sgd
-  -- par.optim_config = {}
-  -- par.optim_state = {}
-  -- par.optim_config.learningRate = lr0
-  -- par.optim_config.learningRateDecay = mom0
-  -- par.optim_config.weightDecay = 0
-  -- par.optim_config.momentum = 0
+  par.optim_config = {}
+  par.optim_state = {}
+  par.optim_config.learningRate = lr0
+  par.optim_config.learningRateDecay = mom0
+  par.optim_config.weightDecay = 0
+  par.optim_config.momentum = 0
 
   -- config for L-BFGS
   -- par.optim_config = {}
@@ -160,21 +160,21 @@ function main()
   -- par.optim_config.dampening = nil
 
   -- config for cg
-  par.optim_config = {}
-  par.optim_config.maxIter = 10
-  par.optim_config.sig = 0.5
-  par.optim_config.red = 1e8
-  par.optim_config.break_on_success = true
-  par.optim_config.verbose = false
-  par.optim_state = {}
+  -- par.optim_config = {}
+  -- par.optim_config.maxIter = 10
+  -- par.optim_config.sig = 0.5
+  -- par.optim_config.red = 1e8
+  -- par.optim_config.break_on_success = true
+  -- par.optim_config.verbose = false
+  -- par.optim_state = {}
 
   par.regularizer = znn.BM3D_MSE_Criterion--znn.SpatialSmoothnessCriterion--znn.BM3D_MSE_Criterion --znn.SpatialSmoothnessCriterion--znn.BM3D_MSE_Criterion--znn.SpatialSmoothnessCriterion
-  par.optimizer = optim.cg -- nag sgd cg
+  par.optimizer = optim.sgd -- nag sgd cg
 
   par.regularization_params = {}
   par.regularization_params.amplitude = 1e-1
-  par.regularization_params.start_denoising = 15
-  par.regularization_params.denoise_interval = 8
+  par.regularization_params.start_denoising = 100
+  par.regularization_params.denoise_interval = 50
   par.regularization_params.sigma_denoise = 0.05
 
   par.calculate_dose_from_probe = true
@@ -185,7 +185,7 @@ function main()
   par.experiment.det_pix = 40e-6
   par.experiment.N_det_pix = N
 
-  for probe_type = 5,5 do
+  for probe_type = 3,3 do
     local s = simul.simulator()
     local probe = nil
     local d = 2.0
@@ -218,7 +218,7 @@ function main()
       -- plt:plot(probe:zfloat(),'defocused probe')
       f:close()
     elseif probe_type == 5 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_def4.h5','r')
+      local f = hdf5.open('/home/philipp/drop/Public/probe_def5.h5','r')
       local pr = f:read('/pr'):all()
       local pi = f:read('/pi'):all()
       probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
@@ -260,7 +260,7 @@ function main()
             local hex = bat:experiment()
 
             local eng = ptycho.BM3D_TWF_engine(par)
-            eng:iterate(49)
+            eng:iterate(1000)
             local hp = {run_label = str, nu = nu0, dose = eng.electrons_per_angstrom2, total_counts = eng.I_total, counts_per_valid_pixel = eng.counts_per_valid_pixel, MoverN = eng.total_nonzero_measurements/eng.pixels_with_sufficient_exposure, overlap = overlap0, probe_type = probe_type, method = 'cg', learningRate = par.optim_config.learningRate, learningRateDecay = par.optim_config.learningRateDecay, momentum = par.optim_config.momentum}
             local md = {hostname = 'work', dataset = sample}
             local res = { final_img_error = eng.img_error[eng.i], final_rel_error = eng.rel_error[eng.i], img_err = eng.img_error:totable(), rel_err = eng.rel_error:totable()}

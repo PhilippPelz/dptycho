@@ -295,7 +295,7 @@ function TWF_engine:iterate(steps)
     self.dL_dz, valid_gradients = self.L:updateGradInput(self.z,self.a)
 
     -- self.old_O = self.O:clone()
-    local O,L,k = optim.cg(fn.partial(self.optim_func_object,self),self.O,self.optim_config,self.optim_state)
+    local O,L,k = self.optimizer(fn.partial(self.optim_func_object,self),self.O,self.optim_config,self.optim_state)
     local dL_dO_1norm = self.dL_dO:normall(1)
     -- plt:plot(self.O[1][1]:zfloat(),'O 1')
     -- print()
@@ -316,29 +316,6 @@ function TWF_engine:iterate(steps)
       self.P:add(- self:mu(i),self.dL_dP)
       self:calculateO_denom()
     end
-
-    -- if self.denoise then
-    --   local factor = 1
-    --   local O = self.O[1][1]:zfloat()
-    --   pprint(O)
-    --   local rgb = u.complex2rgb(O)
-    --   rgb:div(rgb:max())
-    --   pprint(rgb)
-    --   u.printf('rgb max: %g',rgb:max())
-    --   local absmax = self.O[1][1]:abs():max()
-    --   local O_basic = rgb:clone():zero()
-    --   local O_denoised = rgb:clone():zero()
-    --   image.save(string.format('rgb%d.png',i),rgb)
-    --   -- plt:plot(O,'noisy')
-    --   bm3d.bm3d(self.sigma_denoise*factor,rgb,O_basic,O_denoised)
-    --   u.printf('O_denoised max: %g',O_denoised:max())
-    --   -- image.save(string.format('denoised%d.png',i),O_denoised:clone())
-    --   local cx = u.rgb2complex(O_denoised)
-    --   -- plt:plot(cx,'denoised')
-    --   cx:mul(absmax)
-    --   self.O[1][1]:copy(cx)
-    --   self.optim_state = {}
-    -- end
 
     self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
 

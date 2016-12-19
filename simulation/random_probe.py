@@ -521,12 +521,12 @@ def rgb2complex(rgb):
     """
     return hsv2complex(rgb2hsv(rgb))
 #r,i = blr_probe2(256,0.11,0.25,0.00)
-r,i = fzp(1024,6000)
-pr = r + 1j* i
-h5write('/home/philipp/drop/Public/probe_fzp2.h5',{'pr' : r, 'pi':i})
-plotcx(pr,'/home/philipp/drop/Philipp/mypapers/lowdose/data/figure5_probes/fzp_fourier.eps')
-fpr = fftshift( fft2( ifftshift( pr ) ) )
-plotcx(fpr)
+#r,i = fzp(1024,6000)
+#pr = r + 1j* i
+#h5write('/home/philipp/drop/Public/probe_blr2.h5',{'pr' : r, 'pi':i})
+#plotcx(pr,'/home/philipp/drop/Philipp/mypapers/lowdose/data/figure5_probes/blr_fourier.eps')
+#fpr = fftshift( fft2( ifftshift( pr ) ) )
+#plotcx(fpr)
 #f,ax = plt.subplots()
 #ax.hist(np.abs(pr))
 #plt.show()
