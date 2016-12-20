@@ -239,6 +239,7 @@ function engine:before_iterate()
   self:initialize_probe()
   self:calculateO_denom()
   self:initialize_object()
+  -- plt:plot(self.O[1][1],'object after init')
   self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
   self:print_report()
 end
@@ -481,8 +482,8 @@ function engine:initialize_object()
   elseif self.object_init == 'gcl' then
       u.printf('gcl initialization is not implement yet')
       self.O:zero():add(1+0i)
-  elseif self.object_init == 'copy_solution' then
-      self.O:copy(self.object_solution)
+  elseif self.object_init == 'copy' then
+      self.O:copy(self.object_initial)
   end
 end
 

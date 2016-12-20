@@ -160,7 +160,10 @@ def rgb2complex1(rgb):
     """
     Reverse to :any:`complex2rgb`
     """
+    rgb = np.nan_to_num(rgb)
     cout = hsv2complex1(rgb2hsv1(rgb))
+    f,ax=plt.subplots()
+
     return (cout.real.astype(np.float32),cout.imag.astype(np.float32))
 ]=])
 

@@ -4,6 +4,7 @@ local bm3d = require 'bm3d'
 local u = require 'dptycho.util'
 require 'image'
 require 'pprint'
+require 'hdf5'
 local plot = require 'dptycho.io.plot'
 local plt = plot()
 
@@ -35,9 +36,18 @@ function BM3D_MSE_Criterion:updateOutput(input, it)
     -- plt:plot(O,'noisy')
     bm3d.bm3d(self.par.sigma_denoise*factor,rgb,O_basic,O_denoised)
     -- u.printf('O_denoised max: %g',O_denoised:max())
-    -- image.save(string.format('denoised%d.png',it),O_denoised:clone())
+    -- u.printf('O_denoised min: %g',O_denoised:min())
+    image.save(string.format('denoised%d.png',it),O_denoised:clone())
+
+
     local cx = u.rgb2complex(O_denoised)
-    -- plt:plot(cx,'denoised')
+    local f = hdf5.open('/home/philipp/drop/Philipp/mypapers/lowdose/data/figure4_gradient_steps/bm3d.h5','w')
+    print('here')
+    f:write('/bm3d_phase',cx:arg())
+    print('here2')
+    f:close()
+    print('here3')
+    -- plt:plot(cx:zcuda(),'denoised')
     cx:mul(absmax)
     self.O_sparse[1][1]:copy(cx)
 
