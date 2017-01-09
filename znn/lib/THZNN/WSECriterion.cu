@@ -162,6 +162,91 @@ TH_API void THNN_CudaEuclideanLoss_GradientFactor(THCState *state, THCudaTensor 
   }
 }
 
+struct zmse_functor
+{
+  __host__ __device__ float operator()(const ccx& x, const ccx& y) const
+  {
+    float a = thrust::abs(x - y);
+    return a*a;
+  }
+};
+
+TH_API void THNN_ZCudaWSECriterion_updateOutput(THCState *state, THZCudaTensor *input, THZCudaTensor *target, THFloatTensor *output, float weight)
+{
+  THAssert(THZCudaTensor_checkGPU(state, 2, input, target));
+  THArgCheck(THZCudaTensor_nElement(state, input) == THZCudaTensor_nElement(state, target), 2,
+    "input and target need to have the same number of elements"
+  );
+
+  long size = THZCudaTensor_nElement(state, input);
+
+  input = THZCudaTensor_newContiguous(state, input);
+  target = THZCudaTensor_newContiguous(state, target);
+
+  thrust::device_ptr<ccx> input_data((ccx*)THZCudaTensor_data(state, input));
+  thrust::device_ptr<ccx> target_data((ccx*)THZCudaTensor_data(state, target));
+  float sum = thrust::inner_product(
+#if CUDA_VERSION >= 7000
+    thrust::cuda::par.on(THCState_getCurrentStream(state)),
+#endif
+    input_data, input_data+size, target_data, (float) 0,
+    thrust::plus<float>(), zmse_functor());
+
+  // if (sizeAverage)
+  //   sum /= size;
+  // printf("sum: %f\n",sum);
+  sum *= weight;
+
+  THZCudaTensor_free(state, input);
+  THZCudaTensor_free(state, target);
+
+  THFloatTensor_set1d(output, 0, sum);
+}
+
+struct zmse_updateGradInput_functor
+{
+  const float norm;
+
+  zmse_updateGradInput_functor(float norm_)
+    : norm(norm_)
+  {}
+
+  __host__ __device__ ccx operator()(const ccx& x, const ccx& y) const
+  {
+    return norm * (x - y);
+  }
+};
+
+void THNN_ZCudaWSECriterion_updateGradInput(THCState *state, THZCudaTensor *input, THZCudaTensor *target, THZCudaTensor *gradInput, float weight)
+{
+  THAssert(THZCudaTensor_checkGPU(state, 3, input, target, gradInput));
+  THArgCheck(THZCudaTensor_nElement(state, input) == THZCudaTensor_nElement(state, target), 2,
+    "input and target need to have the same number of elements"
+  );
+
+  long size = THZCudaTensor_nElement(state, input);
+  float norm = 2 * weight;
+
+  input = THZCudaTensor_newContiguous(state, input);
+  target = THZCudaTensor_newContiguous(state, target);
+
+  THZCudaTensor_resizeAs(state, gradInput, input);
+
+  thrust::device_ptr<ccx> input_data((ccx*)THZCudaTensor_data(state, input));
+  thrust::device_ptr<ccx> target_data((ccx*)THZCudaTensor_data(state, target));
+  thrust::device_ptr<ccx> gradInput_data((ccx*)THZCudaTensor_data(state, gradInput));
+
+  thrust::transform(
+#if CUDA_VERSION >= 7000
+    thrust::cuda::par.on(THCState_getCurrentStream(state)),
+#endif
+    input_data, input_data+size, target_data, gradInput_data,
+    zmse_updateGradInput_functor(norm));
+
+  THZCudaTensor_free(state, input);
+  THZCudaTensor_free(state, target);
+}
+
 struct mse_functor
 {
   __host__ __device__ float operator()(const float &x, const float &y) const

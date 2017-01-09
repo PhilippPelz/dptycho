@@ -108,6 +108,7 @@ function m.static.Q(z,mul_split,merge_memory_views,zk_buffer,k_to_batch_index,ba
     batch_copy_func(k)
     local ind = k_to_batch_index[k]
     z[ind]:cmul(view:expandAs(z[ind]),mul_split:expandAs(z[ind]))
+    -- plt:plot(view[1][1]:zfloat(),'view[ind]')
     -- plt:plot(z[ind][1][1]:zfloat(),'z[ind]')
   end
   return z

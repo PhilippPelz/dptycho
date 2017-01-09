@@ -4,11 +4,11 @@ local plt = plot()
 require 'pprint'
 local c, parent = torch.class('znn.SpatialSmoothnessCriterion', 'nn.Criterion')
 
-function c:__init(tmp,grad,amp)
+function c:__init(tmp,grad,params)
    parent.__init(self)
    self.tmp = tmp:squeeze(2)
    self.gradInput = grad
-   self.amplitude = amp
+   self.amplitude = params.amplitude
 end
 
 function c:updateOutput(input, target)
@@ -19,10 +19,10 @@ function c:updateOutput(input, target)
   -- pprint(inp)
   -- pprint(d)
   local a = d:dx_bw(inp):normall(2)
-  local b = d:dy_bw(inp):normall(1)
-  local c = d:dx_fw(inp):normall(2)
+  local b = d:dy_bw(inp):normall(2)
+  local c1 = d:dx_fw(inp):normall(2)
   local e = d:dy_fw(inp):normall(2)
-  self.output = self.amplitude*(a+b+c+e)
+  self.output = self.amplitude*(a+b+c1+e)
   return self.output
 end
 

@@ -104,7 +104,7 @@ def riplot(img, suptitle='Image', savePath=None, cmap=['hot','hsv'], title=['r',
 #    plt.show()
 def plotcx(x, savePath=None):
     fig, (ax1) = plt.subplots(1,1,figsize=(8,8))
-    imax1 = ax1.imshow(imsave(x), interpolation='nearest')
+    imax1 = ax1.imshow(imsave(x))
     ax1.set_xticks([])
     ax1.set_yticks([])
     ax1.add_patch(
@@ -112,12 +112,13 @@ def plotcx(x, savePath=None):
             (170, 220),   # (x,y)
             50,          # width
             7,          # height
-            facecolor="white"
+            facecolor="white",
+            edgecolor="white"
         )
         )
     if savePath is not None:
         # print 'saving'
-        fig.savefig(savePath + '.png', dpi=300)
+        fig.savefig(savePath, dpi=300)
     plt.show()
 def fzp(N,a):
     rmax = 0.45*N
@@ -519,9 +520,16 @@ def rgb2complex(rgb):
     Reverse to :any:`complex2rgb`
     """
     return hsv2complex(rgb2hsv(rgb))
-# r,i = blr_probe2(256,0.11,0.45,0.35)
-# pr = r + 1j* i
-# fpr = fftshift( fft2( ifftshift( pr ) ) )
+#r,i = blr_probe2(256,0.11,0.25,0.00)
+#r,i = fzp(1024,6000)
+#pr = r + 1j* i
+#h5write('/home/philipp/drop/Public/probe_blr2.h5',{'pr' : r, 'pi':i})
+#plotcx(pr,'/home/philipp/drop/Philipp/mypapers/lowdose/data/figure5_probes/blr_fourier.eps')
+#fpr = fftshift( fft2( ifftshift( pr ) ) )
+#plotcx(fpr)
+#f,ax = plt.subplots()
+#ax.hist(np.abs(pr))
+#plt.show()
 # r, i = fpr.real, fpr.imag
 # f=plt.figure(figsize=(10, 13))
 # plt.hist(r[r!=0],bins=20)

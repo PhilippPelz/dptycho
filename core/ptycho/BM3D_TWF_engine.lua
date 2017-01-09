@@ -17,7 +17,8 @@ function TWF_engine:_init(par)
   super._init(self,par)
   self.L = znn.TruncatedPoissonLikelihood(self.twf.a_h,self.twf.a_lb,self.twf.a_ub, self.z, self.fm, self.a_buffer1, self.a_buffer2, self.z1_buffer_real, self.K, self.No, self.Np, self.M, self.Nx, self.Ny, self.twf.diagnostics,self.twf.do_truncate)
   if self.regularizer then
-    self.R = self.regularizer(self.O_tmp,self.dR_dO,self.rescale_regul_amplitude*self.twf.nu,self.O_tmp_real1,self.O_tmp_real2)
+    -- self.regularization_params.amplitude = self.rescale_regul_amplitude*self.twf.nu
+    self.R = self.regularizer(self.O_tmp,self.dR_dO,self.regularization_params,self.O_tmp_real1,self.O_tmp_real2)
   end
   -- we deal with intensities in the MAP framework
   self.a:pow(2)
@@ -251,12 +252,17 @@ function TWF_engine.optim_func_object(self,O)
   -- calculate dL_dO
   self:merge_frames(self.dL_dz,self.P,self.dL_dO, self.dL_dO_views)
   -- plt:plot(self.dL_dO[1][1]:zfloat(),'O 1')
-  if self.regularizer then
-    self.R_error[self.i] = self.R:updateOutput(self.O)
+  if self.regularizer and self.do_regularize then
+    self.R_error[self.i] = self.R:updateOutput(self.O,self.i-self.regularization_params.start_denoising)
     self.dR_dO = self.R:updateGradInput(self.O)
-    self.dL_dO:add(self.dR_dO)
+    -- print('self.dR_dO')
+    -- pprint(self.dR_dO)
+    -- plt:plot(self.dR_dO[1][1]:zfloat(),'self.dR_dO 0')
+    -- plt:plot(self.dL_dO[1][1]:zfloat(),'self.dL_dO 0')
+    self.dL_dO:add(1,self.dR_dO)
+    -- plt:plot(self.dL_dO[1][1]:zfloat(),'self.dL_dO 1')
   end
-  -- plt:plot(self.dR_dO[1][1]:zfloat(),'self.dR_dO')
+
 
   return L, self.dL_dO
 end
@@ -289,7 +295,7 @@ function TWF_engine:iterate(steps)
     self.dL_dz, valid_gradients = self.L:updateGradInput(self.z,self.a)
 
     -- self.old_O = self.O:clone()
-    local O,L,k = optim.cg(fn.partial(self.optim_func_object,self),self.O,self.optim_config,self.optim_state)
+    local O,L,k = self.optimizer(fn.partial(self.optim_func_object,self),self.O,self.optim_config,self.optim_state)
     local dL_dO_1norm = self.dL_dO:normall(1)
     -- plt:plot(self.O[1][1]:zfloat(),'O 1')
     -- print()
@@ -311,29 +317,6 @@ function TWF_engine:iterate(steps)
       self:calculateO_denom()
     end
 
-    if self.denoise then
-      local factor = 1
-      local O = self.O[1][1]:zfloat()
-      pprint(O)
-      local rgb = u.complex2rgb(O)
-      rgb:div(rgb:max())
-      pprint(rgb)
-      u.printf('rgb max: %g',rgb:max())
-      local absmax = self.O[1][1]:abs():max()
-      local O_basic = rgb:clone():zero()
-      local O_denoised = rgb:clone():zero()
-      image.save(string.format('rgb%d.png',i),rgb)
-      -- plt:plot(O,'noisy')
-      bm3d.bm3d(self.sigma_denoise*factor,rgb,O_basic,O_denoised)
-      u.printf('O_denoised max: %g',O_denoised:max())
-      -- image.save(string.format('denoised%d.png',i),O_denoised:clone())
-      local cx = u.rgb2complex(O_denoised)
-      -- plt:plot(cx,'denoised')
-      cx:mul(absmax)
-      self.O[1][1]:copy(cx)
-      self.optim_state = {}
-    end
-
     self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
 
     if self.has_solution then
@@ -350,7 +333,7 @@ function TWF_engine:iterate(steps)
     if i>1 and math.abs(self.img_error[i] - self.img_error[i-1]) < self.stopping_threshold then
       it_no_progress = it_no_progress + 1
     end
-    if it_no_progress == 10 then
+    if it_no_progress == 5 then
       -- it_no_progress = it_no_progress + 1
       -- self.optim_config = {}
       -- -- self.optim_config.maxIter = 10

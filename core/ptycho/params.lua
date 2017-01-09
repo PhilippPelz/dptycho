@@ -53,10 +53,6 @@ local _DEFAULT_PARAMS = {
   save_raw_data = false,
   run_label = 'ptycho',
 
-  start_denoising = 5,
-  denoise_interval = 2,
-  sigma_denoise = 25,
-
   regularizer = znn.SpatialSmoothnessCriterion,
   optimizer = optim.cg,
 
@@ -77,6 +73,11 @@ local _DEFAULT_PARAMS = {
     E = 300e3,
     det_pix = 30e-6,
     N_det_pix = 256
+  },
+  regularization_params = {
+    start_denoising = 5,
+    denoise_interval = 2,
+    sigma_denoise = 25
   }
 }
 

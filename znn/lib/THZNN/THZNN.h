@@ -16,6 +16,12 @@ TH_API void THNN_CudaWSECriterion_updateGradInput(THCState *state,
                                                   THCudaTensor *target,
                                                   THCudaTensor *gradInput,
                                                   float weight);
+TH_API void THNN_ZCudaWSECriterion_updateOutput(THCState *state, THZCudaTensor *input, THZCudaTensor *target, THFloatTensor *output, float weight);
+TH_API void THNN_ZCudaWSECriterion_updateGradInput(THCState *state,
+                                                THZCudaTensor *input,
+                                                THZCudaTensor *target,
+                                                THZCudaTensor *gradInput,
+                                                float weight);
 
 TH_API void THNN_CudaInvSigma(THCState *state, THCudaTensor *self_,
                               THCudaTensor *src1, float sigma);
@@ -41,4 +47,3 @@ TH_API void THNN_CudaBatchedBilinearInterpolation(THCState *state,
                                                   THCudaTensor *self_,
                                                   THCudaTensor *src1,
                                                   float shiftx, float shifty);
- 
