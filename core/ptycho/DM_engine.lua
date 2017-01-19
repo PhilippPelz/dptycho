@@ -64,6 +64,29 @@ function engine:DM_update_with_background()
   return self.module_error, self.mod_updates
 end
 
+function engine:get_errors()
+  return {self.mod_errors:narrow(1,1,self.i), self.overlap_errors:narrow(1,1,self.i),self.img_errors:narrow(1,1,self.i)}
+end
+
+function engine:allocate_error_history()
+  self.mod_errors = torch.FloatTensor(self.iterations):fill(1)
+  self.overlap_errors = torch.FloatTensor(self.iterations):fill(1)
+  self.img_errors = torch.FloatTensor(self.iterations):fill(1)
+  self.rel_errors = torch.FloatTensor(self.iterations):fill(1)
+end
+
+function engine:save_error_history(hdfile)
+  hdfile:write('/results/err_img_final',torch.FloatTensor({self.img_errors[self.i-1]}))
+  hdfile:write('/results/err_rel_final',torch.FloatTensor({self.rel_errors[self.i-1]}))
+  hdfile:write('/results/err_overlap_final',torch.FloatTensor({self.rel_errors[self.i-1]}))
+  hdfile:write('/results/err_mod_final',torch.FloatTensor({self.rel_errors[self.i-1]}))
+
+  hdfile:write('/results/err_img',self.img_errors:narrow(1,1,self.i))
+  hdfile:write('/results/err_rel',self.rel_errors:narrow(1,1,self.i))
+  hdfile:write('/results/err_overlap',self.rel_errors:narrow(1,1,self.i))
+  hdfile:write('/results/err_mod',self.mod_errors:narrow(1,1,self.i))
+end
+
 function engine:iterate(steps)
   self:before_iterate()
   u.printf('rel error : %g',self:relative_error())
@@ -77,7 +100,7 @@ function engine:iterate(steps)
     self:update_iteration_dependent_parameters(i)
     self:P_Q()
     if self.has_solution then
-      self.im_errors[{i}] = self:image_error()
+      self.img_errors[{i}] = self:image_error()
       probe_error = self:probe_error()
     end
     -- u.printf('rel error P_Qz: %g',self:relative_error(self.P_Qz))
@@ -86,10 +109,10 @@ function engine:iterate(steps)
     self.mod_errors[i], mod_updates = self:DM_update()
 
     if self.has_solution then
-      relative_error = self:relative_error()
+      self.rel_errors[{i}] = self:relative_error()
     end
 
-    u.printf('%-10d%-15g%-15g%-15g%-15g%-15g%-15g',i,self.mod_errors[i] or -1,self.overlap_errors[i] or -1 , relative_error or -1,self.im_errors[i] or -1, probe_error or -1, mod_updates/self.K*100.0)
+    u.printf('%-10d%-15g%-15g%-15g%-15g%-15g%-15g',i,self.mod_errors[i] or -1,self.overlap_errors[i] or -1 , relative_error or -1,self.img_error[i] or -1, probe_error or -1, mod_updates/self.K*100.0)
 
     self:maybe_plot()
     self:maybe_save_data()
