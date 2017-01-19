@@ -114,7 +114,7 @@ function main()
 
   par.save_interval = 60000
   par.save_raw_data = true
-  par.save_path = '/home/philipp/drop/Philipp/mypapers/lowdose/data/probe/'
+  par.save_path = '/home/philipp/drop/Philipp/mypapers/lowdose/data/figure5_averaging/4v6x/'
 
   par.O_denom_regul_factor_start = 0
   par.O_denom_regul_factor_end = 0
