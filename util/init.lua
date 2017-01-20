@@ -1,7 +1,7 @@
 local classic = require 'classic'
 local dataloader = require 'dptycho.io.dataloader'
 local plot = require 'dptycho.io.plot'
-local plt = plot()
+-- local plt = plot()
 local py = require('fb.python')
 local argcheck = require 'argcheck'
 require 'pprint'
@@ -363,7 +363,7 @@ function m.initial_probe(size1,support_ratio)
   res = mod:forward(res)
     -- pprint(res)
 
-  plt:plot(res,'probe')
+  -- plt:plot(res,'probe')
   return res
 end
 
