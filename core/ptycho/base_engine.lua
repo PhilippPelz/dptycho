@@ -379,19 +379,8 @@ function engine:prepare_plot_data()
   self.plot_data[7] = self:get_errors()
 end
 
-function engine:get_errors()
-  return {self.mod_errors:narrow(1,1,self.i), self.overlap_errors:narrow(1,1,self.i),self.im_errors:narrow(1,1,self.i),self.L_error:narrow(1,1,self.i)}
-end
-
 function engine:get_error_labels()
   return {'RFE','ROE','RMSE','L'}
-end
-
-function engine:allocate_error_history()
-  self.mod_errors = torch.FloatTensor(self.iterations):fill(1)
-  self.overlap_errors = torch.FloatTensor(self.iterations):fill(1)
-  self.im_errors = torch.FloatTensor(self.iterations):fill(1)
-  self.L_error = torch.FloatTensor(self.iterations):fill(1)
 end
 
 function engine:maybe_plot()
@@ -425,7 +414,9 @@ function engine:initialize_plotting()
   self:allocate_error_history()
   self:prepare_plot_data()
   -- pprint(self.plot_data)
-  plt:init_reconstruction_plot(self.plot_data,'Reconstruction',self:get_error_labels())
+  if self.plot_start < self.iterations then
+    plt:init_reconstruction_plot(self.plot_data,'Reconstruction',self:get_error_labels())
+  end
   -- print('here')
   u.printram('after initialize_plotting')
 end
@@ -920,16 +911,12 @@ function engine:save_data(filename)
     f:write('/data_unshift',self.a:float(),options)
   end
 
-
-
   f:write('/statistics/dose',torch.FloatTensor({self.electrons_per_angstrom2}))
   f:write('/statistics/MdivN',torch.FloatTensor({self.total_measurements/self.pixels_with_sufficient_exposure}))
   f:write('/statistics/counts_per_pixel',torch.FloatTensor({self.counts_per_valid_pixel}))
   f:write('/statistics/K',torch.FloatTensor({self.K}))
-  f:write('/results/err_img_final',torch.FloatTensor({self.img_error[self.i-1]}))
-  f:write('/results/err_rel_final',torch.FloatTensor({self.rel_error[self.i-1]}))
-  f:write('/results/err_img',self.img_error:narrow(1,1,self.i))
-  f:write('/results/err_rel',self.rel_error:narrow(1,1,self.i))
+
+  self:save_error_history(f)
   if self.time then
     f:write('/results/time_elapsed',torch.FloatTensor({self.time}))
   end
@@ -1244,5 +1231,8 @@ function engine:probe_error()
 end
 
 engine:mustHave("iterate")
+engine:mustHave("allocate_error_history")
+engine:mustHave("save_error_history")
+engine:mustHave("get_errors")
 
 return engine

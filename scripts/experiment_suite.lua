@@ -22,7 +22,9 @@ function get_data(pot_path,dose,overlap,N,E,probe)
   local probe_int = probe:clone():norm()
   probe_int:div(probe_int:max())
   local probe_mask = torch.ge(probe_int:re(),1e-2):int()
+
   -- plt:plot(probe_mask:float())
+
 
   local s = simul.simulator()
   local pot = s:load_potential(pot_path)
@@ -57,7 +59,8 @@ function main()
   Or = nil
   Oi = nil
 
-  local dose = {1.5e6}
+  local dose = {6e12}
+
   -- local dose = {4.8e6}6e5,1.5e6,2.8e6,4.8e6,8.4e6,1.5e7,2.6e7,4.6e7,8.5e7,1.45e8
   -- local dose = {1.45e8,8.5e7,4.6e7,2.6e7,1.5e7,8.4e6,4.8e6,2.8e6,1.5e6}
   local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
@@ -196,7 +199,7 @@ function main()
   par.experiment.det_pix = 40e-6
   par.experiment.N_det_pix = N
 
-  for probe_type = 3,3 do
+  for probe_type = 2,2 do
     local s = simul.simulator()
     local probe = nil
     local d = 2.0
@@ -271,7 +274,7 @@ function main()
             local hex = bat:experiment()
 
             local eng = ptycho.BM3D_TWF_engine(par)
-            eng:iterate(500)
+            eng:iterate(20)
             local hp = {run_label = str, nu = nu0, dose = eng.electrons_per_angstrom2, total_counts = eng.I_total, counts_per_valid_pixel = eng.counts_per_valid_pixel, MoverN = eng.total_nonzero_measurements/eng.pixels_with_sufficient_exposure, overlap = overlap0, probe_type = probe_type, method = 'cg', learningRate = par.optim_config.learningRate, learningRateDecay = par.optim_config.learningRateDecay, momentum = par.optim_config.momentum}
             local md = {hostname = 'work', dataset = sample}
             local res = { final_img_error = eng.img_error[eng.i], final_rel_error = eng.rel_error[eng.i], img_err = eng.img_error:totable(), rel_err = eng.rel_error:totable()}
