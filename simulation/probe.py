@@ -9,8 +9,10 @@ import numpy as np
 from matplotlib import pyplot as plt
 import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from numpy.fft import ifft2, fft2, fftshift
+from numpy.fft import ifft2, fft2, fftshift,ifftshift
 import scipy.ndimage as nd
+from pyE17 import utils as u
+#from pyE17.io.h5rw import h5read, h5write
 
 def sector_mask(shape,centre,radius,angle_range):
     """
@@ -129,25 +131,25 @@ def focused_probe(E, N, d, alpha_rad, defocus_nm,det_pix = 40e-6, C3_um = 1000, 
     ktm = np.arcsin(qmax*lam)
     detkmax = np.arcsin(lam/(2*d))
     d_alpha = detkmax/(N/2)
-    
-    
+
+
     z = det_pix*N*0.5/lam
-    
+
     print 'alpha         [mrad]     = %g' % (alpha*1000)
     print 'alpha_max det [mrad]     = %g' % (detkmax*1000)
-    
+
     print 'qmax                     = %g' % qmax
     print 'beam  dmin [Angstrom]    = %g' % (1/qmax)
     print 'dkmax                    = %g' % (dk*N/2)
     print 'detec dmin [Angstrom]    = %g' % (1/(dk*N/2))
     print 'z                 [m]    = %g' % z
-    
+
     scalekmax = d_alpha*50
     print 'scale bar     [mrad]     = %g' % (scalekmax*1000)
-    
+
     kx, ky = np.meshgrid(dk*(-N/2.+np.arange(N))+tilt_x,dk*
                                (-N/2.+np.arange(N))+tilt_y)
-    
+
     k2 = np.sqrt(kx**2+ky**2)
     #riplot(k2,'k2')
     ktheta = np.arcsin(k2*lam)
@@ -172,7 +174,7 @@ def focused_probe(E, N, d, alpha_rad, defocus_nm,det_pix = 40e-6, C3_um = 1000, 
             1.0/6*(a['66']*cos(6*(kphi-phi['66']))+a['64']*cos(4*(kphi-phi['64']))+a['62']*cos(2*(kphi-phi['62']))+a['60'])*ktheta**6)
     #riplot(chi,'chi')
     arr = np.zeros((N,N),dtype=np.complex);
-    arr[ktheta<ktm] = 1 
+    arr[ktheta<ktm] = 1
     #riplot(arr,'arr')
     dEdge = Nedge/(qmax/dk);  # fraction of aperture radius that will be smoothed
     # some fancy indexing: pull out array elements that are within
@@ -189,20 +191,20 @@ def focused_probe(E, N, d, alpha_rad, defocus_nm,det_pix = 40e-6, C3_um = 1000, 
     # arr*=rs_mask1
 #    arr =np.pad(arr,arr.shape,'constant', constant_values=0)
     arr = fftshift(arr)
-    
+
     arr_real = fftshift(ifft2(arr))
     arr_real /= np.linalg.norm(arr_real)
 #    arr_real = nd.zoom(arr_real.real,0.5) + 1j * nd.zoom(arr_real.imag,0.5)
-    
+
     if plot:
         applot(fftshift(arr),'arr')
         applot(arr_real,'arr_real')
     return np.real(arr_real).astype(np.float32), np.imag(arr_real).astype(np.float32)
 def plotcx(x, savePath=None):
     fig, (ax1) = plt.subplots(1,1,figsize=(8,8))
-    imax1 = ax1.imshow(imsave(x), interpolation='nearest')
-    ax1.set_xticks([]) 
-    ax1.set_yticks([]) 
+    imax1 = ax1.imshow(u.imsave(x), interpolation='nearest')
+    ax1.set_xticks([])
+    ax1.set_yticks([])
 #    ax1.add_patch(
 #        patches.Rectangle(
 #            (170, 220),   # (x,y)
@@ -215,16 +217,16 @@ def plotcx(x, savePath=None):
         # print 'saving'
         fig.savefig(savePath + '.png', dpi=400)
     plt.show()
-    
-#N=256
-#r,i = focused_probe(300e3, N, d = 1, alpha_rad=7e-3, defocus_nm = 4e2, det_pix = 70e-6, C3_um = 0, C5_mm=0, \
-#                    tx = 0,ty =0, Nedge = 5, plot=False)
-#pr = r+1j*i
-#fpr = fftshift( fft2( ifftshift( pr ) ) )
-#plotcx(fpr)
-#pr = nd.gaussian_filter(r,1.2) + 1j * nd.gaussian_filter(i,1.2)
-#plotcx(pr)
-#h5write('/home/philipp/drop/Public/probe_def5.h5',{'pr' : pr.real, 'pi':pr.imag})
+
+# N=128
+# r,i = focused_probe(300e3, N, d = 0.85, alpha_rad=9.8e-3, defocus_nm = 2e2, det_pix = 140e-6, C3_um = 0, C5_mm=0, \
+#                     tx = 0,ty =0, Nedge = 5, plot=False)
+# pr = r+1j*i
+# fpr = fftshift( fft2( ifftshift( pr ) ) )
+# plotcx(fpr)
+# #pr = nd.gaussian_filter(r,1.2) + 1j * nd.gaussian_filter(i,1.2)
+# plotcx(pr)
+# h5write('/home/philipp/drop/Public/probe_def_128x128_10mrad.h5',{'pr' : pr.real, 'pi':pr.imag})
 # rs_mask1 = np.logical_not(sector_mask((N,N),(N/2,N/2),0.03*N,(0,360)))
 # p = a+1j*b
 # p *= rs_mask1
