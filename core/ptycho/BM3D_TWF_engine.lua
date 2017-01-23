@@ -230,14 +230,26 @@ function TWF_engine:get_error_labels()
   return {'NRMSE','L','R'}
 end
 
-function TWF_engine:allocate_error_history()
-  self.rel_error = torch.FloatTensor(self.iterations):fill(1)
-  self.img_error = torch.FloatTensor(self.iterations):fill(1)
+function engine:allocate_error_history()
+  self.img_errors = torch.FloatTensor(self.iterations):fill(1)
+  self.rel_errors = torch.FloatTensor(self.iterations):fill(1)
   self.R_error = torch.FloatTensor(self.iterations):fill(1)
   self.L_error = torch.FloatTensor(self.iterations):fill(1)
 end
 
-function TWF_engine.optim_func_object(self,O)
+function engine:save_error_history(hdfile)
+  hdfile:write('/results/err_img_final',torch.FloatTensor({self.img_errors[self.i-1]}))
+  hdfile:write('/results/err_rel_final',torch.FloatTensor({self.rel_errors[self.i-1]}))
+  hdfile:write('/results/err_overlap_final',torch.FloatTensor({self.rel_errors[self.i-1]}))
+  hdfile:write('/results/err_mod_final',torch.FloatTensor({self.rel_errors[self.i-1]}))
+
+  hdfile:write('/results/err_img',self.img_errors:narrow(1,1,self.i))
+  hdfile:write('/results/err_rel',self.rel_errors:narrow(1,1,self.i))
+  hdfile:write('/results/err_R',self.R_error:narrow(1,1,self.i))
+  hdfile:write('/results/err_L',self.L_error:narrow(1,1,self.i))
+end
+
+engine.optim_func_object(self,O)
   self.counter = self.counter + 1
   -- u.printf('calls: %d',self.counter)
   -- u.printf('||O_old-O|| = %2.8g',self.old_O:clone():add(-1,self.O):normall(2)^2)
