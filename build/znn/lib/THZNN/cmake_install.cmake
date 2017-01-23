@@ -1,4 +1,4 @@
-# Install script for directory: /home/philipp/projects/dptycho/znn/lib/THZNN
+# Install script for directory: /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/znn/lib/THZNN
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -37,15 +37,15 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
      NOT IS_SYMLINK "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lib/libTHZNN.so")
     file(RPATH_CHECK
          FILE "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lib/libTHZNN.so"
-         RPATH "$ORIGIN/../lib:/home/philipp/torch/install/lib:/usr/local/cuda-7.5/lib64:/usr/local/lib")
+         RPATH "$ORIGIN/../lib:/home/philipp/torch/install/lib")
   endif()
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lib" TYPE MODULE FILES "/home/philipp/projects/dptycho/build/znn/lib/THZNN/libTHZNN.so")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lib" TYPE MODULE FILES "/media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/lib/THZNN/libTHZNN.so")
   if(EXISTS "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lib/libTHZNN.so" AND
      NOT IS_SYMLINK "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lib/libTHZNN.so")
     file(RPATH_CHANGE
          FILE "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lib/libTHZNN.so"
-         OLD_RPATH "/home/philipp/torch/install/lib:/usr/local/cuda-7.5/lib64:/usr/local/lib:::::::::::::::"
-         NEW_RPATH "$ORIGIN/../lib:/home/philipp/torch/install/lib:/usr/local/cuda-7.5/lib64:/usr/local/lib")
+         OLD_RPATH "/home/philipp/torch/install/lib:::::::::::::::"
+         NEW_RPATH "$ORIGIN/../lib:/home/philipp/torch/install/lib")
     if(CMAKE_INSTALL_DO_STRIP)
       execute_process(COMMAND "/usr/bin/strip" "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lib/libTHZNN.so")
     endif()
