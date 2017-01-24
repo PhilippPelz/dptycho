@@ -28,7 +28,7 @@ function get_data(pot_path,dose,overlap,N,E,probe)
   probe_int:div(probe_int:max())
   local probe_mask = torch.ge(probe_int:re(),1e-2):int()
 
-  
+
   -- plt:plot(probe_mask:float())
 
 
@@ -111,7 +111,7 @@ function main()
 
   par.object_highpass_fwhm = function(it) return nil end
   par.object_inertia = 0
-  par.object_init = 'trunc'
+  par.object_init = 'rand'
   par.object_init_truncation_threshold = 85
   par.object_initial = obj
 
