@@ -231,7 +231,7 @@ function TWF_engine:get_error_labels()
 end
 
 function TWF_engine:allocate_error_history()
-  self.img_errorss = torch.FloatTensor(self.iterations):fill(1)
+  self.img_errors = torch.FloatTensor(self.iterations):fill(1)
   self.rel_errors = torch.FloatTensor(self.iterations):fill(1)
   self.R_error = torch.FloatTensor(self.iterations):fill(1)
   self.L_error = torch.FloatTensor(self.iterations):fill(1)
