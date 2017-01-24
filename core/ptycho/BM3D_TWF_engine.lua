@@ -231,19 +231,19 @@ function TWF_engine:get_error_labels()
 end
 
 function TWF_engine:allocate_error_history()
-  self.img_errors = torch.FloatTensor(self.iterations):fill(1)
+  self.img_errorss = torch.FloatTensor(self.iterations):fill(1)
   self.rel_errors = torch.FloatTensor(self.iterations):fill(1)
   self.R_error = torch.FloatTensor(self.iterations):fill(1)
   self.L_error = torch.FloatTensor(self.iterations):fill(1)
 end
 
 function TWF_engine:save_error_history(hdfile)
-  hdfile:write('/results/err_img_final',torch.FloatTensor({self.img_errors[self.i-1]}))
+  hdfile:write('/results/err_img_final',torch.FloatTensor({self.img_errorss[self.i-1]}))
   hdfile:write('/results/err_rel_final',torch.FloatTensor({self.rel_errors[self.i-1]}))
   hdfile:write('/results/err_overlap_final',torch.FloatTensor({self.rel_errors[self.i-1]}))
   hdfile:write('/results/err_mod_final',torch.FloatTensor({self.rel_errors[self.i-1]}))
 
-  hdfile:write('/results/err_img',self.img_errors:narrow(1,1,self.i))
+  hdfile:write('/results/err_img',self.img_errorss:narrow(1,1,self.i))
   hdfile:write('/results/err_rel',self.rel_errors:narrow(1,1,self.i))
   hdfile:write('/results/err_R',self.R_error:narrow(1,1,self.i))
   hdfile:write('/results/err_L',self.L_error:narrow(1,1,self.i))
@@ -332,17 +332,17 @@ function TWF_engine:iterate(steps)
     self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
 
     if self.has_solution then
-      self.rel_error[i] = self:relative_error()
+      self.rel_errors[i] = self:relative_error()
     end
-    self.img_error[i] = self:image_error()
+    self.img_errors[i] = self:image_error()
 
     local rel = 100.0*self.R_error[i]/(self.L_error[i]+self.R_error[i])
-    u.printf('%-10d%-15g%-15g%-10.2g%%  %-15g%-15g%-15g%-15g%-15g%-15g',i,self.L_error[i],self.R_error[i],rel,dL_dO_1norm,self.dL_dP:normall(1),self:mu(i),self.rel_error[i],self.img_error[i],valid_gradients/self.total_measurements*100.0)
+    u.printf('%-10d%-15g%-15g%-10.2g%%  %-15g%-15g%-15g%-15g%-15g%-15g',i,self.L_error[i],self.R_error[i],rel,dL_dO_1norm,self.dL_dP:normall(1),self:mu(i),self.rel_errors[i],self.img_errors[i],valid_gradients/self.total_measurements*100.0)
 
     self:maybe_plot()
     self:maybe_save_data()
 
-    if i>1 and math.abs(self.img_error[i] - self.img_error[i-1]) < self.stopping_threshold then
+    if i>1 and math.abs(self.img_errors[i] - self.img_errors[i-1]) < self.stopping_threshold then
       it_no_progress = it_no_progress + 1
     end
     if it_no_progress == 5 then
