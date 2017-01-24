@@ -223,7 +223,7 @@ function TWF_engine:mu(it)
 end
 
 function TWF_engine:get_errors()
-  return {self.rel_error:narrow(1,1,self.i), self.L_error:narrow(1,1,self.i),self.R_error:narrow(1,1,self.i)}
+  return {self.rel_errors:narrow(1,1,self.i), self.L_error:narrow(1,1,self.i),self.R_error:narrow(1,1,self.i)}
 end
 
 function TWF_engine:get_error_labels()
