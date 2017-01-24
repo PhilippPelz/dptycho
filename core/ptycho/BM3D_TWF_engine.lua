@@ -238,12 +238,12 @@ function TWF_engine:allocate_error_history()
 end
 
 function TWF_engine:save_error_history(hdfile)
-  hdfile:write('/results/err_img_final',torch.FloatTensor({self.img_errorss[self.i-1]}))
+  hdfile:write('/results/err_img_final',torch.FloatTensor({self.img_errors[self.i-1]}))
   hdfile:write('/results/err_rel_final',torch.FloatTensor({self.rel_errors[self.i-1]}))
   hdfile:write('/results/err_overlap_final',torch.FloatTensor({self.rel_errors[self.i-1]}))
   hdfile:write('/results/err_mod_final',torch.FloatTensor({self.rel_errors[self.i-1]}))
 
-  hdfile:write('/results/err_img',self.img_errorss:narrow(1,1,self.i))
+  hdfile:write('/results/err_img',self.img_errors:narrow(1,1,self.i))
   hdfile:write('/results/err_rel',self.rel_errors:narrow(1,1,self.i))
   hdfile:write('/results/err_R',self.R_error:narrow(1,1,self.i))
   hdfile:write('/results/err_L',self.L_error:narrow(1,1,self.i))
