@@ -13,7 +13,7 @@ local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 local ptycho = require 'dptycho.core.ptycho'
 
-local path = '/home/philipp/experiments/2015-11-25 oxford/scan2/'
+local path = '/home/philipp/phil/experiments/2015-11-25 oxford/scan2/'
 local file = '2015-11-25_final_cropped_intpos.h5'
 local probe_file = 'probe.h5'
 
