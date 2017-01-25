@@ -43,7 +43,7 @@ o_r = nil
 o_i = nil
 local pr = f:read('/pr'):all():cuda()
 local pi = f:read('/pi'):all():cuda()
-local probe = torch.ZCudaTensor.new({1,NP,340,340})
+local probe = torch.ZCudaTensor.new({1,NP,480,480})
 probe[1][1]:copyIm(pi):copyRe(pr):mul(5e4)
 f:close()
 -- probe[1][1]:copyIm(pi):copyRe(pr)
