@@ -40,9 +40,9 @@ function m.static.P_F_without_background(z,a,a_exp,fm,fm_exp,zk_real_buffer, a_b
   local err_fmag, renorm  = 0, 0
   local batch_start, batch_end, batch_size = table.unpack(batch_param_table)
   local module_error, mod_updates = 0, 0
-
+  u.printf('z norm: %g',z:normall(2)^2)
   z:view_3D():fftBatched()
-  -- u.printf('z norm: %g',z:normall(2)^2)
+  u.printf('z norm: %g',z:normall(2)^2)
   for k=1,batch_size do
     local k_all = batch_start+k-1
     -- sum over probe and object modes -> 1x1xMxM
