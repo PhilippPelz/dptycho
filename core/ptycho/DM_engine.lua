@@ -114,7 +114,7 @@ function engine:iterate(steps)
       self.rel_errors[{i}] = self:relative_error()
     end
 
-    u.printf('%-10d%-15g%-15g%-15g%-15g%-15g%-15g',i,self.mod_errors[i] or -1,self.overlap_errors[i] or -1 , relative_error or -1,self.img_error[i] or -1, probe_error or -1, mod_updates/self.K*100.0)
+    u.printf('%-10d%-15g%-15g%-15g%-15g%-15g%-15g',i,self.mod_errors[i] or -1,self.overlap_errors[i] or -1 , relative_error or -1,self.img_errors[i] or -1, probe_error or -1, mod_updates/self.K*100.0)
 
     self:maybe_plot()
     self:maybe_save_data()
