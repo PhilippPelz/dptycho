@@ -78,7 +78,9 @@ par.probe_inertia = 1e-7
 par.probe_lowpass_fwhm = function(it) return nil end
 
 par.object_highpass_fwhm = function(it) return nil end
+
 par.object_inertia = 1e-9
+
 par.object_init = 'const'
 par.object_init_truncation_threshold = 0.8
 
