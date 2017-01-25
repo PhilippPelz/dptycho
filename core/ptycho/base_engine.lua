@@ -219,7 +219,8 @@ end
 
 function engine:P_Q_plain()
   self:merge_frames(self.z,self.P,self.O,self.O_views,true)
-  -- plt:plot(self.O[1][1]:zfloat(),'O after merge')
+  plt:plot(self.O[1][1]:zfloat(),'O after merge')
+  plt:plot(self.P[1][1]:zfloat(),'P after merge')
   self.ops.Q(self.P_Qz,self.P,self.O_views,self.zk_buffer_update_frames,self.k_to_batch_index,fn.partial(self.maybe_copy_new_batch_P_Q,self),self.batches,self.K,self.dpos)
 end
 
