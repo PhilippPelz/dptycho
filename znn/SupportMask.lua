@@ -33,8 +33,8 @@ end
 
 function c:updateOutput(input)
   -- print('forward mask')
-  pprint(input)
-  pprint(self.weight)
+  -- pprint(input)
+  -- pprint(self.weight)
   self.output:resizeAs(input):copy(input)
   return self.output:cmul(self.weight)
 end

@@ -13,9 +13,8 @@ local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 local ptycho = require 'dptycho.core.ptycho'
 
-local path = '/home/philipp/phil/experiments/2015-11-25 oxford/scan2/'
-local file = '2015-11-25_final_cropped_intpos.h5'
-local probe_file = 'probe.h5'
+local path = '/home/philipp/phil/experiments/2017-01-23_melbourne/carbon2/'
+local file = 'scan.h5'
 
 -- local M = 1536
 -- local FWHM = 100
@@ -28,11 +27,11 @@ local probe_file = 'probe.h5'
 
 local f = hdf5.open(path..file,'r')
 
-local a = f:read('/data'):all():cuda()
+local a = f:read('/a'):all():cuda()
 -- plt:plot(a[1]:float())
 -- [{{1},{},{}}]
-local fmask = f:read('/fmask'):all():cuda()
-local pos = f:read('/scan_info/positions'):all()
+local fmask = f:read('/fm'):all():cuda()
+local pos = f:read('/pos'):all()
 local dpos = pos:clone():float()
 pos = pos:int()
 dpos:add(-1,pos:float())
@@ -42,11 +41,10 @@ local NP = 1
 
 o_r = nil
 o_i = nil
-local f = hdf5.open(path..'probe_lowres_alpha5_neg4000.h5','r')
 local pr = f:read('/pr'):all():cuda()
 local pi = f:read('/pi'):all():cuda()
 local probe = torch.ZCudaTensor.new({1,NP,340,340})
-probe[1][1]:copyIm(pi):copyRe(pr):mul(1e4)
+probe[1][1]:copyIm(pi):copyRe(pr):mul(5e4)
 f:close()
 -- probe[1][1]:copyIm(pi):copyRe(pr)
 -- plt:plot(probe[1][1]:zfloat())
@@ -54,9 +52,6 @@ pr = nil
 pi = nil
 collectgarbage()
 
--- u.linear_schedule(3,50,1e-9,0)
--- u.linear_schedule(3,50,500,1500),
--- frames
 
 DEBUG = false
 
@@ -70,21 +65,21 @@ par.plot_start = 1
 par.show_plots = true
 par.beta = 0.9
 par.fourier_relax_factor = 8e-2
-par.position_refinement_start = 250
+par.position_refinement_start = 5
 par.position_refinement_every = 3
-par.position_refinement_max_disp = 2
+par.position_refinement_max_disp = 5
 par.fm_support_radius = function(it) return nil end
 par.fm_mask_radius = function(it) return nil end
 
 par.probe_update_start = 3
-par.probe_support = 0.5
+par.probe_support = 0.6
 par.probe_regularization_amplitude = function(it) return nil end
 par.probe_inertia = 0
 par.probe_lowpass_fwhm = function(it) return nil end
 
 par.object_highpass_fwhm = function(it) return nil end
 par.object_inertia = 0
-par.object_init = 'const'
+par.object_init = 'rand'
 par.object_init_truncation_threshold = 0.8
 
 par.P_Q_iterations = 10
@@ -94,9 +89,9 @@ par.margin = 0
 par.background_correction_start = 1e5
 
 par.save_interval = 250
-par.save_path = path..'/hyperscan_lowres2/'
+par.save_path = path..'/recons1/'
 par.save_raw_data = false
-par.run_label = 'ptycho2'
+par.run_label = 'carbon_black'
 
 par.O_denom_regul_factor_start = 0
 par.O_denom_regul_factor_end = 0
