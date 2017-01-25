@@ -119,6 +119,6 @@ par.twf.tau0 = 10
 par.twf.nu = 1e-2
 
 
-local ngin = ptycho.DM_engine(par)
+local ngin = ptycho.DM_engine_subpix(par)
 -- ngin:generate_data('/home/philipp/drop/Public/moon_subpix2.h5')
 ngin:iterate(250)
