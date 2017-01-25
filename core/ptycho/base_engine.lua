@@ -258,7 +258,7 @@ end
 function engine:update_views()
   for i=1,self.K do
     local slice = {{},{},{self.pos[i][1],self.pos[i][1]+self.M-1},{self.pos[i][2],self.pos[i][2]+self.M-1}}
-    pprint(slice)
+    -- pprint(slice)
     self.O_views[i] = self.O[slice]
     self.O_tmp_PF_views[i] = self.O_tmp_PFstore[slice]
     self.O_tmp_PQ_views[i] = self.O_tmp_PQstore[slice]
