@@ -51,9 +51,9 @@ function m.static.P_F_without_background(z,a,a_exp,fm,fm_exp,zk_real_buffer, a_b
     -- pprint(abs)
     -- pprint(a[k_all])
     fdev[1][1]:add(a_model[1][1],-1,a[k_all])
-    if k_all < 2 then
+    if k_all < 10 then
       -- plt:plot(fdev[1][1]:clone():fftshift():float(),'fdev')
-      -- plt:plotcompare({a_model[1][1]:clone():fftshift():float():log(),a[k_all]:clone():fftshift():float():log()},{'a_model','a'})
+      plt:plotcompare({a_model[1][1]:clone():fftshift():float():log(),a[k_all]:clone():fftshift():float():log()},{'a_model','a'})
     end
     da:pow(fdev,2)
     da:cmul(fm[k_all])
