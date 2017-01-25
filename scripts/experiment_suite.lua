@@ -110,7 +110,7 @@ function main()
   par.probe_lowpass_fwhm = function(it) return nil end
 
   par.object_highpass_fwhm = function(it) return nil end
-  par.object_inertia = 0
+  par.object_inertia = 0 
   par.object_init = 'rand'
   par.object_init_truncation_threshold = 85
   par.object_initial = obj

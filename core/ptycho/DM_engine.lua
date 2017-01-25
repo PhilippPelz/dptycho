@@ -89,7 +89,9 @@ end
 
 function engine:iterate(steps)
   self:before_iterate()
-  u.printf('rel error : %g',self:relative_error())
+  if self.has_solution then
+    u.printf('rel error : %g',self:relative_error())
+  end
   self.iterations = steps
   self:initialize_plotting()
   local mod_error, overlap_error, relative_error, probe_error, mod_updates, im_error = -1,-1,nil, nil, 0
