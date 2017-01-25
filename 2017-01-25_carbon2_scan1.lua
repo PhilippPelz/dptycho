@@ -44,7 +44,7 @@ o_i = nil
 local pr = f:read('/pr'):all():cuda()
 local pi = f:read('/pi'):all():cuda()
 local probe = torch.ZCudaTensor.new({1,NP,480,480})
-probe[1][1]:copyIm(pi):copyRe(pr):mul(5e4)
+probe[1][1]:copyIm(pi):copyRe(pr)--:mul(3e4)
 f:close()
 -- probe[1][1]:copyIm(pi):copyRe(pr)
 -- plt:plot(probe[1][1]:zfloat())
@@ -71,15 +71,15 @@ par.position_refinement_max_disp = 5
 par.fm_support_radius = function(it) return nil end
 par.fm_mask_radius = function(it) return nil end
 
-par.probe_update_start = 2
+par.probe_update_start = 10
 par.probe_support = 0.6
 par.probe_regularization_amplitude = function(it) return nil end
-par.probe_inertia = 0
+par.probe_inertia = 1e-7
 par.probe_lowpass_fwhm = function(it) return nil end
 
 par.object_highpass_fwhm = function(it) return nil end
-par.object_inertia = 0
-par.object_init = 'rand'
+par.object_inertia = 1e-9
+par.object_init = 'const'
 par.object_init_truncation_threshold = 0.8
 
 par.P_Q_iterations = 10
