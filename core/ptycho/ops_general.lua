@@ -78,6 +78,10 @@ function m.static.P_F_without_background(z,a,a_exp,fm,fm_exp,zk_real_buffer, a_b
     end
   end
   z:view_3D():ifftBatched()
+  for i=1,6 do
+    plt:plot(z[i][1][1]:clone():float():log(),'exitwave '..i)
+    -- plt:plotcompare({z[i][1][1]:clone():float():log(),a[k_all]:clone():fftshift():float():log()},{'a_model','a'})
+  end
   -- u.printf('z norm: %g',z:normall(2)^2)
   return module_error, mod_updates
 end
