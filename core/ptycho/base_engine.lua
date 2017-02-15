@@ -197,7 +197,7 @@ end
 function engine:P_Q()
   if self.update_probe then
     for _ = 1,self.P_Q_iterations do
-      self:merge_frames(self.z,self.P,self.O,self.O_views)
+      self:merge_frames(self.z,self.P,self.O,self.O_views,true)
       local probe_change = self:refine_probe()
       -- or probe_change > 0.97 * last_probe_change
       if not probe_change_0 then probe_change_0 = probe_change end
@@ -378,6 +378,7 @@ function engine:prepare_plot_data()
   self.plot_data[5] = self.bg_h
   self.plot_data[6] = self.plot_pos
   self.plot_data[7] = self:get_errors()
+  self.plot_data[8] = self.O_mask:float()
 end
 
 function engine:get_error_labels()

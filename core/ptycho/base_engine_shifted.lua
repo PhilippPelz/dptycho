@@ -61,18 +61,23 @@ end
 function engine:do_frames_overlap(i,j)
   local pos_i = self.pos[i]
   local pos_j = self.pos[j]
-  local beam_fraction = 0.6
-  local beam_offset = (1-beam_fraction)*self.M/2
-  local beam_size = beam_fraction*self.M
-  local x_lt, x_gt = math.min(pos_i[1],pos_j[1]),math.max(pos_i[1],pos_j[1])
-  local y_lt, y_gt = math.min(pos_i[2],pos_j[2]),math.max(pos_i[2],pos_j[2])
-  x_lt = x_lt + beam_offset
-  x_gt = x_gt + beam_offset
-  y_lt = y_lt + beam_offset
-  y_gt = y_gt + beam_offset
-  local x_gt_within_x_lt_beam = x_gt < x_lt + beam_size
-  local y_gt_within_y_lt_beam = y_gt < y_lt + beam_size
-  local i_and_j_overlap = x_gt_within_x_lt_beam and y_gt_within_y_lt_beam
+  local r = self.beam_radius
+  local d = math.sqrt((pos_i[1]-pos_j[1])^2+(pos_i[2]-pos_j[2])^2)
+  local A = 2 * r^2 * math.acos(d/2/r) - (d/2) * math.sqrt(4*r^2-d^2)
+
+  local i_and_j_overlap = A > 0.1
+  -- local beam_fraction = 0.6
+  -- local beam_offset = (1-beam_fraction)*self.M/2
+  -- local beam_size = beam_fraction*self.M
+  -- local x_lt, x_gt = math.min(pos_i[1],pos_j[1]),math.max(pos_i[1],pos_j[1])
+  -- local y_lt, y_gt = math.min(pos_i[2],pos_j[2]),math.max(pos_i[2],pos_j[2])
+  -- x_lt = x_lt + beam_offset
+  -- x_gt = x_gt + beam_offset
+  -- y_lt = y_lt + beam_offset
+  -- y_gt = y_gt + beam_offset
+  -- local x_gt_within_x_lt_beam = x_gt < x_lt + beam_size
+  -- local y_gt_within_y_lt_beam = y_gt < y_lt + beam_size
+  -- local i_and_j_overlap = x_gt_within_x_lt_beam and y_gt_within_y_lt_beam
   return i_and_j_overlap
 end
 
@@ -292,19 +297,6 @@ function engine:TV_regularize(target,amplitude,tmp,tmp_real,tmp_real2,result)
   result:mul(amplitude)
 
   return result
-end
-
-function engine:regularize_probe()
-  print('regularizing probe')
-  local regul = self:Del_regularize(self.P,self.probe_regularization_amplitude(self.i),self.P_tmp3_PQstore,self.P_tmp1_PQstore)
- local title = self.i..' regul'
- local title1 = self.i..'_new_P regul'
- -- plt:plot(regul[1][1]:zfloat(),title,self.save_path ..title,false)
- -- plt:plot(self.P[1][1]:zfloat(),self.i..'new_P ',self.save_path .. self.i..' new_P ',false)
- self.P:add(regul)
- -- plt:plot(self.P[1][1]:zfloat(),title1,self.save_path ..title1,false)
- -- self:calculateO_denom()
- -- self:merge_frames(self.P,self.O,self.O_views)
 end
 
 function engine:filter_probe()

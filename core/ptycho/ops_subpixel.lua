@@ -73,12 +73,12 @@ ARGS:
 RETURN:
 - `z`     : the new frames
 ]]
-function m.static.Q(z, mul_merge, merge_memory, merge_memory_views, zk_buffer, P_buffer,O_inertia, k_to_batch_index, batch_copy_func,batches,K,dpos)
+function m.static.Q_star(z, mul_merge, merge_memory, merge_memory_views, zk_buffer, P_buffer,O_inertia, k_to_batch_index, batch_copy_func,batches,K,dpos)
     local product_shifted = zk_buffer
     local mul_merge_shifted = P_buffer
 
     if O_inertia then
-      merge_memory:fill(O_inertia)
+      merge_memory:mul(O_inertia)
     else
       merge_memory:fill(0)
     end
@@ -106,6 +106,7 @@ function m.static.Q(z, mul_merge, merge_memory, merge_memory_views, zk_buffer, P
     u.printram('after merge_frames')
 end
 
+
 --[[ split the object into frames
 ARGS:
 - 'z'           : the frames to split into, el CC [K,No,Np,M,M]
@@ -119,7 +120,7 @@ ARGS:
 RETURN:
 - `z`     : the new frames
 ]]
-function m.static.Q_star(z,mul_split,merge_memory_views,zk_buffer,k_to_batch_index,batch_copy_func,batches,K,dpos)
+function m.static.Q(z,mul_split,merge_memory_views,zk_buffer,k_to_batch_index,batch_copy_func,batches,K,dpos)
   local mul_split_shifted = zk_buffer
   local pos = torch.FloatTensor{1,1}
   for k, view in ipairs(merge_memory_views) do

@@ -60,7 +60,7 @@ local par = ptycho.params.DEFAULT_PARAMS()
 par.Np = NP
 par.No = 1
 par.bg_solution = nil
-par.plot_every = 10
+par.plot_every = 2
 par.plot_start = 1
 par.show_plots = true
 par.beta = 0.9
@@ -71,15 +71,15 @@ par.position_refinement_max_disp = 5
 par.fm_support_radius = function(it) return nil end
 par.fm_mask_radius = function(it) return nil end
 
-par.probe_update_start = 10
+par.probe_update_start = 5
 par.probe_support = 0.6
 par.probe_regularization_amplitude = function(it) return nil end
-par.probe_inertia = 1e-7
+par.probe_inertia = 1e-8
 par.probe_lowpass_fwhm = function(it) return nil end
 
 par.object_highpass_fwhm = function(it) return nil end
 
-par.object_inertia = 1e-9
+par.object_inertia = 0
 
 par.object_init = 'const'
 par.object_init_truncation_threshold = 0.8

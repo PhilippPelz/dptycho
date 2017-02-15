@@ -172,7 +172,7 @@ class ReconPlot():
         self.interactive = interactive
         self.suptitle = suptitle
         # print data
-        obre,obim, prre,prim, bg, pos, err = data
+        obre,obim, prre,prim, bg, pos, err, mask = data
 
         self.error_labels = error_labels
 
@@ -189,12 +189,12 @@ class ReconPlot():
         self.fig = plt.figure()
         self.fig.suptitle(self.suptitle)
 
-        probe_spaces_right_of_ob = 2 * No
-        # print probe_spaces_right_of_ob
+        probe_spaces_right_of_ob = 2 * No - 2
+        print probe_spaces_right_of_ob
         extra_rows_for_pr = max(math.ceil((Np - probe_spaces_right_of_ob) / 4 ),0)
-        # print extra_rows_for_pr
+        print extra_rows_for_pr
         nrows = int(No + extra_rows_for_pr + 1)
-        # print nrows
+        print nrows
         gs = gridspec.GridSpec(nrows, 4)
 
         self.ob_axes = []
@@ -292,12 +292,13 @@ class ReconPlot():
         ax.tick_params(labelbottom='off',labelleft='off',labeltop='off',left='off',bottom='off',top='off',right='off')
 
     def update(self,data, cmap=['hot','hsv']):
-        obamp,obph, prre,prim, bg, pos, errors = data
+        obamp,obph, prre,prim, bg, pos, errors, mask = data
 
         obamp = obamp[:,0,:,:]
         obph = obph[:,0,:,:]
         prre = prre[0,...]
         prim = prim[0,...]
+        mask = mask[0,0,:,:]
         pr = prre + 1j*prim
 
         ints = np.sum(np.real(pr*pr.conj()),(1,2))
@@ -311,16 +312,16 @@ class ReconPlot():
                 # print oa.shape
                 # print op.shape
                 imax1 = self.ob_axes[i][0].imshow(oa, interpolation=self.interp, cmap=plt.cm.get_cmap(cmap[0]))
-                imax2 = self.ob_axes[i][1].imshow(op, interpolation=self.interp, cmap=plt.cm.get_cmap(cmap[1]))
+                imax2 = self.ob_axes[i][1].imshow(op * mask, interpolation=self.interp, cmap=plt.cm.get_cmap(cmap[1]))
                 cbar1 = plt.colorbar(imax1, cax=self.ob_caxes[i][0])
                 cbar2 = plt.colorbar(imax2, cax=self.ob_caxes[i][1])
                 self.ob_cbars.append([cbar1,cbar2])
                 self.ob_imaxes.append([imax1,imax2])
         else:
             for i,(oa,op) in enumerate(zip(obamp,obph)):
-                obamp, obph = self.ob_imaxes[i]
+                obamp, obph1 = self.ob_imaxes[i]
                 obamp.set_data(oa)
-                obph.set_data(op)
+                obph1.set_data(op*mask)
 
         if self.pr_imaxes is None:
             self.pr_imaxes = []
@@ -348,7 +349,7 @@ class ReconPlot():
             self.im_pos.remove()
 
         self.bg_pos = self.pos_axes.imshow(op, interpolation=self.interp)
-        self.im_pos = self.pos_axes.scatter(pos[:,0],pos[:,1],c='r',s=5,marker='+')
+        self.im_pos = self.pos_axes.scatter(pos[:,1],pos[:,0],c='r',s=5,marker='+')
 
         if self.legend is None:
             self.legend = self.err_axes.legend()
