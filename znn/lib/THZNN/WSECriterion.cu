@@ -394,7 +394,7 @@ struct ModProj_renorm {
   ModProj_renorm(float _renorm) : renorm(_renorm) {}
 	__device__ __forceinline__ void operator()(float* fm, float* fdev, float* a, float* af, ccx* out) {
       //fm = (1-fmask) + fmask*(fmag + fdev*renorm)/(af + 1e-10)
-      float fac = (1-*fm) + *fm * (*a+*fdev* (renorm)) / (*af + 1e-6f);
+      float fac =  *fm  / (*af + 1e-6f) * (*a+*fdev* (renorm)) + (1-*fm);
       // float fac = (1-*fm) + *fm * (*a) / (*af + 1e-6f);
 	    *out = *out * fac ;
 	}

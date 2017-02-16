@@ -98,11 +98,13 @@ function engine:iterate(steps)
   print('----------------------------------------------------------------------------------------------')
   for i=1,steps do
     self:update_iteration_dependent_parameters(i)
+    -- plt:plotReIm(self.P[1][1]:zfloat())
     self:P_Q()
+    -- plt:plotReIm(self.O[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O after P_Q')
     self:maybe_refine_positions()
     self.overlap_errors[i] = self:overlap_error(self.z,self.P_Qz)
     self.mod_errors[i], mod_updates = self:DM_update()
-
+    -- plt:plotReIm(self.O[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O after DM_update')
     if self.has_solution then
       self.img_errors[{i}] = self:image_error()
       self.rel_errors[{i}] = self:relative_error()

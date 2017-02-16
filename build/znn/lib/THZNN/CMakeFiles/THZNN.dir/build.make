@@ -43,10 +43,10 @@ RM = /usr/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho
+CMAKE_SOURCE_DIR = /home/philipp/projects/dptycho
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build
+CMAKE_BINARY_DIR = /home/philipp/projects/dptycho/build
 
 # Include any dependencies generated for this target.
 include znn/lib/THZNN/CMakeFiles/THZNN.dir/depend.make
@@ -57,6 +57,8 @@ include znn/lib/THZNN/CMakeFiles/THZNN.dir/progress.make
 # Include the compile flags for this target's objects.
 include znn/lib/THZNN/CMakeFiles/THZNN.dir/flags.make
 
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: ../znn/lib/THZNN/THZNN.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: ../znn/lib/THZNN/WSECriterion.cu
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /home/philipp/torch/install/include/TH/TH.h
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /home/philipp/torch/install/include/TH/THAllocator.h
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /home/philipp/torch/install/include/TH/THAtomic.h
@@ -135,103 +137,101 @@ znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /home/phil
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /home/philipp/torch/install/include/THC/THZCTensorConv.h
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /home/philipp/torch/install/include/THC/THZCTensorCopy.h
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /home/philipp/torch/install/include/THC/THZCTensorMath.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: ../znn/lib/THZNN/THZNN.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: ../znn/lib/THZNN/WSECriterion.cu
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/_G_config.h
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/alloca.h
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/assert.h
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/builtin_types.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/backward/auto_ptr.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/backward/binders.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/allocator.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/atomic_lockfree_defines.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/basic_ios.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/basic_ios.tcc
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/basic_string.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/basic_string.tcc
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/char_traits.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/concept_check.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/cpp_type_traits.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/cxxabi_forced.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/exception_defines.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/functexcept.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/ios_base.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/istream.tcc
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/locale_classes.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/locale_classes.tcc
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/locale_facets.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/locale_facets.tcc
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/localefwd.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/memoryfwd.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/move.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/ostream.tcc
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/ostream_insert.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/postypes.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/predefined_ops.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/ptr_traits.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/range_access.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/sstream.tcc
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stl_algobase.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stl_bvector.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stl_construct.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stl_function.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stl_iterator.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stl_iterator_base_funcs.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stl_iterator_base_types.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stl_map.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stl_multimap.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stl_multiset.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stl_pair.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stl_raw_storage_iter.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stl_relops.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stl_set.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stl_tempbuf.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stl_tree.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stl_uninitialized.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stl_vector.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stream_iterator.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/streambuf.tcc
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/streambuf_iterator.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/stringfwd.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/bits/vector.tcc
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/cassert
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/cctype
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/cfloat
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/clocale
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/cmath
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/complex
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/complex.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/cstddef
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/cstdio
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/cstdlib
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/cstring
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/cwchar
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/cwctype
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/debug/debug.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/exception
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/ext/alloc_traits.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/ext/atomicity.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/ext/new_allocator.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/ext/numeric_traits.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/ext/type_traits.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/functional
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/ios
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/iosfwd
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/iostream
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/istream
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/iterator
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/limits
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/map
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/memory
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/new
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/ostream
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/set
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/sstream
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/stdexcept
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/streambuf
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/string
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/utility
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/5/vector
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/backward/auto_ptr.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/backward/binders.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/allocator.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/atomic_lockfree_defines.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/basic_ios.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/basic_ios.tcc
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/basic_string.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/basic_string.tcc
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/char_traits.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/concept_check.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/cpp_type_traits.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/cxxabi_forced.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/exception_defines.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/functexcept.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/ios_base.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/istream.tcc
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/locale_classes.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/locale_classes.tcc
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/locale_facets.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/locale_facets.tcc
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/localefwd.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/memoryfwd.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/move.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/ostream.tcc
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/ostream_insert.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/postypes.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/predefined_ops.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/ptr_traits.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/range_access.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/sstream.tcc
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stl_algobase.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stl_bvector.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stl_construct.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stl_function.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stl_iterator.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stl_iterator_base_funcs.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stl_iterator_base_types.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stl_map.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stl_multimap.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stl_multiset.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stl_pair.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stl_raw_storage_iter.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stl_relops.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stl_set.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stl_tempbuf.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stl_tree.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stl_uninitialized.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stl_vector.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stream_iterator.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/streambuf.tcc
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/streambuf_iterator.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/stringfwd.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/bits/vector.tcc
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/cassert
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/cctype
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/cfloat
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/clocale
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/cmath
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/complex
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/complex.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/cstddef
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/cstdio
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/cstdlib
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/cstring
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/cwchar
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/cwctype
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/debug/debug.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/exception
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/ext/alloc_traits.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/ext/atomicity.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/ext/new_allocator.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/ext/numeric_traits.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/ext/type_traits.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/functional
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/ios
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/iosfwd
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/iostream
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/istream
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/iterator
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/limits
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/map
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/memory
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/new
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/ostream
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/set
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/sstream
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/stdexcept
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/streambuf
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/string
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/utility
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/c++/4.9/vector
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/channel_descriptor.h
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/common_functions.h
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/complex.h
@@ -970,16 +970,16 @@ znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/inclu
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/bits/wchar2.h
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/bits/wordsize.h
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/bits/xopen_lim.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/5/bits/atomic_word.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/5/bits/c++allocator.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/5/bits/c++config.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/5/bits/c++locale.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/5/bits/cpu_defines.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/5/bits/ctype_base.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/5/bits/ctype_inline.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/5/bits/gthr-default.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/5/bits/gthr.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/5/bits/os_defines.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/4.9/bits/atomic_word.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/4.9/bits/c++allocator.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/4.9/bits/c++config.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/4.9/bits/c++locale.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/4.9/bits/cpu_defines.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/4.9/bits/ctype_base.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/4.9/bits/ctype_inline.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/4.9/bits/gthr-default.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/4.9/bits/gthr.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/c++/4.9/bits/os_defines.h
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/gnu/stubs-64.h
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/gnu/stubs.h
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/sys/cdefs.h
@@ -987,33 +987,40 @@ znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/inclu
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/sys/sysmacros.h
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/x86_64-linux-gnu/sys/types.h
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/include/xlocale.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/lib/gcc/x86_64-linux-gnu/5/include-fixed/limits.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/lib/gcc/x86_64-linux-gnu/5/include-fixed/syslimits.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/lib/gcc/x86_64-linux-gnu/5/include/float.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/lib/gcc/x86_64-linux-gnu/5/include/stdarg.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/lib/gcc/x86_64-linux-gnu/5/include/stddef.h
-znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/lib/gcc/x86_64-linux-gnu/5/include/stdint.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/lib/gcc/x86_64-linux-gnu/4.9/include-fixed/limits.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/lib/gcc/x86_64-linux-gnu/4.9/include-fixed/syslimits.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/lib/gcc/x86_64-linux-gnu/4.9/include/float.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/lib/gcc/x86_64-linux-gnu/4.9/include/stdarg.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/lib/gcc/x86_64-linux-gnu/4.9/include/stddef.h
+znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: /usr/lib/gcc/x86_64-linux-gnu/4.9/include/stdint.h
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o.cmake
 znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o: ../znn/lib/THZNN/WSECriterion.cu
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --blue --bold --progress-dir=/media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building NVCC (Device) object znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o"
-	cd /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir && /usr/bin/cmake -E make_directory /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//.
-	cd /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir && /usr/bin/cmake -D verbose:BOOL=$(VERBOSE) -D build_configuration:STRING=Release -D generated_file:STRING=/media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//./THZNN_generated_WSECriterion.cu.o -D generated_cubin_file:STRING=/media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//./THZNN_generated_WSECriterion.cu.o.cubin.txt -P /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//THZNN_generated_WSECriterion.cu.o.cmake
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --blue --bold --progress-dir=/home/philipp/projects/dptycho/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building NVCC (Device) object znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o"
+	cd /home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir && /usr/bin/cmake -E make_directory /home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//.
+	cd /home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir && /usr/bin/cmake -D verbose:BOOL=$(VERBOSE) -D build_configuration:STRING=Release -D generated_file:STRING=/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//./THZNN_generated_WSECriterion.cu.o -D generated_cubin_file:STRING=/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//./THZNN_generated_WSECriterion.cu.o.cubin.txt -P /home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//THZNN_generated_WSECriterion.cu.o.cmake
 
 # Object files for target THZNN
 THZNN_OBJECTS =
 
 # External object files for target THZNN
 THZNN_EXTERNAL_OBJECTS = \
-"/media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o"
+"/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o"
 
 znn/lib/THZNN/libTHZNN.so: znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o
 znn/lib/THZNN/libTHZNN.so: znn/lib/THZNN/CMakeFiles/THZNN.dir/build.make
-znn/lib/THZNN/libTHZNN.so: /usr/lib/x86_64-linux-gnu/libcudart.so
+znn/lib/THZNN/libTHZNN.so: /usr/lib/x86_64-linux-gnu/libcudart.so.8.0
 znn/lib/THZNN/libTHZNN.so: /home/philipp/torch/install/lib/libTH.so
-znn/lib/THZNN/libTHZNN.so: /usr/lib/libopenblas.so
+znn/lib/THZNN/libTHZNN.so: /home/philipp/anaconda2/lib/libmkl_intel_lp64.so
+znn/lib/THZNN/libTHZNN.so: /home/philipp/anaconda2/lib/libmkl_sequential.so
+znn/lib/THZNN/libTHZNN.so: /home/philipp/anaconda2/lib/libmkl_core.so
+znn/lib/THZNN/libTHZNN.so: /usr/lib/x86_64-linux-gnu/libm.so
+znn/lib/THZNN/libTHZNN.so: /home/philipp/anaconda2/lib/libmkl_intel_lp64.so
+znn/lib/THZNN/libTHZNN.so: /home/philipp/anaconda2/lib/libmkl_sequential.so
+znn/lib/THZNN/libTHZNN.so: /home/philipp/anaconda2/lib/libmkl_core.so
+znn/lib/THZNN/libTHZNN.so: /usr/lib/x86_64-linux-gnu/libm.so
 znn/lib/THZNN/libTHZNN.so: znn/lib/THZNN/CMakeFiles/THZNN.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX shared module libTHZNN.so"
-	cd /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/lib/THZNN && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/THZNN.dir/link.txt --verbose=$(VERBOSE)
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/philipp/projects/dptycho/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX shared module libTHZNN.so"
+	cd /home/philipp/projects/dptycho/build/znn/lib/THZNN && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/THZNN.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
 znn/lib/THZNN/CMakeFiles/THZNN.dir/build: znn/lib/THZNN/libTHZNN.so
@@ -1025,10 +1032,10 @@ znn/lib/THZNN/CMakeFiles/THZNN.dir/requires:
 .PHONY : znn/lib/THZNN/CMakeFiles/THZNN.dir/requires
 
 znn/lib/THZNN/CMakeFiles/THZNN.dir/clean:
-	cd /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/lib/THZNN && $(CMAKE_COMMAND) -P CMakeFiles/THZNN.dir/cmake_clean.cmake
+	cd /home/philipp/projects/dptycho/build/znn/lib/THZNN && $(CMAKE_COMMAND) -P CMakeFiles/THZNN.dir/cmake_clean.cmake
 .PHONY : znn/lib/THZNN/CMakeFiles/THZNN.dir/clean
 
 znn/lib/THZNN/CMakeFiles/THZNN.dir/depend: znn/lib/THZNN/CMakeFiles/THZNN.dir/THZNN_generated_WSECriterion.cu.o
-	cd /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/znn/lib/THZNN /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/lib/THZNN /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir/DependInfo.cmake --color=$(COLOR)
+	cd /home/philipp/projects/dptycho/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/philipp/projects/dptycho /home/philipp/projects/dptycho/znn/lib/THZNN /home/philipp/projects/dptycho/build /home/philipp/projects/dptycho/build/znn/lib/THZNN /home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : znn/lib/THZNN/CMakeFiles/THZNN.dir/depend
 

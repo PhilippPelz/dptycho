@@ -56,20 +56,20 @@ endif()
 
 # Set these up as variables to make reading the generated file easier
 set(CMAKE_COMMAND "/usr/bin/cmake") # path
-set(source_file "/media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/znn/lib/THZNN/WSECriterion.cu") # path
-set(NVCC_generated_dependency_file "/media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//THZNN_generated_WSECriterion.cu.o.NVCC-depend") # path
-set(cmake_dependency_file "/media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//THZNN_generated_WSECriterion.cu.o.depend") # path
+set(source_file "/home/philipp/projects/dptycho/znn/lib/THZNN/WSECriterion.cu") # path
+set(NVCC_generated_dependency_file "/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//THZNN_generated_WSECriterion.cu.o.NVCC-depend") # path
+set(cmake_dependency_file "/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//THZNN_generated_WSECriterion.cu.o.depend") # path
 set(CUDA_make2cmake "/home/philipp/torch/install/share/cmake/torch/FindCUDA/make2cmake.cmake") # path
 set(CUDA_parse_cubin "/home/philipp/torch/install/share/cmake/torch/FindCUDA/parse_cubin.cmake") # path
 set(build_cubin OFF) # bool
 set(CUDA_HOST_COMPILER "/usr/bin/cc") # path
 # We won't actually use these variables for now, but we need to set this, in
 # order to force this file to be run again if it changes.
-set(generated_file_path "/media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//.") # path
-set(generated_file_internal "/media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//./THZNN_generated_WSECriterion.cu.o") # path
-set(generated_cubin_file_internal "/media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//./THZNN_generated_WSECriterion.cu.o.cubin.txt") # path
+set(generated_file_path "/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//.") # path
+set(generated_file_internal "/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//./THZNN_generated_WSECriterion.cu.o") # path
+set(generated_cubin_file_internal "/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//./THZNN_generated_WSECriterion.cu.o.cubin.txt") # path
 
-set(CUDA_NVCC_EXECUTABLE "/usr/bin/nvcc") # path
+set(CUDA_NVCC_EXECUTABLE "/usr/lib/nvidia-cuda-toolkit/bin/nvcc") # path
 set(CUDA_NVCC_FLAGS  ;; ) # list
 # Build specific configuration flags
 set(CUDA_NVCC_FLAGS_RELEASE  ; )

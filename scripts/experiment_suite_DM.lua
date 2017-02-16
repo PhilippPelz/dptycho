@@ -2,7 +2,7 @@ require 'hdf5'
 require 'torch'
 require 'ztorch'
 require 'zcutorch'
-require 'hypero'
+-- require 'hypero'
 local classic = require 'classic'
 local u = require 'dptycho.util'
 local plot = require 'dptycho.io.plot'
@@ -83,7 +83,7 @@ function main()
   par.Np = 1
   par.No = 1
   par.bg_solution = nil
-  par.plot_every = 5
+  par.plot_every = 50
   par.plot_start = 1
   par.show_plots = false
   par.beta = 0.9
@@ -102,13 +102,12 @@ function main()
 
   par.object_highpass_fwhm = function(it) return nil end
   par.object_inertia = 0
-  par.object_init = 'trunc'
+  par.object_init = 'const'
   par.object_init_truncation_threshold = 80
-  par.object_initial = obj
+
 
   par.P_Q_iterations = 10
   par.copy_probe = true
-  par.copy_object = false--true
   par.margin = 0
   par.background_correction_start = 1e5
 
@@ -218,38 +217,35 @@ function main()
         par.dpos = data.pos:clone():add(-1,data.pos:clone():int()):float()
         par.object_solution = data.object:clone()
         par.probe_solution = data.probe:clone()
+        -- plt:plotReIm(par.probe_solution[1][1]:zfloat())
         par.fmask = data.a:clone():fill(1)
+        par.object_initial = par.object_solution
+        plt:plot(par.object_initial,'oinit')
 
         for k,nu0 in ipairs(nu) do
           local nu = string.gsub(string.format('%g',nu0),',','p')
           local str = string.format('%05d_s_%s_ov_%d_d_%d_nu_%s',ID,sample,overlap0*100,dose0,nu)
           par.run_label = str
           par.twf.nu = nu0
-          par.a = data.a:clone()
+          par.a = data.a:clone():sqrt()
+
+          local pa = par.probe_solution:abs()
+          par.probe_solution:div(pa:max())
+          par.a:div(pa:max())
           -- print()
           -- print('a sum')
           -- print(par.a:sum())
           -- print()
 
-            local nu = string.gsub(string.format('%g',nu0),',','p')
-            local str = string.format('%05d_s_%s_ov_%d_d_%d_nu_%s_run_%d',ID,sample,overlap0*100,dose0,nu,1)
-            par.run_label = str
-            par.twf.nu = 3e-2
-            par.a = data.a:clone()
-            -- print(par.a:sum())
-            -- print()
+          local eng = ptycho.DM_engine_subpix(par)
+          eng:iterate(100)
+          -- local hp = {run_label = str, nu = nu0, dose = eng.electrons_per_angstrom2, total_counts = eng.I_total, counts_per_valid_pixel = eng.counts_per_valid_pixel, MoverN = eng.total_nonzero_measurements/eng.pixels_with_sufficient_exposure, overlap = overlap0, probe_type = probe_type, method = 'cg', learningRate = par.optim_config.learningRate, learningRateDecay = par.optim_config.learningRateDecay, momentum = par.optim_config.momentum}
+          -- local md = {hostname = 'work', dataset = sample}
+          -- local res = { final_img_error = eng.img_error[eng.i], final_rel_error = eng.rel_error[eng.i], img_err = eng.img_error:totable(), rel_err = eng.rel_error:totable()}
 
-            -- local hex = bat:experiment()
-
-            local eng = ptycho.DM_engine_subpix(par)
-            eng:iterate(50)
-            -- local hp = {run_label = str, nu = nu0, dose = eng.electrons_per_angstrom2, total_counts = eng.I_total, counts_per_valid_pixel = eng.counts_per_valid_pixel, MoverN = eng.total_nonzero_measurements/eng.pixels_with_sufficient_exposure, overlap = overlap0, probe_type = probe_type, method = 'cg', learningRate = par.optim_config.learningRate, learningRateDecay = par.optim_config.learningRateDecay, momentum = par.optim_config.momentum}
-            -- local md = {hostname = 'work', dataset = sample}
-            -- local res = { final_img_error = eng.img_error[eng.i], final_rel_error = eng.rel_error[eng.i], img_err = eng.img_error:totable(), rel_err = eng.rel_error:totable()}
-
-            -- hex:setParam(hp)
-            -- hex:setMeta(md)
-            -- hex:setResult(res)
+          -- hex:setParam(hp)
+          -- hex:setMeta(md)
+          -- hex:setResult(res)
 
             eng = nil
             ID = ID + 1

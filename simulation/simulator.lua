@@ -153,30 +153,30 @@ function c:simulate_detector(in_psi, mtf, dqe, total_dose)
   local mtf_exp = mtf:view(1,in_psi:size(2),in_psi:size(3)):expandAs(in_psi)
   local dqe_exp = dqe:view(1,in_psi:size(2),in_psi:size(3)):expandAs(in_psi)
   local I = in_psi:norm()
-  local Isum = I:sum(2):sum(3)
+  -- local Isum = I:sum(2):sum(3)
   -- pprint(Isum)
   -- print(I:normall(1))
-  for i=1,I:size(1) do
-      I[i]:fftshift()
-  end
+  -- for i=1,I:size(1) do
+  --     I[i]:fftshift()
+  -- end
   -- for i=1,20 do
   --   plt:plot(I[i]:re():float(),string.format('I[%d]',i))
   --   u.printf('sum(I[%d]) = %g',i,I[i]:re():sum())
   -- end
   -- I = I:div(I:normall(1))
   -- local dose_per_exposure = total_dose / I:size(1)
-  local ftI = I:fftBatched()
+  -- local ftI = I:fftBatched()
   -- for i=1,5 do
   --   plt:plot(I[i]:re():fftshift():float():log(),string.format('ftI[%d]',i))
   -- end
-  local Sn = ftI:cmul(mtf_exp)--:cdiv(sqrt_nnps_exp)
-  local I2 = Sn:ifftBatched():re()
-  I2[torch.lt(I2,0)] = 0
+  -- local Sn = ftI:cmul(mtf_exp)--:cdiv(sqrt_nnps_exp)
+  -- local I2 = Sn:ifftBatched():re()
+  -- I2[torch.lt(I2,0)] = 0
   -- local I2norm = I2:div(I2:norm(1))
-  local I_noise = u.stats.poisson(I2:float())
-  for i=1,I:size(1) do
-      I_noise[i]:copy(I_noise[i]:cuda():fftshift():float())
-  end
+  local I_noise = u.stats.poisson(I:re():float())
+  -- for i=1,I:size(1) do
+  --     I_noise[i]:copy(I_noise[i]:cuda():fftshift():float())
+  -- end
   -- I:copyRe(I_noise:cuda()):fillIm(0)
   -- I:fftBatched()
   -- I:cmul(sqrt_nnps_exp)

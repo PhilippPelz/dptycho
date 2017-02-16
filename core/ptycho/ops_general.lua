@@ -51,10 +51,10 @@ function m.static.P_F_without_background(z,a,a_exp,fm,fm_exp,zk_real_buffer, a_b
     -- pprint(abs)
     -- pprint(a[k_all])
     fdev[1][1]:add(a_model[1][1],-1,a[k_all])
-    -- if k_all == 4 or k_all == 20 then
-    --   plt:plot(fdev[1][1]:clone():fftshift():float(),'fdev')
-    --   plt:plotcompare({a_model[1][1]:clone():fftshift():float():log(),a[k_all]:clone():fftshift():float():log()},{'a_model','a'})
-    -- end
+    if k_all % 150 == 0 then
+      plt:plot(fdev[1][1]:clone():cdiv(a[k_all]):fftshift():float(),'fdev percent')
+      plt:plotcompare({a_model[1][1]:clone():fftshift():float():log(),a[k_all]:clone():fftshift():float():log()},{'a_model','a'})
+    end
     da:pow(fdev,2)
     da:cmul(fm[k_all])
     err_fmag = da:sum()
@@ -71,17 +71,17 @@ function m.static.P_F_without_background(z,a,a_exp,fm,fm_exp,zk_real_buffer, a_b
       else
         fourier_mask = fm_exp[k_all]
       end
-      m.P_Mod(z[k],abs_exp,a_exp[k_all])
+      -- m.P_Mod(z[k],abs_exp,a_exp[k_all])
       -- pprint(fourier_mask)
-      -- m.P_Mod_renorm(z[k],fourier_mask,fdev_exp,a_exp[k_all],abs_exp,renorm)
+      m.P_Mod_renorm(z[k],fourier_mask,fdev_exp,a_exp[k_all],abs_exp,renorm)
       mod_updates = mod_updates + 1
     end
   end
   z:view_3D():ifftBatched()
-  -- for i=95,99 do
+  for i=95,99 do
     -- plt:plot(z[i][1][1]:clone()[{{80,400},{80,400}}],'exitwave '..i)
-    -- plt:plotcompare({z[i][1][1]:clone():float():log(),a[k_all]:clone():fftshift():float():log()},{'a_model','a'})
-  -- end
+    -- plt:plotcompare({z[i][1][1]:clone():float():log(),a[i]:clone():fftshift():float():log()},{'a_model','a'})
+  end
   -- u.printf('z norm: %g',z:normall(2)^2)
   return module_error, mod_updates
 end

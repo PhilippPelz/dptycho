@@ -76,10 +76,22 @@ function m.static.Q_star(z, mul_merge, merge_memory, merge_memory_views, zk_buff
     batch_copy_func(k)
     local ind = k_to_batch_index[k]
     mul_merge_repeated:conj(mul_merge:expandAs(z[ind]))
+    -- plt:plotReIm(mul_merge_repeated[1][1]:zfloat(),'mul_merge_repeated '..k)
+    -- plt:plotReIm(z[ind][1][1]:zfloat(),'z '..k)
+    -- pprint(mul_merge_repeated)
+    -- pprint(z[ind])
+    local a = z[ind]:clone():cmul(mul_merge_repeated)
+    -- plt:plotReIm(a[1][1]:zfloat(),'mergeme '..k)
+    if a:size(2) > 1 then
+      a = a:sum(2)
+    end
+    -- pprint(a)
+    -- plt:plotReIm(a[1][1]:zfloat(),'mergeme '..k)
     -- add sum over probe modes
-    view:add(mul_merge_repeated:cmul(z[ind]):sum(2))
-    if k < 0 then
-      plt:plotReIm(merge_memory[1][1]:zfloat(),'merged '..k)
+    view:add(a)
+    -- view:add(mul_merge_repeated:fillIm(1):fillRe(1))
+    if true then
+      -- plt:plotReIm(merge_memory[1][1]:zfloat(),'merged '..k)
     end
   end
   -- plt:plotReIm(merge_memory[1][1]:zfloat(),'merged '..1)

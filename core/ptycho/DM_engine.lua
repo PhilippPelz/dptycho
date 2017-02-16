@@ -4,7 +4,7 @@ local u = require 'dptycho.util'
 local plot = require 'dptycho.io.plot'
 local plt = plot()
 local engine, super = classic.class(...,base_engine)
-
+require 'cutorch'
 function engine:_init(par)
   super._init(self,par)
 end
@@ -32,6 +32,7 @@ function engine:DM_update_without_background()
     -- self.P_Fz = P_F((2P_Q - I))z
     self.plots = 0
     mod_error, mod_updates = self:P_F()
+
     --  z_{i+1} = z_i - P_Q z_i + P_F((2P_Q - I))z_i
     self.z:add(self.P_Fz)
   end
@@ -65,9 +66,11 @@ function engine:DM_update_with_background()
 end
 
 function engine:get_errors()
-  return {self.mod_errors:narrow(1,1,self.i), self.overlap_errors:narrow(1,1,self.i),self.img_errors:narrow(1,1,self.i)}
+  return {self.mod_errors:narrow(1,1,self.i), self.overlap_errors:narrow(1,1,self.i),self.img_errors:narrow(1,1,self.i),self.rel_errors:narrow(1,1,self.i)}
 end
-
+function engine:get_error_labels()
+  return {'RFE','ROE','RMSE_img','RMSE_z'}
+end
 function engine:allocate_error_history()
   self.mod_errors = torch.FloatTensor(self.iterations):fill(1)
   self.overlap_errors = torch.FloatTensor(self.iterations):fill(1)
@@ -100,7 +103,9 @@ function engine:iterate(steps)
   print('----------------------------------------------------------------------------------------------')
   for i=1,steps do
     self:update_iteration_dependent_parameters(i)
+    
     self:P_Q()
+
     if self.has_solution then
       self.img_errors[{i}] = self:image_error()
       probe_error = self:probe_error()
@@ -114,7 +119,7 @@ function engine:iterate(steps)
       self.rel_errors[{i}] = self:relative_error()
     end
 
-    u.printf('%-10d%-15g%-15g%-15g%-15g%-15g%-15g',i,self.mod_errors[i] or -1,self.overlap_errors[i] or -1 , relative_error or -1,self.img_errors[i] or -1, probe_error or -1, mod_updates/self.K*100.0)
+    u.printf('%-10d%-15g%-15g%-15g%-15g%-15g%-15g',i,self.mod_errors[i] or -1,self.overlap_errors[i] or -1 , self.rel_errors[i] or -1,self.img_errors[i] or -1, probe_error or -1, mod_updates/self.K*100.0)
 
     self:maybe_plot()
     self:maybe_save_data()

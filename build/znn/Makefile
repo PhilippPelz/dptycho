@@ -48,10 +48,10 @@ RM = /usr/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho
+CMAKE_SOURCE_DIR = /home/philipp/projects/dptycho
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build
+CMAKE_BINARY_DIR = /home/philipp/projects/dptycho/build
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -124,14 +124,14 @@ edit_cache/fast: edit_cache
 
 # The main all target
 all: cmake_check_build_system
-	cd /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build && $(CMAKE_COMMAND) -E cmake_progress_start /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/CMakeFiles /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/CMakeFiles/progress.marks
-	cd /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build && $(MAKE) -f CMakeFiles/Makefile2 znn/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/CMakeFiles 0
+	cd /home/philipp/projects/dptycho/build && $(CMAKE_COMMAND) -E cmake_progress_start /home/philipp/projects/dptycho/build/CMakeFiles /home/philipp/projects/dptycho/build/znn/CMakeFiles/progress.marks
+	cd /home/philipp/projects/dptycho/build && $(MAKE) -f CMakeFiles/Makefile2 znn/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/philipp/projects/dptycho/build/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
 clean:
-	cd /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build && $(MAKE) -f CMakeFiles/Makefile2 znn/clean
+	cd /home/philipp/projects/dptycho/build && $(MAKE) -f CMakeFiles/Makefile2 znn/clean
 .PHONY : clean
 
 # The main clean target
@@ -141,17 +141,17 @@ clean/fast: clean
 
 # Prepare targets for installation.
 preinstall: all
-	cd /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build && $(MAKE) -f CMakeFiles/Makefile2 znn/preinstall
+	cd /home/philipp/projects/dptycho/build && $(MAKE) -f CMakeFiles/Makefile2 znn/preinstall
 .PHONY : preinstall
 
 # Prepare targets for installation.
 preinstall/fast:
-	cd /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build && $(MAKE) -f CMakeFiles/Makefile2 znn/preinstall
+	cd /home/philipp/projects/dptycho/build && $(MAKE) -f CMakeFiles/Makefile2 znn/preinstall
 .PHONY : preinstall/fast
 
 # clear depends
 depend:
-	cd /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build && $(CMAKE_COMMAND) -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
+	cd /home/philipp/projects/dptycho/build && $(CMAKE_COMMAND) -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
 .PHONY : depend
 
 # Help Target
@@ -177,6 +177,6 @@ help:
 # No rule that depends on this can have commands that come from listfiles
 # because they might be regenerated.
 cmake_check_build_system:
-	cd /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build && $(CMAKE_COMMAND) -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
+	cd /home/philipp/projects/dptycho/build && $(CMAKE_COMMAND) -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
 .PHONY : cmake_check_build_system
 

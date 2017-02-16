@@ -252,7 +252,7 @@ class ReconPlot():
         # print [ob_rows,3]
         self.err_axes = self.fig.add_subplot(gs[ob_rows,:2])
         self.err_axes.set_yscale("log", nonposy='clip')
-
+        self.err_axes.set_ylim([1e-6,2])
         pr1 = self.fig.add_subplot(gs[ob_rows,2])
         pr2 = self.fig.add_subplot(gs[ob_rows,3])
         pr1.set_title('$\Psi_{%d}$'%n_pr)

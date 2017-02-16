@@ -1,4 +1,4 @@
-# Install script for directory: /media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/znn
+# Install script for directory: /home/philipp/projects/dptycho/znn
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -34,7 +34,7 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("/media/philipp/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/home/philipp/projects/dptycho/build/znn/lib/cmake_install.cmake")
+  include("/home/philipp/projects/dptycho/build/znn/lib/cmake_install.cmake")
 
 endif()
 

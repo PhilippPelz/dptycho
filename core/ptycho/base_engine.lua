@@ -52,7 +52,6 @@ function engine:_init(par1)
   end
 
   local min = self.pos:min(1)
-  -- pprint(min)
   self.pos = self.pos:add(-1,min:expandAs(self.pos)):add(1)
 
   self.fm = self.fmask:expandAs(self.a)
@@ -86,6 +85,12 @@ function engine:_init(par1)
   self.pos:add(self.margin)
   self.Nx = object_size[1] - 1
   self.Ny = object_size[2] - 1
+
+  if self.object_initial then
+    pprint(self.object_initial)
+    pprint({{min[1][1],self.Nx},{min[1][2],self.Ny}})
+    self.object_initial = self.object_initial[{{min[1][1],self.Nx},{min[1][2],self.Ny}}]
+  end
 
   self:allocateBuffers(self.K,self.No,self.Np,self.M,self.Nx,self.Ny)
 
@@ -221,7 +226,7 @@ function engine:P_Q_plain()
   self:merge_frames(self.z,self.P,self.O,self.O_views,true)
   -- plt:plot(self.O[1][1]:zfloat(),'O after merge')
   -- plt:plot(self.P[1][1]:zfloat(),'P after merge')
-  self.ops.Q(self.P_Qz,self.P,self.O_views,self.zk_buffer_update_frames,self.k_to_batch_index,fn.partial(self.maybe_copy_new_batch_P_Q,self),self.batches,self.K,self.dpos)
+  self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
 end
 
 -- P_Qz, P_Fz free to use
@@ -231,7 +236,7 @@ function engine:merge_frames(z,mul_merge, merge_memory, merge_memory_views, do_n
   if do_normalize_merge_memory then
     merge_memory:cmul(self.O_denom)
   end
-  -- plt:plotReIm(self.O[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O after merge 1')
+  -- plt:plotReIm(self.O[1][1]:zfloat(),'O after merge 1')
 end
 
 function engine:before_iterate()
@@ -461,7 +466,6 @@ function engine:initialize_object()
     -- local z = ptycho.initialization.truncated_spectral_estimate(self.z,self.P,self.O_denom,self.object_init_truncation_threshold,self.ops,self.a,self.z1,self.a_buffer2,self.zk_buffer_update_frames,self.P_buffer,self.O_buffer,self.batch_params,self.old_batch_params,self.k_to_batch_index,self.batches,self.batch_size,self.K,self.M,self.No,self.Np,self.pos,self.dpos,self.O_mask)
     -- -- self.O:copy(O)
     -- z:view_3D():ifftBatched()
-    -- self:merge_frames(z,self.P,self.O,self.O_views,true)
     -- plt:plot(self.O[1][1]:zfloat())
 
     local O = ptycho.initialization.truncated_spectral_estimate_power_it(self.z,self.P,self.O_denom,self.object_init_truncation_threshold,self.ops,self.a,self.z1,self.a_buffer2,self.zk_buffer_update_frames,self.P_buffer,self.O_buffer,self.batch_params,self.old_batch_params,self.k_to_batch_index,self.batches,self.batch_size,self.K,self.M,self.No,self.Np,self.pos,self.dpos,self.O_mask)
@@ -469,14 +473,19 @@ function engine:initialize_object()
     -- angle = u.gf(angle,2)
     self.O:polar(torch.CudaTensor(O:size()):fill(1),angle:cuda())
     -- z:view_3D():ifftBatched()
-    -- self:merge_frames(z,self.P,self.O,self.O_views,true)
     self.O_init = self.O:zfloat()
     -- plt:plot(self.O[1][1]:zfloat(),'O initialization')
   elseif self.object_init == 'gcl' then
       u.printf('gcl initialization is not implement yet')
       self.O:zero():add(1+0i)
   elseif self.object_init == 'copy' then
+    if self.object_initial:dim() == 2 then
+      pprint(self.O)
+      pprint(self.object_initial)
+      self.O[1][1]:copy(self.object_initial)
+    else
       self.O:copy(self.object_initial)
+    end
   end
 end
 
@@ -531,9 +540,7 @@ function engine:allocate_probe(Np,M)
 end
 
 function engine:allocate_object(No,Nx,Ny)
-  -- if self.O == nil then
   self.O = torch.ZCudaTensor.new(No,1,Nx,Ny)
-  -- end
 end
 -- total memory requirements:
 -- 1 x object complex
@@ -1193,6 +1200,9 @@ function engine:relative_error(z1)
     -- plt:plotcompare({z_solution[45][1][1]:zfloat():abs(),self.z2[45][1][1]:zfloat():abs()},{'sol abs','rec abs'})
     -- plt:plotcompare({z_solution[45][1][1]:zfloat():arg(),self.z2[45][1][1]:zfloat():arg()},{'sol arg','rec arg'})
     self.z2:add(-1,z_solution)
+    -- for i = 1,self.K do
+    --   plt:plotReIm(self.z2[i][1][1]:zfloat(),'z diff')
+    -- end
     local result = self.z2:normall(2)/z_solution:normall(2)
     -- print(result)
     return result
@@ -1212,6 +1222,7 @@ function engine:image_error()
     --   plt:plotcompare({self.object_solution[1][1]:zfloat():arg(),O_res:clone():cmul(self.O_mask)[1][1]:zfloat():arg()},{'sol arg','rec arg'})
     -- end
     O_res:add(-1,self.object_solution):cmul(self.O_mask)
+    -- plt:plotReIm(O_res[1][1]:zfloat(),'image difference')
     local O_res_norm = O_res:normall(2)
     local norm1 = O_res_norm/O_res:copy(self.object_solution):cmul(self.O_mask):normall(2)
     return norm1
