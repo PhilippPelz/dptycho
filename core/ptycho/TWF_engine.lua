@@ -15,7 +15,8 @@ function TWF_engine:_init(par)
   super._init(self,par)
   self.L = znn.TruncatedPoissonLikelihood(self.twf.a_h,self.twf.a_lb,self.twf.a_ub, self.z, self.fm, self.a_buffer1, self.a_buffer2, self.z1_buffer_real, self.K, self.No, self.Np, self.M, self.Nx, self.Ny, self.twf.diagnostics,self.twf.do_truncate)
   if self.regularizer then
-    self.R = self.regularizer(self.O_tmp,self.dR_dO,self.rescale_regul_amplitude*self.twf.nu,self.O_tmp_real1,self.O_tmp_real2)
+    self.regularization_params.rescale_regul_amplitude = self.rescale_regul_amplitude
+    self.R = self.regularizer(self.O_tmp,self.dR_dO,self.regularization_params,self.O_tmp_real1,self.O_tmp_real2)
   end
   -- we deal with intensities in the MAP framework
   self.a:pow(2)
@@ -120,6 +121,8 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
     local z1_storage_offset = 1
     self.a_buffer1 = torch.CudaTensor.new(z1_storage_real, z1_storage_offset, torch.LongStorage{K,M,M})
+    
+    self.Pk_buffer_real = torch.CudaTensor.new(z1_storage_real, z1_storage_offset, torch.LongStorage{1,1,M,M})
     z1_storage_offset = z1_storage_offset + self.a_buffer1:nElement() + 1
 
     if self:sufficient_space(z1_storage_real,z1_storage_offset,K*M*M) then
@@ -212,6 +215,11 @@ function TWF_engine:refine_probe_internal(P_update_buffer, z_buffer1, z_buffer2,
 
   u.printram('after refine_probe')
   return math.sqrt(P_norm/self.Np)
+end
+
+function TWF_engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
+  merge_memory:zero()
+  self:merge_frames_internal(self.dL_dz, mul_merge, merge_memory, merge_memory_views, self.z1, self.dL_dP_tmp1, false)
 end
 
 function TWF_engine:mu(it)

@@ -8,7 +8,7 @@ function c:__init(tmp,grad,params)
    parent.__init(self)
    self.tmp = tmp:squeeze(2)
    self.gradInput = grad
-   self.amplitude = params.amplitude
+   self.amplitude = params.amplitude * params.rescale_regul_amplitude
 end
 
 function c:updateOutput(input, target)

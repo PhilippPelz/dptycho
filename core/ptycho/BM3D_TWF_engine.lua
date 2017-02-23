@@ -17,7 +17,7 @@ function TWF_engine:_init(par)
   super._init(self,par)
   self.L = znn.TruncatedPoissonLikelihood(self.twf.a_h,self.twf.a_lb,self.twf.a_ub, self.z, self.fm, self.a_buffer1, self.a_buffer2, self.z1_buffer_real, self.K, self.No, self.Np, self.M, self.Nx, self.Ny, self.twf.diagnostics,self.twf.do_truncate)
   if self.regularizer then
-    -- self.regularization_params.amplitude = self.rescale_regul_amplitude*self.twf.nu
+    self.regularization_params.rescale_regul_amplitude = self.rescale_regul_amplitude
     self.R = self.regularizer(self.O_tmp,self.dR_dO,self.regularization_params,self.O_tmp_real1,self.O_tmp_real2)
   end
   -- we deal with intensities in the MAP framework

@@ -32,14 +32,11 @@
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/propagators.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/BM3D_TWF_engine.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/DM_engine.lua
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/DM_engine_subpix.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/RAAR_engine.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/RWF_engine.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/Runner.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/TWF_engine.lua
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/TWF_engine_subpix.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/base_engine.lua
-/home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/base_engine_shifted.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/init.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/initialization.lua
 /home/philipp/torch/install/lib/luarocks/rocks/dptycho/scm-1/lua/dptycho/core/ptycho/ops.lua

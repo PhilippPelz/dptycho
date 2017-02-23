@@ -26,14 +26,17 @@ function engine:DM_update_without_background()
   for k = 1, self.K, self.batch_size do
     self:maybe_copy_new_batch_all(k)
   -- self.P_Fz = (2P_Q - I)z
+    -- plt:plot(self.P_Qz[1][1][1],'P_Qz '..1)
+    -- plt:plot(self.z[1][1][1],'z '..1)
     self.P_Fz:mul(self.P_Qz,1+self.beta):add(-self.beta,self.z)
+    -- plt:plot(self.P_Fz[1][1][1],'z '..1)
     -- z_{i+1} = z_i - P_Q z_i , P_Qz can be used as buffer now
     self.z:add(-1,self.P_Qz)
     -- self.P_Fz = P_F((2P_Q - I))z
     self.plots = 0
     mod_error, mod_updates = self:P_F()
 
-    --  z_{i+1} = z_i - P_Q z_i + P_F((2P_Q - I))z_i
+    --  z_{i+1} = z_i - P_Q z_i + P_F(((1+beta))P_Q - beta I))z_i
     self.z:add(self.P_Fz)
   end
   -- self:maybe_copy_new_batch_z(1)
@@ -101,9 +104,10 @@ function engine:iterate(steps)
   local probe_change_0, last_probe_change, probe_change = nil, 1e10, 0
   u.printf('%-10s%-15s%-15s%-15s%-15s%-15s%-15s','iteration','e_mod','e_over','e_rel','e_img','e_probe','modulus updates %')
   print('----------------------------------------------------------------------------------------------')
+  self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
   for i=1,steps do
     self:update_iteration_dependent_parameters(i)
-    
+    print('before P_Q')
     self:P_Q()
 
     if self.has_solution then
@@ -111,12 +115,16 @@ function engine:iterate(steps)
       probe_error = self:probe_error()
     end
     -- u.printf('rel error P_Qz: %g',self:relative_error(self.P_Qz))
-    self:maybe_refine_positions()
     self.overlap_errors[i] = self:overlap_error(self.z,self.P_Qz)
+    self:maybe_refine_positions()
+
+    print('before DM_update')
     self.mod_errors[i], mod_updates = self:DM_update()
 
     if self.has_solution then
+      self.img_errors[{i}] = self:image_error()
       self.rel_errors[{i}] = self:relative_error()
+      probe_error = self:probe_error()
     end
 
     u.printf('%-10d%-15g%-15g%-15g%-15g%-15g%-15g',i,self.mod_errors[i] or -1,self.overlap_errors[i] or -1 , self.rel_errors[i] or -1,self.img_errors[i] or -1, probe_error or -1, mod_updates/self.K*100.0)
