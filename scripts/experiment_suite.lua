@@ -116,7 +116,7 @@ function main()
   par.object_initial = obj
 
   par.P_Q_iterations = 10
-  par.copy_probe = true
+  par.probe_init = 'copy'
   par.copy_object = false--true
   par.margin = 0
   par.background_correction_start = 1e5

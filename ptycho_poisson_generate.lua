@@ -112,7 +112,7 @@ par.object_init = 'copy_solution'
 par.object_init_truncation_threshold = 0.8
 
 par.P_Q_iterations = 10
-par.copy_probe = true
+par.probe_init = 'copy'
 par.copy_object = true
 par.margin = 0
 par.background_correction_start = 1e5

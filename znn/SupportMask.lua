@@ -21,17 +21,23 @@ function c:__init(size1,radius,type1)
   local y = x:clone():t()
   local r = (x:pow(2) + y:pow(2)):sqrt()
   -- plt:plot(r:float(),'r')
-  local mask = torch.lt(r, radius)
-  -- plt:plot(mask:float(),'mask')
-  mask = mask:repeatTensor(unpack(size)):float()
+  self.mask = torch.lt(r, radius):cuda()
+  -- plt:plot(self.mask:float(),'mask')
+  -- mask = mask:repeatTensor(unpack(size)):float()
   -- pprint(mask)
   -- pprint(size1)
-  self.weight = torch.ZFloatTensor(unpack(size1)):copy(mask):zcuda()
+  -- self.weight = torch.ZFloatTensor(unpack(size1)):copy(mask):zcuda()
   self.output = torch.ZCudaTensor()
   -- pprint(self.weight)
 end
 
 function c:updateOutput(input)
+  local size = input:size():totable()
+  for i=1,#size-2 do
+    size[i] = 1
+  end
+  -- print('SupportMask updateOutput',size)
+  self.weight = self.mask:view(table.unpack(size)):expandAs(input)
   -- print('forward mask')
   -- pprint(input)
   -- pprint(self.weight)

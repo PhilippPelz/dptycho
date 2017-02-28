@@ -192,7 +192,6 @@ end
 
 -- P_Fz free
 function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
-  print('update_frames')
   self.ops.Q(z,mul_split,merge_memory_views,self.zk_buffer_update_frames,self.k_to_batch_index, fn.partial(batch_copy_func,self),self.batches,self.K,self.dpos)
 end
 
@@ -205,12 +204,13 @@ end
 function engine:P_Q()
   if self.update_probe then
     for _ = 1,self.P_Q_iterations do
+      local probe_change = self:refine_probe()
       self:merge_frames(self.z,self.P,self.O,self.O_views,true)
       -- plt:plot(self.P[1][1]:zfloat(),'P before refine_probe')
       -- local hasnans = torch.any(nans)
       -- local old_P_norm = self.P:normall(2)^2
       -- u.printf('old P norm = %g',old_P_norm)
-      local probe_change = self:refine_probe()
+
       -- local nans = torch.ne(self.P:re(),self.P:re())
 
       -- u.printf('new P norm = %g',new_P_norm)
@@ -251,21 +251,22 @@ function engine:P_Q_plain()
   self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
 end
 
--- P_Qz, P_Fz free to use
-function engine:merge_frames(z,mul_merge, merge_memory, merge_memory_views, do_normalize_merge_memory)
+function engine:merge_frames_internal(z,mul_merge, merge_memory, merge_memory_views, zk_buffer, P_buffer, do_normalize_merge_memory)
   -- plt:plotReIm(self.O[1][1]:zfloat(),'O before merge')
-  self.ops.Q_star(z, mul_merge, merge_memory, merge_memory_views, self.zk_buffer_merge_frames, self.P_buffer,self.object_inertia, self.k_to_batch_index,fn.partial(self.maybe_copy_new_batch_z,self), self.batches, self.K,self.dpos)
+  self.ops.Q_star(z, mul_merge, merge_memory, merge_memory_views, zk_buffer, P_buffer,self.object_inertia, self.k_to_batch_index,fn.partial(self.maybe_copy_new_batch_z,self), self.batches, self.K,self.dpos)
   -- plt:plot(self.O_denom[1][1]:float():log(),'O_denom')
-  -- plt:plotReIm(merge_memory[1][1]:zfloat(),'O after merge 0')
+  -- plt:plotReIm(merge_memory[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O after merge 0')
   -- pprint(merge_memory)
   -- pprint(self.O_denom)
   -- print(self.O_denom:max(),self.O_denom:min())
   if do_normalize_merge_memory then
     merge_memory:cmul(self.O_denom)
   end
-  plt:plotReIm(merge_memory[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O after merge 1')
+  -- plt:plotReIm(merge_memory[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O after merge 1')
   -- plt:plot(self.O[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O after merge 1')
 end
+
+engine:mustHave("merge_frames")
 
 function engine:before_iterate()
   print('before_iterate')
@@ -463,7 +464,7 @@ end
 function engine:initialize_probe()
   local Pre = stats.truncnorm({self.M,self.M},0,1,1e-1,1e-2):cuda()
 
-  if self.copy_probe then
+  if self.probe_init == 'copy' then
     if self.probe_solution:dim() == 2 then
       self.P[1][1]:copy(self.probe_solution)
     else

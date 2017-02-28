@@ -71,7 +71,7 @@ par.object_highpass_fwhm = function(it) return nil end
 par.object_inertia = nil
 
 par.P_Q_iterations = 10
-par.copy_probe = true
+par.probe_init = 'copy'
 par.copy_object = false--true
 par.margin = 0
 par.background_correction_start = 1e5

@@ -44,7 +44,7 @@ local dest = torch.ZCudaTensor.new(1,256,256):fillRe(0):fillIm(0)
 -- plt:plotcompare({t[1]:re():float(),dest[1]:re():float()})
 -- plt:plotcompare({t[2]:re():float(),dest[2]:re():float()})
 -- plt:plot(t[1]:re():float())
-for a = -10,10 do
+for a = -30,30 do
   s = {a/10.0,a/10.0}
   pprint(s)
   dest:shift(t,torch.FloatTensor(s))

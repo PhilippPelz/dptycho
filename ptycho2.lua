@@ -58,7 +58,7 @@ par.bg_solution = nil
 par.plot_every = 50
 par.plot_start = 0
 par.show_plots = true
-par.beta = 0.8
+par.beta = 1
 par.fourier_relax_factor = 5e-2
 par.position_refinement_start = 1000
 par.position_refinement_every = 3
@@ -79,7 +79,7 @@ par.object_initial = object_solution[1][1]
 par.object_init = 'const'
 
 par.P_Q_iterations = 10
-par.copy_probe = true
+par.probe_init = 'copy'
 par.margin = 0
 par.background_correction_start = 1e5
 
@@ -99,7 +99,7 @@ par.probe_solution = probe
 par.a = a
 par.fmask = fmask
 par.probe = nil
-par.ops = require 'dptycho.core.ptycho.ops_subpixel'
+-- par.ops = require 'dptycho.core.ptycho.ops_subpixel'
 local ngin = ptycho.DM_engine(par)
 -- ngin:generate_data('/media/philipp/win1/ProgramData/Dropbox/Public/moon9',1e4, true)
 ngin:iterate(500)

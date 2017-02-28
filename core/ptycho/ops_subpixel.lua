@@ -33,13 +33,20 @@ function m.static.calculateO_denom(O_denom,O_mask,O_denom_views,P,P_buffer,Pk_bu
   else
     O_denom:fill(1e-3)
   end
-
+  -- local P_norm = P_buffer:norm(P):sum(P_dim)
+  -- for k,view in ipairs(O_denom_views) do
+  --   Pk_buffer_real[1]:shift(P_norm[1]:re(),dpos[k])
+  --   local np_exp = Pk_buffer_real:expandAs(view)
+  --   -- plt:plot(np_exp[1][1]:float(),'np_exp')
+  --   view:add(np_exp)
+  --   -- plt:plot(O_denom[1][1]:float(),'self.O_denom')
+  -- end
   for k,view in ipairs(O_denom_views) do
     P_buffer[1]:shift(P[1],dpos[k])
     -- 1 x 1 x M x M
-    local norm_P_shifted = Pk_buffer_real[1]:normZ(P_buffer[1])
-    Pk_buffer_real:sum(P_dim)
-    local np_exp = Pk_buffer_real:expandAs(view)
+    local norm_P_shifted = Pk_buffer_real:normZ(P_buffer)
+    norm_P_shifted = norm_P_shifted:sum(P_dim)
+    local np_exp = norm_P_shifted:expandAs(view)
     -- plt:plot(np_exp[1][1]:float(),'np_exp')
     view:add(np_exp)
     -- plt:plot(O_denom[1][1]:float(),'self.O_denom')
@@ -82,13 +89,15 @@ RETURN:
 function m.static.Q_star(z, mul_merge, merge_memory, merge_memory_views, zk_buffer, P_buffer,O_inertia, k_to_batch_index, batch_copy_func,batches,K,dpos)
     local product_shifted = zk_buffer
     local mul_merge_shifted = P_buffer
-
-    if O_inertia ~= 0 then
+    -- print(O_inertia)
+    -- merge_memory = merge_memory:clone()
+    if O_inertia then
       merge_memory:mul(O_inertia)
     else
-      merge_memory:fill(0)
+      merge_memory:fillIm(0):fillRe(0)
     end
-
+    -- print('merge_memory max min',merge_memory:re():max(),merge_memory:im():max())
+    -- plt:plotReIm(merge_memory[1][1]:zfloat(),'merge_memory Q_star beginning')
     u.printram('before merge_frames')
     for k, view in ipairs(merge_memory_views) do
       if batches > 2 then xlua.progress(k,K) end
@@ -104,7 +113,8 @@ function m.static.Q_star(z, mul_merge, merge_memory, merge_memory_views, zk_buff
         -- plt:plot(product_shifted[1][1]:zfloat(),'product_shifted')
       end
       view:add(product_shifted[1][1])
-      -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory')
+
+      -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory '..k)
     end
     -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory')
     u.printram('after merge_frames')
@@ -256,20 +266,22 @@ function m.static.refine_probe(z,P,O_views,P_buffer1,P_buffer2,P_buffer_real1,P_
     pos:fill(-1):cmul(dpos[ind])
     oview_conj:conj(view:expandAs(z[ind]))
 
-    denom_tmp = denom_tmp:normZ(oview_conj):sum(1)
-    denom_shifted[1]:shift(denom_tmp[1],pos)
+    oview_conj_shifted:view_3D():shift(oview_conj:view_3D(),pos)
+    local denom = denom_tmp:normZ(oview_conj_shifted):sum(1)
 
     oview_conj:cmul(z[ind])
     oview_conj_shifted:view_3D():shift(oview_conj:view_3D(),pos)
 
-    new_P_denom:add(denom_shifted)
+    new_P_denom:add(denom)
     new_P:add(oview_conj_shifted:sum(1))
   end
+  plt:plot(new_P_denom[1][1]:float():log(),'new_P_denom')
+  plt:plot(new_P[1][1]:zfloat(),'new_P')
   new_P:cdiv(new_P_denom)
-
+  plt:plot(new_P[1][1]:zfloat(),'new_P:cdiv(new_P_denom)')
   P:copy(new_P)
   if probe_support then P = probe_support:forward(P) end
-
+  plt:plot(P[1][1]:zfloat(),'new_P:cdiv(new_P_denom)')
   -- plt:plot(self.P[1]:zfloat(),'self.P')
   -- if self.probe_regularization_amplitude(self.i) then self:regularize_probe() end
   -- if self.probe_lowpass_fwhm(self.i) then self:filter_probe() end

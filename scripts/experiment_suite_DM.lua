@@ -107,7 +107,7 @@ function main()
 
 
   par.P_Q_iterations = 10
-  par.copy_probe = true
+  par.probe_init = 'copy'
   par.margin = 0
   par.background_correction_start = 1e5
 

@@ -6,6 +6,8 @@ local znn = require 'dptycho.znn'
 local plt = plot()
 local optim = require 'optim'
 local fn = require 'fn'
+local bm3d = require 'bm3d'
+require 'image'
 require 'sys'
 
 local TWF_engine, super = classic.class(...,base_engine)
@@ -39,6 +41,8 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
     self.dL_dO = torch.ZCudaTensor.new(self.O:size())
     self.O_tmp = torch.ZCudaTensor.new(self.O:size())
+
+    -- plt:plotReIm(self.dL_dO[1][1]:zfloat(),'self.dL_dO')
     self.O_tmp_real1 = torch.CudaTensor.new(self.O:size())
     self.O_tmp_real2 = torch.CudaTensor.new(self.O:size())
     self.dR_dO = torch.ZCudaTensor.new(self.O:size())
@@ -46,6 +50,15 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
     self.dL_dP = torch.ZCudaTensor.new(self.P:size()):zero()
     self.dL_dP_tmp1 = torch.ZCudaTensor.new(self.P:size())
     self.dL_dP_tmp1_real = torch.CudaTensor.new(self.P:size())
+
+    self.dL_dO:fillIm(0):fillRe(0)
+    self.O_tmp:fillIm(0):fillRe(0)
+    self.dR_dO:fillIm(0):fillRe(0)
+    self.dL_dP:fillIm(0):fillRe(0)
+    self.dL_dP_tmp1:fillIm(0):fillRe(0)
+    self.dL_dP_tmp1_real:fill(0)
+    self.O_tmp_real1:fill(0)
+    self.O_tmp_real2:fill(0)
 
     -- if self.background_correction_start > 0 then
     --   self.eta = torch.CudaTensor(M,M)
@@ -121,7 +134,7 @@ function TWF_engine:allocateBuffers(K,No,Np,M,Nx,Ny)
 
     local z1_storage_offset = 1
     self.a_buffer1 = torch.CudaTensor.new(z1_storage_real, z1_storage_offset, torch.LongStorage{K,M,M})
-    
+
     self.Pk_buffer_real = torch.CudaTensor.new(z1_storage_real, z1_storage_offset, torch.LongStorage{1,1,M,M})
     z1_storage_offset = z1_storage_offset + self.a_buffer1:nElement() + 1
 
@@ -197,11 +210,9 @@ function TWF_engine:refine_probe_internal(P_update_buffer, z_buffer1, z_buffer2,
     self:maybe_copy_new_batch_z(k)
     local ind = self.k_to_batch_index[k]
     pos:fill(-1):cmul(self.dpos[k])
-    oview_conj:conj(view:expandAs(self.z[ind]))
+    oview_conj:conj(view:expandAs(oview_conj))
     oview_conj:cmul(self.z[ind])
-    for o = 1, self.No do
-      oview_conj_shifted[o]:shift(oview_conj[o],pos)
-    end
+    oview_conj_shifted:view_3D():shift(oview_conj:view_3D(),pos)
     new_P:add(oview_conj_shifted:sum(self.O_dim))
   end
   local P_norm = P_real_buffer:normZ(new_P):sum()
@@ -217,9 +228,8 @@ function TWF_engine:refine_probe_internal(P_update_buffer, z_buffer1, z_buffer2,
   return math.sqrt(P_norm/self.Np)
 end
 
-function TWF_engine:merge_frames(mul_merge, merge_memory, merge_memory_views)
-  merge_memory:zero()
-  self:merge_frames_internal(self.dL_dz, mul_merge, merge_memory, merge_memory_views, self.z1, self.dL_dP_tmp1, false)
+function TWF_engine:merge_frames(z,mul_merge, merge_memory, merge_memory_views, do_normalize_merge_memory)
+  self:merge_frames_internal(z,mul_merge, merge_memory, merge_memory_views, self.zk_buffer_merge_frames, self.P_buffer, false)
 end
 
 function TWF_engine:mu(it)
@@ -228,7 +238,7 @@ function TWF_engine:mu(it)
 end
 
 function TWF_engine:get_errors()
-  return {self.rel_error:narrow(1,1,self.i), self.L_error:narrow(1,1,self.i),self.R_error:narrow(1,1,self.i)}
+  return {self.rel_errors:narrow(1,1,self.i), self.L_error:narrow(1,1,self.i),self.R_error:narrow(1,1,self.i)}
 end
 
 function TWF_engine:get_error_labels()
@@ -236,10 +246,22 @@ function TWF_engine:get_error_labels()
 end
 
 function TWF_engine:allocate_error_history()
-  self.rel_error = torch.FloatTensor(self.iterations):fill(1)
-  self.img_error = torch.FloatTensor(self.iterations):fill(1)
+  self.img_errors = torch.FloatTensor(self.iterations):fill(1)
+  self.rel_errors = torch.FloatTensor(self.iterations):fill(1)
   self.R_error = torch.FloatTensor(self.iterations):fill(1)
   self.L_error = torch.FloatTensor(self.iterations):fill(1)
+end
+
+function TWF_engine:save_error_history(hdfile)
+  hdfile:write('/results/err_img_final',torch.FloatTensor({self.img_errors[self.i-1]}))
+  hdfile:write('/results/err_rel_final',torch.FloatTensor({self.rel_errors[self.i-1]}))
+  hdfile:write('/results/err_overlap_final',torch.FloatTensor({self.rel_errors[self.i-1]}))
+  hdfile:write('/results/err_mod_final',torch.FloatTensor({self.rel_errors[self.i-1]}))
+
+  hdfile:write('/results/err_img',self.img_errors:narrow(1,1,self.i))
+  hdfile:write('/results/err_rel',self.rel_errors:narrow(1,1,self.i))
+  hdfile:write('/results/err_R',self.R_error:narrow(1,1,self.i))
+  hdfile:write('/results/err_L',self.L_error:narrow(1,1,self.i))
 end
 
 function TWF_engine.optim_func_object(self,O)
@@ -247,27 +269,45 @@ function TWF_engine.optim_func_object(self,O)
   -- u.printf('calls: %d',self.counter)
   -- u.printf('||O_old-O|| = %2.8g',self.old_O:clone():add(-1,self.O):normall(2)^2)
   -- u.printf('||O||       = %2.8g',self.O:normall(2)^2)
+    -- plt:plotReIm(self.dL_dO[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O update_frames')
   self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
+    -- plt:plotReIm(self.dL_dO[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O updateOutput')
   local L = self.L:updateOutput(self.z,self.a)
-  self.dL_dz, valid_gradients = self.L:updateGradInput(self.z,self.a)
-  -- plt:plot(self.dL_dz[20][1][1]:zfloat(),'dL_dz 20')
+    -- plt:plotReIm(self.dL_dO[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O updateGradInput')
+  self.dL_dz, valid_gradients = self.L:updateGradInput(self.z,self.a,self.i)
+    -- plt:plotReIm(self.dL_dO[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O support_mask_gradients')
+
+  if self.twf.support_mask_gradients then
+    self.dL_dz = self.support:forward(self.dL_dz)
+  end
+  local nans1 = torch.ne(self.dL_dz:im(),self.dL_dz:im())
+  local nans2 = torch.ne(self.dL_dz:re(),self.dL_dz:re())
+  -- print('NANs: ', nans1:sum(),nans2:sum())
+  -- plt:plot(self.dL_dz[1][1][1]:zfloat(),'dL_dz 1')
   -- plt:plot(self.dL_dz[40][1][1]:zfloat(),'dL_dz 40')
   -- plt:plot(self.dL_dz[60][1][1]:zfloat(),'dL_dz 60')
 
   -- calculate dL_dO
   self:merge_frames(self.dL_dz,self.P,self.dL_dO, self.dL_dO_views)
-  -- plt:plot(self.dL_dO[1][1]:zfloat(),'O 1')
-  if self.regularizer then
-    self.R_error[self.i] = self.R:updateOutput(self.O)
+  -- plt:plot(self.dL_dO[1][1]:zfloat(),'dL_dO')
+  if self.regularizer and self.do_regularize then
+    self.R_error[self.i] = self.R:updateOutput(self.O,self.i-self.regularization_params.start_denoising)
     self.dR_dO = self.R:updateGradInput(self.O)
-    self.dL_dO:add(self.dR_dO)
+    -- print('self.dR_dO')
+    -- pprint(self.dR_dO)
+    -- plt:plot(self.dR_dO[1][1]:zfloat(),'self.dR_dO 0')
+    -- plt:plot(self.dL_dO[1][1]:zfloat(),'self.dL_dO 0')
+    self.dL_dO:add(1,self.dR_dO)
+    -- plt:plot(self.dL_dO[1][1]:zfloat(),'self.dL_dO 1')
   end
   -- plt:plot(self.dR_dO[1][1]:zfloat(),'self.dR_dO')
-
+  plt:plot(self.dL_dO[1][1]:zfloat(),'dL_dO')
   return L, self.dL_dO
 end
 
 function TWF_engine.optim_func_probe(self,P)
+  print('optim_func_probe')
+  self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
   local L = self.L:updateOutput(self.z,self.a)
   self.dL_dz, valid_gradients = self.L:updateGradInput(self.z,self.a)
   self:calculate_dL_dP(self.dL_dP)
@@ -276,7 +316,9 @@ end
 
 function TWF_engine:iterate(steps)
   self:before_iterate()
-  u.printf('rel error : %g',self:relative_error())
+  if self.has_solution then
+    u.printf('rel error : %g',self:relative_error())
+  end
   self.iterations = steps
   self:initialize_plotting()
   local valid_gradients = 0
@@ -290,14 +332,13 @@ function TWF_engine:iterate(steps)
   local it_no_progress = 0
   for i = 1, steps do
     self:update_iteration_dependent_parameters(i)
+    -- self.L_error[i] = self.L:updateOutput(self.z,self.a)
+    -- self.dL_dz, valid_gradients = self.L:updateGradInput(self.z,self.a,self.i)
 
-    self.L_error[i] = self.L:updateOutput(self.z,self.a)
-    self.dL_dz, valid_gradients = self.L:updateGradInput(self.z,self.a)
-
-    self.old_O = self.O:clone()
-    local O,L,k = self.optimizer(fn.partial(self.optim_func_object,self),self.O,self.optim_config,self.optim_state)
+    -- self.old_O = self.O:clone()
+    local O,L,k = self.optimizer(fn.partial(self.optim_func_object,self),self.O,self.optim_config,self.optim_state_object)
     local dL_dO_1norm = self.dL_dO:normall(1)
-    -- plt:plot(self.O[1][1]:zfloat(),'O 1')
+    plt:plot(self.O[1][1]:zfloat(),'O 1')
     -- print()
     -- print('Number of function evals = ',i)
     -- print('L=')
@@ -311,29 +352,33 @@ function TWF_engine:iterate(steps)
     -- self.O:add(self.dL_dO)
     -- plt:plot(self.O[1][1]:zfloat(),'O 2')
     if self.update_probe then
-      self:calculate_dL_dP(self.dL_dP)
+      local P,L,k = self.optimizer(fn.partial(self.optim_func_probe,self),self.P,self.optim_config,self.optim_state_probe)
+      -- self:calculate_dL_dP(self.dL_dP)
       -- plt:plot(self.dL_dP[1][1]:zfloat(),'self.dL_dP')
-      self.P:add(- self:mu(i),self.dL_dP)
-      self:calculateO_denom()
+      -- self.P:add(- self:mu(i),self.dL_dP)
+      self:calculateO_denom() -- just for refreshing the mask
     end
 
     self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
 
     if self.has_solution then
-      self.rel_error[i] = self:relative_error()
+      self.rel_errors[i] = self:relative_error()
+      self.img_errors[i] = self:image_error()
     end
-    self.img_error[i] = self:image_error()
 
     local rel = 100.0*self.R_error[i]/(self.L_error[i]+self.R_error[i])
-    u.printf('%-10d%-15g%-15g%-10.2g%%  %-15g%-15g%-15g%-15g%-15g%-15g',i,self.L_error[i],self.R_error[i],rel,dL_dO_1norm,self.dL_dP:normall(1),self:mu(i),self.rel_error[i],self.img_error[i],valid_gradients/self.total_measurements*100.0)
+    u.printf('%-10d%-15g%-15g%-10.2g%%  %-15g%-15g%-15g%-15g%-15g%-15g',i,self.L_error[i],self.R_error[i],rel,dL_dO_1norm,self.dL_dP:normall(1),self:mu(i),self.rel_errors[i],self.img_errors[i],valid_gradients/self.total_measurements*100.0)
 
     self:maybe_plot()
     self:maybe_save_data()
 
-    if i>1 and math.abs(self.img_error[i] - self.img_error[i-1]) < self.stopping_threshold then
-      it_no_progress = it_no_progress + 1
+    if self.has_solution then
+      if i>1 and math.abs(self.img_errors[i] - self.img_errors[i-1]) < self.stopping_threshold then
+        it_no_progress = it_no_progress + 1
+      end
+    else
     end
-    if it_no_progress == 3 then
+    if it_no_progress == 5 then
       -- it_no_progress = it_no_progress + 1
       -- self.optim_config = {}
       -- -- self.optim_config.maxIter = 10
@@ -350,9 +395,6 @@ function TWF_engine:iterate(steps)
       -- self.optimizer = optim.nag
       break
     end
-    -- grad = fun_compute_grad_TPWFP_Real(z, y, Params, A, At, Masks, n1_LR, n2_LR, fmaskpro);
-    -- z = z - muf(t) * grad;             % Gradient update
-
   end
   t = sys.toc()
   self.time = t

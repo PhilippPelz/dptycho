@@ -18,6 +18,11 @@ function engine:DM_update()
   end
 end
 
+-- P_Qz, P_Fz free to use
+function engine:merge_frames(z,mul_merge, merge_memory, merge_memory_views, do_normalize_merge_memory)
+  self:merge_frames_internal(z,mul_merge, merge_memory, merge_memory_views, self.zk_buffer_merge_frames, self.P_buffer, do_normalize_merge_memory)
+end
+
 function engine:DM_update_without_background()
   -- print('DM_update')
   local mod_error, mod_updates
@@ -104,7 +109,7 @@ function engine:iterate(steps)
   local probe_change_0, last_probe_change, probe_change = nil, 1e10, 0
   u.printf('%-10s%-15s%-15s%-15s%-15s%-15s%-15s','iteration','e_mod','e_over','e_rel','e_img','e_probe','modulus updates %')
   print('----------------------------------------------------------------------------------------------')
-  self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
+  -- self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
   for i=1,steps do
     self:update_iteration_dependent_parameters(i)
     print('before P_Q')

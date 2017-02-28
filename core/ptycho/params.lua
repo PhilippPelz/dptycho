@@ -37,6 +37,7 @@ local _DEFAULT_PARAMS = {
   probe_inertia = 1e-9,
   probe_lowpass_fwhm = function(it) return nil end,
   probe_keep_intensity = true,
+  probe_init = 'copy', -- 'copy,'disc'
 
   object_highpass_fwhm = function(it) return nil end,
   object_inertia = 1e-8,
@@ -44,8 +45,6 @@ local _DEFAULT_PARAMS = {
   object_init_truncation_threshold = 0.8,
 
   P_Q_iterations = 5,
-  copy_probe = false,
-  copy_object = false,
   margin = 0,
   background_correction_start = 1e5,
 
@@ -70,7 +69,8 @@ local _DEFAULT_PARAMS = {
     tau0 = 330,
     nu = 1e-2,
     do_truncate = false,
-    diagnostics = false
+    diagnostics = false,
+    support_mask_gradients = false
   },
   experiment = {
     z = 0.5,
@@ -95,6 +95,7 @@ function m.DEFAULT_PARAMS_TWF()
   local default =  u.copytable(_DEFAULT_PARAMS)
   default.ops = ptycho.ops
   default.object_inertia = 0
+  default.probe_inertia = 0
   return default
 end
 
