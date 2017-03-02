@@ -10,6 +10,83 @@ local znn = require "dptycho.znn"
 local plot = require 'dptycho.io.plot'
 local plt = plot()
 
+function shift_fourier(a,shift)
+  local nx = a:size(1)
+  local ny = a:size(2)
+  local shx = -shift[1]
+  local shy = -shift[2]
+
+  local x = torch.FloatTensor(nx,1)
+  x:copy(torch.linspace(-nx/2,nx/2 -1,nx))
+  local x = torch.repeatTensor(x,1,ny)
+  local y = torch.repeatTensor(torch.linspace(-ny/2,ny/2 -1,ny),nx,1):float()
+
+  x:mul(shx/nx)
+  y:mul(shy/ny)
+
+  local xc = x:cuda()
+  local yc = y:cuda()
+
+  xc:fftshift()
+  yc:fftshift()
+  -- plt:plot(xc:float())
+  -- plt:plot(yc:float())
+  xc:add(yc)
+
+  -- plt:plot(xc:float())
+
+  xc:mul(2*math.pi)
+
+  ramp = torch.ZCudaTensor.new(nx,ny):polar(1,xc)
+
+  -- plt:plot(ramp)
+
+  -- plt:plot(a,'probe before shift')
+  a:fft():cmul(ramp):ifft()
+  -- plt:plot(a,'probe after shift')
+  return a
+end
+
+function shift_fourier_batched(a,shift)
+  local batches = a:size(1)
+  local nx = a:size(2)
+  local ny = a:size(3)
+  local shx = -shift[1]
+  local shy = -shift[2]
+
+  local x = torch.FloatTensor(nx,1)
+  x:copy(torch.linspace(-nx/2,nx/2 -1,nx))
+  local x = torch.repeatTensor(x,1,ny)
+  local y = torch.repeatTensor(torch.linspace(-ny/2,ny/2 -1,ny),nx,1):float()
+
+  x:mul(shx/nx)
+  y:mul(shy/ny)
+
+  local xc = x:cuda()
+  local yc = y:cuda()
+
+  xc:fftshift()
+  yc:fftshift()
+  -- plt:plot(xc:float())
+  -- plt:plot(yc:float())
+  xc:add(yc)
+
+  -- plt:plot(xc:float())
+
+  xc:mul(2*math.pi)
+
+  local ramp = torch.ZCudaTensor.new(nx,ny):polar(1,xc)
+
+  ramp = ramp:view(1,nx,ny):expandAs(a)
+
+  -- plt:plot(ramp)
+
+  -- plt:plot(a,'probe before shift')
+  a:fftBatched():cmul(ramp):ifftBatched()
+  -- plt:plot(a,'probe after shift')
+  return a
+end
+
 local path = '/home/philipp/dropbox/Philipp/experiments/2017-24-01 monash/carbon_black/4000e/'
 local file = 'scan289.h5'
 
@@ -45,43 +122,12 @@ local dest = torch.ZCudaTensor.new(1,256,256):fillRe(0):fillIm(0)
 -- plt:plotcompare({t[2]:re():float(),dest[2]:re():float()})
 -- plt:plot(t[1]:re():float())
 for a = -30,30 do
-  s = {a/10.0,a/10.0}
+  s = {a/3.0,a/2.0}
   pprint(s)
   dest:shift(t,torch.FloatTensor(s))
+  plt:plot(dest[1]:zfloat(),'shifted bilinear')
+  local fsh = shift_fourier_batched(t:clone(),torch.FloatTensor(s))
+  plt:plot(fsh[1]:zfloat(),'shifted fourier')
   -- plt:plotReIm(probe:clone():add(-1,dest)[1]:zfloat(),'diff')
   -- plt:plot(probe:clone():add(-1,dest)[1]:zfloat(),'diff')
-  plt:plot(dest[1]:zfloat(),'abs ph')
 end
--- fw:shift(t,torch.FloatTensor({-1,0}))
--- plt:plot(fw[1]:float())
--- bw:shift(t,torch.FloatTensor({1,0})):mul(-1)
--- plt:plot(bw[1]:float())
--- dest:dx(t,fw,bw)
--- plt:plotReIm(dest[1]:zfloat())
-
--- a = torch.ZFloatTensor(1)
--- a[1] = 1+2i
--- a = a:zcuda()
--- r = a:dot(a)
--- print(r)
-
---   a = torch.FloatTensor({{1, 0,  0,  0, 0},
---                   {0, 2,  0, 0,  0},
---                   {0, 0,  3, 0,  0},
---                   {0, 0,  0, 4,  0},
---                   {0, 0,  0, 0,  5}})
---
---   b = torch.FloatTensor({{2},
---                   {4},
---                   {6},
---                   {8},
---                   {10}})
---
--- print(a)
--- print(b)
---
---   x = torch.gesv(b, a)
---
--- print(x)
---
---   print(b:dist(a * x))

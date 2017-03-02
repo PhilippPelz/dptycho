@@ -86,6 +86,13 @@ function engine:_init(par1)
   self.Nx = object_size[1] - 1
   self.Ny = object_size[2] - 1
 
+  if self.Nx % 2 ~= 0 then
+    self.Nx = self.Nx + 1
+  end
+  if self.Ny % 2 ~= 0 then
+    self.Ny = self.Ny + 1
+  end
+
   if self.object_initial then
     pprint(self.object_initial)
     pprint({{min[1][1],self.Nx},{min[1][2],self.Ny}})
@@ -203,8 +210,7 @@ end
 
 function engine:P_Q()
   if self.update_probe then
-    for _ = 1,self.P_Q_iterations do
-      local probe_change = self:refine_probe()
+    for i = 1,self.P_Q_iterations do
       self:merge_frames(self.z,self.P,self.O,self.O_views,true)
       -- plt:plot(self.P[1][1]:zfloat(),'P before refine_probe')
       -- local hasnans = torch.any(nans)
@@ -224,12 +230,16 @@ function engine:P_Q()
       -- print(hasnans)
       -- plt:plot(self.P[1][1]:zfloat(),'P after refine_probe')
       -- or probe_change > 0.97 * last_probe_change
+      local probe_change = self:refine_probe()
       if not probe_change_0 then probe_change_0 = probe_change end
       if probe_change < .1 * probe_change_0  then break end
       -- last_probe_change = probe_change
       u.printf('            probe change : %g',probe_change)
     end
     self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
+    local path = '/mnt/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/Dropbox/Philipp/experiments/2017-24-01 monash/carbon_black/4000e/scan289/scan2/probe/'
+    plt:plot(self.P[1][1]:zfloat(),'P after refine',path .. string.format('%d_P',i),false)
+    plt:plot(self.P[1][1]:clone():fft():fftshift():zfloat(),'P fft after refine',path .. string.format('%d_Pfft',i),false)
   else
     self:P_Q_plain()
   end
@@ -270,13 +280,13 @@ engine:mustHave("merge_frames")
 
 function engine:before_iterate()
   print('before_iterate')
-  self:initialize_object_solution()
-  self:initialize_object()
-  self:update_views()
   if not self.P_initialized then
     self:initialize_probe()
     self:calculateO_denom()
   end
+  self:initialize_object_solution()
+  self:initialize_object()
+  self:update_views()
   -- plt:plot(self.O[1][1],'object after init')
   self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
   self:print_report()
@@ -491,6 +501,12 @@ function engine:initialize_probe()
     self.P = self.support:forward(self.P)
   else
     self.support = nil
+  end
+  if self.twf.support_radius then
+    local probe_size = self.P:size():totable()
+    self.twf.twf_support = znn.SupportMask(probe_size,probe_size[#probe_size]*self.twf.support_radius)
+  else
+    self.twf.twf_support = nil
   end
   self.P_initialized = true
 end
@@ -1198,7 +1214,9 @@ function engine:maybe_refine_positions()
     elseif self.position_refinement_method == 'annealing' then
       self:refine_positions_annealing()
     end
+    self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
     self:calculateO_denom()
+    self:P_Q_plain()
   end
 end
 
@@ -1444,22 +1462,21 @@ function engine:refine_positions_marchesini()
   self:P_Q_plain()
 end
 
-function engine:filter_object()
+function engine:filter_object(O)
   -- pprint(self.O_tmp_PQstore)
-  local O_fluence = self.O_tmp_PQstore:copy(self.O):normall(2)
+  local O_fluence = O:normall(2)
   print('filtering object')
-  -- plt:plot(self.P[1][1]:zfloat(),self.i..' P',self.save_path .. self.i..' P',false)
 
-  self.O:view_3D():fftBatched()
+  O:view_3D():fftBatched()
 
   -- plt:plot(self.P[1][1]:zfloat():abs():log(),self.i..' P fft unfiltered ',self.save_path .. self.i..' P filtered ',false)
-  self.O:cmul(self.object_highpass)
+  O:cmul(self.object_highpass)
   -- plt:plot(self.P[1][1]:zfloat():abs():log(),self.i..' P fft filtered ',self.save_path .. self.i..' P filtered ',false)
-  self.O:view_3D():ifftBatched()
+  O:view_3D():ifftBatched()
 
-  local O_fluence_new = self.O_tmp_PQstore:copy(self.O):normall(2)
+  local O_fluence_new = O:normall(2)
   u.printf('O_fluence/O_fluence_new = %g',O_fluence/O_fluence_new)
-  self.O:mul(O_fluence/O_fluence_new)
+  O:mul(O_fluence/O_fluence_new)
 end
 
 function engine:filter_probe()

@@ -269,16 +269,18 @@ function TWF_engine.optim_func_object(self,O)
   -- u.printf('calls: %d',self.counter)
   -- u.printf('||O_old-O|| = %2.8g',self.old_O:clone():add(-1,self.O):normall(2)^2)
   -- u.printf('||O||       = %2.8g',self.O:normall(2)^2)
-    -- plt:plotReIm(self.dL_dO[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O update_frames')
+  plt:plotReIm(self.O[1][1]:zfloat(),'optim_func_object O')
   self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
-    -- plt:plotReIm(self.dL_dO[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O updateOutput')
+  plt:plotReIm(self.z[1][1][1]:zfloat(),'self.z[1][1][1]')
   local L = self.L:updateOutput(self.z,self.a)
     -- plt:plotReIm(self.dL_dO[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O updateGradInput')
   self.dL_dz, valid_gradients = self.L:updateGradInput(self.z,self.a,self.i)
     -- plt:plotReIm(self.dL_dO[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O support_mask_gradients')
-
-  if self.twf.support_mask_gradients then
-    self.dL_dz = self.support:forward(self.dL_dz)
+  print('self.twf.twf_support',self.twf.twf_support)
+  if self.twf.twf_support then
+    -- plt:plot(self.dL_dz[1][1][1]:zfloat(),'dL_dz before mask')
+    self.dL_dz = self.twf.twf_support:forward(self.dL_dz)
+    plt:plot(self.dL_dz[1][1][1]:zfloat(),'dL_dz after  mask')
   end
   local nans1 = torch.ne(self.dL_dz:im(),self.dL_dz:im())
   local nans2 = torch.ne(self.dL_dz:re(),self.dL_dz:re())
@@ -300,8 +302,13 @@ function TWF_engine.optim_func_object(self,O)
     self.dL_dO:add(1,self.dR_dO)
     -- plt:plot(self.dL_dO[1][1]:zfloat(),'self.dL_dO 1')
   end
+
+  if self.object_highpass_fwhm(self.i) then
+    self:filter_object(self.dL_dO)
+  end
+
   -- plt:plot(self.dR_dO[1][1]:zfloat(),'self.dR_dO')
-  plt:plot(self.dL_dO[1][1]:zfloat(),'dL_dO')
+  plt:plotReIm(self.dL_dO[1][1]:zfloat(),'dL_dO')
   return L, self.dL_dO
 end
 
@@ -338,13 +345,14 @@ function TWF_engine:iterate(steps)
     -- self.old_O = self.O:clone()
     local O,L,k = self.optimizer(fn.partial(self.optim_func_object,self),self.O,self.optim_config,self.optim_state_object)
     local dL_dO_1norm = self.dL_dO:normall(1)
-    plt:plot(self.O[1][1]:zfloat(),'O 1')
+    -- plt:plot(self.O[1][1]:zfloat(),'O 1')
     -- print()
     -- print('Number of function evals = ',i)
     -- print('L=')
     -- for j=1,#L do print(j,L[j]); end
     -- print()
-    self.L_error[i] = L[#L]
+    -- self.L_error[i] = L[#L]
+    self.L_error[i] = 0
     self.R_error[i] = 0
     -- plt:hist(self.dL_dO:abs():float():view(self.dL_dO:nElement()),'dl_do')
     -- plt:plot(self.O[1][1]:zfloat(),'O 1')

@@ -41,10 +41,10 @@ function m.static.P_F_without_background(z,a,a_exp,fm,fm_exp,zk_real_buffer, a_b
   local batch_start, batch_end, batch_size = table.unpack(batch_param_table)
   local module_error, mod_updates = 0, 0
   -- u.printf('z norm: %g',z:normall(2)^2)
-  for i=11,13 do
+  -- for i=80,120 do
     -- plt:plot(z[i][1][1],'before exitwave '..i)
     -- plt:plotcompare({z[i][1][1]:clone():float():log(),a[i]:clone():fftshift():float():log()},{'a_model','a'})
-  end
+  -- end
   -- plt:plot(z[36][1][1],'before exitwave '..36)
   z:view_3D():fftBatched()
   -- plt:plot(z[36][1][1],'after  exitwave '..36)
@@ -57,11 +57,12 @@ function m.static.P_F_without_background(z,a,a_exp,fm,fm_exp,zk_real_buffer, a_b
     -- pprint(abs)
     -- pprint(a[k_all])
     fdev[1][1]:add(a_model[1][1],-1,a[k_all])
-    if k_all % 11 == 0 then
+    if k_all >= 80 and k_all <= 85 then
     -- self,imgs, title, suptitle, savepath
-      local path = '/mnt/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/Dropbox/Philipp/experiments/2017-24-01 monash/carbon_black/4000e/scan289/'
-      -- plt:plot(fdev[1][1]:clone():cdiv(a[k_all]):fftshift():float(),'fdev relative',path .. string.format('%d_it%d_fdev',k_all,i),false)
-      -- plt:plotcompare({a_model[1][1]:clone():fftshift():float(),a[k_all]:clone():fftshift():float()},{'a_model '..k_all,'a '..k_all},'',path .. string.format('%d_it%d_a',k_all,i),false)
+      local path = '/mnt/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/Dropbox/Philipp/experiments/2017-24-01 monash/carbon_black/4000e/scan289/scan2/fdev/'
+      local path1 = '/mnt/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/Dropbox/Philipp/experiments/2017-24-01 monash/carbon_black/4000e/scan289/scan2/a/'
+      plt:plot(fdev[1][1]:clone():cdiv(a[k_all]):fftshift():float(),'fdev relative',path .. string.format('%d_it%d_fdev',k_all,i),false)
+      plt:plotcompare({a_model[1][1]:clone():fftshift():float(),a[k_all]:clone():fftshift():float()},{'a_model '..k_all,'a '..k_all},'',path1 .. string.format('%d_it%d_a',k_all,i),false)
     end
     da:pow(fdev,2)
     da:cmul(fm[k_all])

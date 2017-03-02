@@ -118,6 +118,52 @@ local shift = argcheck{
    end
 }
 
+local shiftZfourier = argcheck{
+   nonamed=true,
+   {name="dst", type='torch.ZCudaTensor'},
+   {name="src", type='torch.ZCudaTensor'},
+   {name="shift", type = 'torch.FloatTensor'},
+   call = function(dst, a, shift)
+     local batches = a:size(1)
+     local nx = a:size(2)
+     local ny = a:size(3)
+     local shx = -shift[1]
+     local shy = -shift[2]
+
+     local x = torch.FloatTensor(nx,1)
+     x:copy(torch.linspace(-nx/2,nx/2 -1,nx))
+     local x = torch.repeatTensor(x,1,ny)
+     local y = torch.repeatTensor(torch.linspace(-ny/2,ny/2 -1,ny),nx,1):float()
+
+     x:mul(shx/nx)
+     y:mul(shy/ny)
+
+     local xc = x:cuda()
+     local yc = y:cuda()
+
+     xc:fftshift()
+     yc:fftshift()
+     -- plt:plot(xc:float())
+     -- plt:plot(yc:float())
+     xc:add(yc)
+
+     -- plt:plot(xc:float())
+
+     xc:mul(2*math.pi)
+
+     local ramp = torch.ZCudaTensor.new(nx,ny):polar(1,xc)
+
+     ramp = ramp:view(1,nx,ny):expandAs(a)
+
+     -- plt:plot(ramp)
+
+     -- plt:plot(a,'probe before shift')
+     dst:fftBatched(a):cmul(ramp):ifftBatched()
+     -- plt:plot(a,'probe after shift')
+     return dst
+   end
+}
+
 local shiftZ = argcheck{
    nonamed=true,
    {name="dst", type='torch.ZCudaTensor'},
@@ -397,7 +443,9 @@ rawset( meta, 'dx2', dx2)
 rawset( meta, 'dy2', dy2)
 rawset( meta, 'dxdy', dxdy)
 
-rawset( Zmeta, 'shift', shiftZ)
+rawset( Zmeta, 'shift_linear', shiftZ)
+rawset( Zmeta, 'shift_fourier', shiftZfourier)
+rawset( Zmeta, 'shift', shiftZfourier)
 rawset( Zmeta, 'dx', dxZ)
 rawset( Zmeta, 'dy', dyZ)
 rawset( Zmeta, 'dx_fw', dx_fwZ)

@@ -40,52 +40,55 @@ function TruncatedPoissonLikelihood:updateOutput(z, I_target)
 
   -- sum over probe and object modes
   self.I_model = self.I_model:sum(2):sum(3)
-  self.I_model_shifted = self.I_model:clone()
-  plt:plot(self.I_model[1][1][1]:float(),'Im[1]')
-  plt:plot(I_target[1]:float(),'I_target[1]')
-  -- optical axis shift here
-  local Im = torch.ZCudaTensor.new({self.K,self.M,self.M}):fillIm(0)
-  local It = torch.ZCudaTensor.new({self.K,self.M,self.M}):fillIm(0)
-  Im:copyRe(self.I_model)
-  It:copyRe(I_target)
-
-  for i = 1, self.K do
-    Im[i]:fftshift()
-    It[i]:fftshift()
+  -- self.I_model_shifted = self.I_model:clone()
+  -- plt:plot(self.I_model[1][1][1]:float(),'Im[1]')
+  -- plt:plot(I_target[1]:float(),'I_target[1]')
+  -- -- optical axis shift here
+  -- local Im = torch.ZCudaTensor.new({self.K,self.M,self.M}):fillIm(0)
+  -- local It = torch.ZCudaTensor.new({self.K,self.M,self.M}):fillIm(0)
+  -- Im:copyRe(self.I_model)
+  -- It:copyRe(I_target)
+  --
+  -- for i = 1, self.K do
+  --   Im[i]:fftshift()
+  --   It[i]:fftshift()
+  -- end
+  --
+  -- -- plt:plot(Im[1]:abs():log():float(),'Im[i]')
+  -- Im:fftBatched():conj()
+  -- -- plt:plot(Im[1]:abs():log():float(),'Im[i]')
+  -- It:fftBatched()
+  -- local xcorr = Im:cmul(It)
+  -- -- plt:plot(xcorr[1]:abs():log():float(),'xcorr[i]')
+  -- xcorr:ifftBatched()
+  -- -- plt:plot(xcorr[1]:abs():log():float(),'xcorr[i]')
+  --
+  --
+  -- It:copyRe(I_target)
+  -- for i = 1,self.K do
+  --   local max1, imax1 = torch.max(xcorr[i]:re():fftshift(),1)
+  --   local max2,imax2 = torch.max(max1,2)
+  --   local imax = torch.FloatTensor{imax1[1][imax2[1][1]],imax2[1][1]}
+  --   local max =  max2[1][1]
+  --   self.shifts[i] = imax - self.M/2
+  --   print(self.shifts[i])
+  --   -- pprint(self.I_model_shifted)
+  --   -- pprint(self.I_model)
+  --   Im[i]:copyRe(self.I_model[i])
+  --   Im[i]:fftshift()
+  --   -- pprint(self.I_model_shifted[i][1])
+  --   -- pprint(Im[i])
+  --   self.I_model_shifted[i][1]:shift(Im[i]:re():view(table.unpack(self.I_model_shifted[i][1]:size():totable())),-self.shifts[i])
+  --   -- self.I_model_shifted[i][1][1]:fftshift()
+  --   -- print('imax')
+  --   -- pprint(imax)
+  --
+  --   -- plt:plot(xcorr[i]:re():float(),'xcorr '..i)
+    -- plt:plotcompare({self.I_model_shifted[i][1][1]:clone():add(-1,It[i]:re():fftshift()):float(),self.I_model[i][1][1]:clone():fftshift():add(-1,It[i]:re():fftshift()):float()},{'I_model_shifted - I_target '..i,'I_model - I_target '..i})
+  for i = 1,3 do
+    plt:plotcompare({self.I_model[i][1][1]:clone():fftshift():float(),I_target[i]:clone():fftshift():float()},{'I_model'..i,'I_model'..i})
   end
-
-  -- plt:plot(Im[1]:abs():log():float(),'Im[i]')
-  Im:fftBatched():conj()
-  -- plt:plot(Im[1]:abs():log():float(),'Im[i]')
-  It:fftBatched()
-  local xcorr = Im:cmul(It)
-  -- plt:plot(xcorr[1]:abs():log():float(),'xcorr[i]')
-  xcorr:ifftBatched()
-  -- plt:plot(xcorr[1]:abs():log():float(),'xcorr[i]')
-
-
-  It:copyRe(I_target)
-  for i = 1,self.K do
-    local max1, imax1 = torch.max(xcorr[i]:re():fftshift(),1)
-    local max2,imax2 = torch.max(max1,2)
-    local imax = torch.FloatTensor{imax1[1][imax2[1][1]],imax2[1][1]}
-    local max =  max2[1][1]
-    self.shifts[i] = imax - self.M/2
-    print(self.shifts[i])
-    -- pprint(self.I_model_shifted)
-    -- pprint(self.I_model)
-    Im[i]:copyRe(self.I_model[i])
-    Im[i]:fftshift()
-    -- pprint(self.I_model_shifted[i][1])
-    -- pprint(Im[i])
-    self.I_model_shifted[i][1]:shift(Im[i]:re():view(table.unpack(self.I_model_shifted[i][1]:size():totable())),-self.shifts[i])
-    -- self.I_model_shifted[i][1][1]:fftshift()
-    -- print('imax')
-    -- pprint(imax)
-
-    -- plt:plot(xcorr[i]:re():float(),'xcorr '..i)
-    plt:plotcompare({self.I_model_shifted[i][1][1]:clone():add(-1,It[i]:re():fftshift()):float(),self.I_model[i][1][1]:clone():fftshift():add(-1,It[i]:re():fftshift()):float()},{'I_model_shifted - I_target '..i,'I_model - I_target '..i})
-  end
+  -- end
   -- plt:plot(I_model[1][1][1]:float():log(),'I_model')
   local path = '/mnt/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/Dropbox/Philipp/experiments/2017-24-01 monash/carbon_black/4000e/scan289/'
   for i =1,10 do
@@ -96,7 +99,7 @@ function TruncatedPoissonLikelihood:updateOutput(z, I_target)
   -- local L = fac:sum()
   -- print(L)
 
-  self.I_model.THNN.TruncatedPoissonLikelihood_updateOutput(self.I_model_shifted:cdata(),I_target:cdata(),self.mask:cdata(),self.output:cdata())
+  self.I_model.THNN.TruncatedPoissonLikelihood_updateOutput(self.I_model:cdata(),I_target:cdata(),self.mask:cdata(),self.output:cdata())
   -- print(self.output[1])
   return self.output[1]
 end
@@ -160,13 +163,13 @@ function TruncatedPoissonLikelihood:calculateXsi(z,I_target,it)
     self.gradInput:maskedFill(torch.gt(self.gradInput:abs(),30),zt.re(0)+zt.im(0))
   end
   local path = '/mnt/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/Dropbox/Philipp/experiments/2017-24-01 monash/carbon_black/4000e/scan289/'
--- for i =1,3 do
---   plt:plot(self.gradInput[i][1][1]:clone():fftshift():zfloat(),'gradInput '..i,path .. string.format('%d_it%d_gradInput',i,1),true)
--- end
+  for i =80,120 do
+    plt:plot(self.gradInput[i][1][1]:clone():fftshift():zfloat(),'gradInput '..i,path .. string.format('%d_it%d_gradInput',i,1),true)
+  end
   self.gradInput:view_3D():ifftBatched()
-  -- for i =1,3 do
-  --   plt:plot(self.gradInput[i][1][1]:zfloat(),'gradInput '..i,path .. string.format('%d_it%d_gradInput',i,1),true)
-  -- end
+  for i =100,110 do
+    plt:plot(self.gradInput[i][1][1]:zfloat(),'gradInput '..i,path .. string.format('%d_it%d_gradInput',i,1),true)
+  end
   return self.gradInput
 end
 

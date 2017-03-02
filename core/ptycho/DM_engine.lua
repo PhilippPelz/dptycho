@@ -115,6 +115,10 @@ function engine:iterate(steps)
     print('before P_Q')
     self:P_Q()
 
+    local path = '/mnt/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/Dropbox/Philipp/experiments/2017-24-01 monash/carbon_black/4000e/scan289/scan2/object/'
+    local path1 = '/mnt/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/Dropbox/Philipp/experiments/2017-24-01 monash/carbon_black/4000e/scan289/scan2/object1/'
+    plt:plotReIm(self.O[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O after PQ',path .. string.format('%d_Oreim',i),false)
+    plt:plot(self.O[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O after PQ',path1 .. string.format('%d_O',i),false)
     if self.has_solution then
       self.img_errors[{i}] = self:image_error()
       probe_error = self:probe_error()

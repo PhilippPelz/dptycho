@@ -145,15 +145,16 @@ function m.static.Q(z,mul_split,merge_memory_views,zk_buffer,k_to_batch_index,ba
     for i = 2, mul_split_shifted:size(1) do
       mul_split_shifted[i]:copy(mul_split_shifted[1])
     end
-    -- if ind < 100 then
+    if ind > 80 and ind < 100 then
       -- plt:plot(mul_split_shifted[1][1]:zfloat(),'mul_split_shifted')
       -- plt:plot(view_exp[1][1]:zfloat(),'view_exp')
-    -- end
+    end
     z[ind]:cmul(mul_split_shifted,view_exp)
     -- u.printf('||z|| = %g',z[ind]:normall(2)^2)
   end
   -- plt:plot(z[1][1][1]:zfloat(),'z[1]')
   u.printram('after update_frames')
+  return z
 end
 
 function m.static.refine_probe(z,P,O_views,P_buffer1,P_buffer2,P_buffer_real1,P_buffer_real2,zk_buffer1,zk_buffer2,zk_buffer_real1,k_to_batch_index,batch_copy_func,dpos,probe_support,P_inertia)
@@ -275,13 +276,13 @@ function m.static.refine_probe(z,P,O_views,P_buffer1,P_buffer2,P_buffer_real1,P_
     new_P_denom:add(denom)
     new_P:add(oview_conj_shifted:sum(1))
   end
-  plt:plot(new_P_denom[1][1]:float():log(),'new_P_denom')
-  plt:plot(new_P[1][1]:zfloat(),'new_P')
+  -- plt:plot(new_P_denom[1][1]:float():log(),'new_P_denom')
+  -- plt:plot(new_P[1][1]:zfloat(),'new_P')
   new_P:cdiv(new_P_denom)
-  plt:plot(new_P[1][1]:zfloat(),'new_P:cdiv(new_P_denom)')
+  -- plt:plot(new_P[1][1]:zfloat(),'new_P:cdiv(new_P_denom)')
   P:copy(new_P)
   if probe_support then P = probe_support:forward(P) end
-  plt:plot(P[1][1]:zfloat(),'new_P:cdiv(new_P_denom)')
+  -- plt:plot(P[1][1]:zfloat(),'new_P:cdiv(new_P_denom)')
   -- plt:plot(self.P[1]:zfloat(),'self.P')
   -- if self.probe_regularization_amplitude(self.i) then self:regularize_probe() end
   -- if self.probe_lowpass_fwhm(self.i) then self:filter_probe() end
