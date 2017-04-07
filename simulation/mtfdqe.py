@@ -112,6 +112,40 @@ def MTF_DQE_2D2(cam,binning,s,path):
         # plt.show()
 
         return mtf2D, dqe2D
+def round_scan_ROI_positions(dr, lx, ly, nth):
+    """\
+    Round scan positions with ROI, defined as in spec and matlab.
+    """
+    rmax = np.sqrt( (lx/2)**2 + (ly/2)**2 )
+    nr = np.floor(rmax/dr) + 1
+    positions = []
+    for ir in range(1,int(nr+2)):
+        rr = ir*dr
+        dth = 2*np.pi / (nth*ir)
+        th = 2*np.pi*np.arange(nth*ir)/(nth*ir)
+        x1 = rr*np.sin(th)
+        x2 = rr*np.cos(th)
+        positions.extend([(xx1,xx2) for xx1,xx2 in zip(x1,x2) if (np.abs(xx1) <= ly/2) and (np.abs(xx2) <= lx/2)])
+    return positions
+
+def spiral_scan_ROI_positions(dr,lx,ly):
+    """\
+    Spiral scan positions. ROI
+    """
+    alpha = np.sqrt(4*np.pi)
+    beta = dr/(2*np.pi)
+
+    rmax = .5*np.sqrt(lx**2 + ly**2)
+    positions = []
+    for k in xrange(1000000000):
+        theta = alpha*np.sqrt(k)
+        r = beta * theta
+        if r > rmax: break
+        x,y = r*np.sin(theta), r*np.cos(theta)
+        if abs(x) > lx/2: continue
+        if abs(y) > ly/2: continue
+        positions.append( (x,y) )
+    return positions
 
 def raster_positions(npos,size):
     s = sqrt(2) * size /2

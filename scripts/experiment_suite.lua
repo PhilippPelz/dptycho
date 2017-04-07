@@ -195,7 +195,7 @@ function main()
   par.regularization_params.amplitude = 4e-2
   par.regularization_params.start_denoising = 150
   par.regularization_params.denoise_interval = 15
-  par.regularization_params.sigma_denoise = 0.1
+  par.regularization_params.sigma_denoise = 0.02
 
   par.calculate_dose_from_probe = true
   par.stopping_threshold = 1e-5
