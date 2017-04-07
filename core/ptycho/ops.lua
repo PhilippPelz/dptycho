@@ -22,24 +22,29 @@ ARGS:
 RETURN:
 - `z`     : the new frames
 ]]
-function m.static.calculateO_denom(O_denom,O_mask,O_denom_views,P,P_buffer_real,Pk_buffer_real,O_inertia,K,O_denom_regul_factor_start,O_denom_regul_factor_end,i,it,dpos)
+function m.static.calculateO_denom(O_denom,O_mask,O_denom_views,P,P_buffer,Pk_buffer_real,O_inertia,K,O_denom_regul_factor_start,O_denom_regul_factor_end,i,it,dpos)
+  local P_dim = 2
   if O_inertia ~= 0 then
     O_denom:fill(O_inertia)
   else
-    O_denom:fill(1e-12)
+    O_denom:fill(1e-21)
   end
 
   -- probe intensity
-  local norm_P =  P_buffer_real:normZ(P):sum(2)
-  norm_P = norm_P:expandAs(O_denom_views[1])
+  local norm_P =  P_buffer:norm(P):sum(P_dim)
+  Pk_buffer_real[1][1]:reZ(norm_P[1][1])
+  norm_P = Pk_buffer_real:expandAs(O_denom_views[1])
   for _, view in ipairs(O_denom_views) do
     view:add(norm_P)
   end
-  local abs_max = P_buffer_real:absZ(P):max()
+  local abs_max = P_buffer:abs(P):max()
   local fact = O_denom_regul_factor_start-(i/it)*(O_denom_regul_factor_start-O_denom_regul_factor_end)
   local sigma =  abs_max * abs_max * fact
   local n = O_denom:clone():div(O_denom:max())
-  O_mask:gt(n,1e-2)
+  if O_mask then
+    O_mask:gt(n,6e-2)
+    -- plt:plot(O_mask[1][1]:float(),'O_mask')
+  end
   -- plt:plot(O_denom[1][1]:float(),'O_denom')
   m.InvSigma(O_denom,sigma)
   u.printram('after calculateO_denom')
@@ -63,6 +68,7 @@ RETURN:
 - `z`     : the new frames
 ]]
 function m.static.Q_star(z, mul_merge, merge_memory, merge_memory_views, zk_buffer, P_buffer,O_inertia, k_to_batch_index, batch_copy_func,batches,K,dpos)
+  local P_dim = 2
   local mul_merge_repeated = zk_buffer
   if O_inertia ~= 0 then
     merge_memory:mul(O_inertia)
@@ -76,10 +82,13 @@ function m.static.Q_star(z, mul_merge, merge_memory, merge_memory_views, zk_buff
     batch_copy_func(k)
     local ind = k_to_batch_index[k]
     mul_merge_repeated:conj(mul_merge:expandAs(z[ind]))
-    -- add sum over probe modes
-    view:add(mul_merge_repeated:cmul(z[ind]):sum(2))
-    if k < 0 then
-      plt:plotReIm(merge_memory[1][1]:zfloat(),'merged '..k)
+    -- plt:plotReIm(mul_merge_repeated[1][1]:zfloat(),'mul_merge_repeated '..k)
+    -- plt:plotReIm(z[ind][1][1]:zfloat(),'z '..k)
+    local Pz = mul_merge_repeated:cmul(z[ind]):sum(P_dim)
+    view:add(Pz)
+    -- view:add(mul_merge_repeated:fillIm(1):fillRe(1))
+    if true then
+      -- plt:plotReIm(merge_memory[1][1]:zfloat(),'merged '..k)
     end
   end
   -- plt:plotReIm(merge_memory[1][1]:zfloat(),'merged '..1)
@@ -114,9 +123,10 @@ function m.static.Q(z,mul_split,merge_memory_views,zk_buffer,k_to_batch_index,ba
   return z
 end
 
-function m.static.refine_probe(z,P,O_views,P_buffer1,P_buffer_real1,P_buffer_real2,zk_buffer1,zk_buffer2,zk_buffer_real1,k_to_batch_index,batch_copy_func,dpos,probe_support,P_inertia)
+function m.static.refine_probe(z,P,O_views,P_buffer1,P_buffer2,P_buffer_real1,P_buffer_real2,zk_buffer1,zk_buffer2,zk_buffer_real1,k_to_batch_index,batch_copy_func,dpos,probe_support,P_inertia)
+  local O_dim = 1
   local new_P = P_buffer1
-  local dP = P_buffer1
+  local dP = P_buffer2
   local dP_abs = P_buffer_real1
   local new_P_denom = P_buffer_real2
 
@@ -128,7 +138,7 @@ function m.static.refine_probe(z,P,O_views,P_buffer1,P_buffer_real1,P_buffer_rea
     new_P_denom:fill(P_inertia)
   else
     new_P:fill(0)
-    new_P_denom:fill(1e-12)
+    new_P_denom:fill(1e-21)
   end
 
   for k, view in ipairs(O_views) do
@@ -136,8 +146,8 @@ function m.static.refine_probe(z,P,O_views,P_buffer1,P_buffer_real1,P_buffer_rea
     local ind = k_to_batch_index[k]
     local view_exp = view:expandAs(z[ind])
     oview_conj:conj(view_exp)
-    new_P:add(oview_conj:cmul(z[ind]):sum(1))
-    new_P_denom:add(denom_tmp:normZ(view_exp):sum(1))
+    new_P:add(oview_conj:cmul(z[ind]):sum(O_dim))
+    new_P_denom:add(denom_tmp:normZ(view_exp):sum(O_dim))
   end
   new_P:cdiv(new_P_denom)
   P:copy(new_P)

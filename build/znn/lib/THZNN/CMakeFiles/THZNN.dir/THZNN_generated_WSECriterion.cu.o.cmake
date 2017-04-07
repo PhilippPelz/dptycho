@@ -59,17 +59,17 @@ set(CMAKE_COMMAND "/usr/bin/cmake") # path
 set(source_file "/home/philipp/projects/dptycho/znn/lib/THZNN/WSECriterion.cu") # path
 set(NVCC_generated_dependency_file "/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//THZNN_generated_WSECriterion.cu.o.NVCC-depend") # path
 set(cmake_dependency_file "/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//THZNN_generated_WSECriterion.cu.o.depend") # path
-set(CUDA_make2cmake "/usr/share/cmake-3.0/Modules/FindCUDA/make2cmake.cmake") # path
-set(CUDA_parse_cubin "/usr/share/cmake-3.0/Modules/FindCUDA/parse_cubin.cmake") # path
+set(CUDA_make2cmake "/home/philipp/torch/install/share/cmake/torch/FindCUDA/make2cmake.cmake") # path
+set(CUDA_parse_cubin "/home/philipp/torch/install/share/cmake/torch/FindCUDA/parse_cubin.cmake") # path
 set(build_cubin OFF) # bool
-set(CUDA_HOST_COMPILER "/usr/bin/cc") # bool
+set(CUDA_HOST_COMPILER "/usr/bin/cc") # path
 # We won't actually use these variables for now, but we need to set this, in
 # order to force this file to be run again if it changes.
 set(generated_file_path "/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//.") # path
 set(generated_file_internal "/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//./THZNN_generated_WSECriterion.cu.o") # path
 set(generated_cubin_file_internal "/home/philipp/projects/dptycho/build/znn/lib/THZNN/CMakeFiles/THZNN.dir//./THZNN_generated_WSECriterion.cu.o.cubin.txt") # path
 
-set(CUDA_NVCC_EXECUTABLE "/usr/local/cuda-7.5/bin/nvcc") # path
+set(CUDA_NVCC_EXECUTABLE "/usr/lib/nvidia-cuda-toolkit/bin/nvcc") # path
 set(CUDA_NVCC_FLAGS  ;; ) # list
 # Build specific configuration flags
 set(CUDA_NVCC_FLAGS_RELEASE  ; )
@@ -77,8 +77,9 @@ set(CUDA_NVCC_FLAGS_DEBUG  ; )
 set(CUDA_NVCC_FLAGS_MINSIZEREL  ; )
 set(CUDA_NVCC_FLAGS_RELWITHDEBINFO  ; )
 set(nvcc_flags -m64;-DTHZNN_EXPORTS) # list
-set(CUDA_NVCC_INCLUDE_ARGS "-I/usr/local/cuda-7.5/include;-I/home/philipp/torch/install/include;-I/home/philipp/torch/install/include/TH;-I/usr/local/cuda-7.5/include") # list (needs to be in quotes to handle spaces properly).
+set(CUDA_NVCC_INCLUDE_ARGS "-I/usr/include;-I/home/philipp/torch/install/include;-I/home/philipp/torch/install/include/TH;-I/usr/include") # list (needs to be in quotes to handle spaces properly).
 set(format_flag "-c") # string
+set(cuda_language_flag ) # list
 
 if(build_cubin AND NOT generated_cubin_file)
   message(FATAL_ERROR "You must specify generated_cubin_file on the command line")
@@ -114,7 +115,7 @@ list(APPEND CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS_${build_configuration}})
 # Any -ccbin existing in CUDA_NVCC_FLAGS gets highest priority
 list( FIND CUDA_NVCC_FLAGS "-ccbin" ccbin_found0 )
 list( FIND CUDA_NVCC_FLAGS "--compiler-bindir" ccbin_found1 )
-if( ccbin_found0 LESS 0 AND ccbin_found1 LESS 0 )
+if( ccbin_found0 LESS 0 AND ccbin_found1 LESS 0 AND CUDA_HOST_COMPILER )
   if (CUDA_HOST_COMPILER STREQUAL "$(VCInstallDir)bin" AND DEFINED CCBIN)
     set(CCBIN -ccbin "${CCBIN}")
   else()
@@ -134,7 +135,7 @@ endif()
 # and other return variables are present after executing the process.
 macro(cuda_execute_process status command)
   set(_command ${command})
-  if(NOT _command STREQUAL "COMMAND")
+  if(NOT "x${_command}" STREQUAL "xCOMMAND")
     message(FATAL_ERROR "Malformed call to cuda_execute_process.  Missing COMMAND as second argument. (command = ${command})")
   endif()
   if(verbose)
@@ -169,7 +170,7 @@ cuda_execute_process(
 # For CUDA 2.3 and below, -G -M doesn't work, so remove the -G flag
 # for dependency generation and hope for the best.
 set(depends_CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}")
-set(CUDA_VERSION 7.5)
+set(CUDA_VERSION 8.0)
 if(CUDA_VERSION VERSION_LESS "3.0")
   cmake_policy(PUSH)
   # CMake policy 0007 NEW states that empty list elements are not
@@ -187,65 +188,67 @@ endif()
 set(CUDACC_DEFINE -D__CUDACC__)
 
 # Generate the dependency file
-#cuda_execute_process(
-#  "Generating dependency file: ${NVCC_generated_dependency_file}"
-#  COMMAND "${CUDA_NVCC_EXECUTABLE}"
-#  -M
-#  ${CUDACC_DEFINE}
-#  "${source_file}"
-#  -o "${NVCC_generated_dependency_file}"
-#  ${CCBIN}
-#  ${nvcc_flags}
-#  ${nvcc_host_compiler_flags}
-#  ${depends_CUDA_NVCC_FLAGS}
-#  -DNVCC
-#  ${CUDA_NVCC_INCLUDE_ARGS}
-#  )
+cuda_execute_process(
+  "Generating dependency file: ${NVCC_generated_dependency_file}"
+  COMMAND "${CUDA_NVCC_EXECUTABLE}"
+  -M
+  ${CUDACC_DEFINE}
+  "${source_file}"
+  -o "${NVCC_generated_dependency_file}"
+  ${CCBIN}
+  ${nvcc_flags}
+  ${nvcc_host_compiler_flags}
+  ${depends_CUDA_NVCC_FLAGS}
+  -DNVCC
+  ${CUDA_NVCC_INCLUDE_ARGS}
+  )
 
-#if(CUDA_result)
-#  message(FATAL_ERROR "Error generating ${generated_file}")
-#endif()
+if(CUDA_result)
+  message(FATAL_ERROR "Error generating ${generated_file}")
+endif()
 
 # Generate the cmake readable dependency file to a temp file.  Don't put the
 # quotes just around the filenames for the input_file and output_file variables.
 # CMake will pass the quotes through and not be able to find the file.
-#cuda_execute_process(
-#  "Generating temporary cmake readable file: ${cmake_dependency_file}.tmp"
-#  COMMAND "${CMAKE_COMMAND}"
-#  -D "input_file:FILEPATH=${NVCC_generated_dependency_file}"
-#  -D "output_file:FILEPATH=${cmake_dependency_file}.tmp"
-#  -P "${CUDA_make2cmake}"
-#  )
+cuda_execute_process(
+  "Generating temporary cmake readable file: ${cmake_dependency_file}.tmp"
+  COMMAND "${CMAKE_COMMAND}"
+  -D "input_file:FILEPATH=${NVCC_generated_dependency_file}"
+  -D "output_file:FILEPATH=${cmake_dependency_file}.tmp"
+  -D "verbose=${verbose}"
+  -P "${CUDA_make2cmake}"
+  )
 
-#if(CUDA_result)
-#  message(FATAL_ERROR "Error generating ${generated_file}")
-#endif()
+if(CUDA_result)
+  message(FATAL_ERROR "Error generating ${generated_file}")
+endif()
 
 # Copy the file if it is different
-#cuda_execute_process(
-#  "Copy if different ${cmake_dependency_file}.tmp to ${cmake_dependency_file}"
-#  COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${cmake_dependency_file}.tmp" #"${cmake_dependency_file}"
-#  )
+cuda_execute_process(
+  "Copy if different ${cmake_dependency_file}.tmp to ${cmake_dependency_file}"
+  COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${cmake_dependency_file}.tmp" "${cmake_dependency_file}"
+  )
 
-#if(CUDA_result)
-#  message(FATAL_ERROR "Error generating ${generated_file}")
-#endif()
+if(CUDA_result)
+  message(FATAL_ERROR "Error generating ${generated_file}")
+endif()
 
 # Delete the temporary file
-#cuda_execute_process(
-#  "Removing ${cmake_dependency_file}.tmp and ${NVCC_generated_dependency_file}"
-#  COMMAND "${CMAKE_COMMAND}" -E remove "${cmake_dependency_file}.tmp" #"${NVCC_generated_dependency_file}"
-#  )
+cuda_execute_process(
+  "Removing ${cmake_dependency_file}.tmp and ${NVCC_generated_dependency_file}"
+  COMMAND "${CMAKE_COMMAND}" -E remove "${cmake_dependency_file}.tmp" "${NVCC_generated_dependency_file}"
+  )
 
-#if(CUDA_result)
-#  message(FATAL_ERROR "Error generating ${generated_file}")
-#endif()
+if(CUDA_result)
+  message(FATAL_ERROR "Error generating ${generated_file}")
+endif()
 
 # Generate the code
 cuda_execute_process(
   "Generating ${generated_file}"
   COMMAND "${CUDA_NVCC_EXECUTABLE}"
   "${source_file}"
+  ${cuda_language_flag}
   ${format_flag} -o "${generated_file}"
   ${CCBIN}
   ${nvcc_flags}

@@ -392,24 +392,24 @@ void THNN_ZCudaP_Mod_bg(THCState *state, THZCudaTensor *self, THCudaTensor *fm, 
 struct ModProj_renorm {
   float renorm;
   ModProj_renorm(float _renorm) : renorm(_renorm) {}
-	__device__ __forceinline__ void operator()(float* fm, float* fdev, float* a, float* af, ccx* out) {
-      //fm = (1-fmask) + fmask*(fmag + fdev*renorm)/(af + 1e-10)
-      float fac = (1-*fm) + *fm * (*a+*fdev* (renorm)) / (*af + 1e-6f);
-      // float fac = (1-*fm) + *fm * (*a) / (*af + 1e-6f);
+	__device__ __forceinline__ void operator()(float* fm, float* fdev, float* a, float* a_model, ccx* out) {
+      //fm = (1-fmask) + fmask*(fmag + fdev*renorm)/(a_model + 1e-10)
+      // float fac = (1-*fm) + *fm * (*a+*fdev* (renorm)) / (*a_model + 1e-6f);
+      float fac = (1-*fm) + *fm * (*a) / (*a_model + 1e-5f);
 	    *out = *out * fac ;
 	}
 };
 
-void THNN_ZCudaP_Mod_renorm(THCState *state, THZCudaTensor *self, THCudaTensor *fm, THCudaTensor * fdev, THCudaTensor * a, THCudaTensor * af, float renorm )
+void THNN_ZCudaP_Mod_renorm(THCState *state, THZCudaTensor *self, THCudaTensor *fm, THCudaTensor * fdev, THCudaTensor * a, THCudaTensor * a_model, float renorm )
 {
   THAssert(THZCudaTensor_checkGPU(state, 2, self));
-  THAssert(THCudaTensor_checkGPU(state, 3, fm,fdev,a,af));
+  THAssert(THCudaTensor_checkGPU(state, 3, fm,fdev,a,a_model));
   THArgCheck(THZCudaTensor_nElement(state, self) == THCudaTensor_nElement(state, fm), 3, "sizes do not match (result,fm)");
   THArgCheck(THZCudaTensor_nElement(state, self) == THCudaTensor_nElement(state, fdev), 4, "sizes do not match (result,fdev)");
   THArgCheck(THZCudaTensor_nElement(state, self) == THCudaTensor_nElement(state, a), 5, "sizes do not match (result,a)");
-  THArgCheck(THZCudaTensor_nElement(state, self) == THCudaTensor_nElement(state, af), 6, "sizes do not match (result,af)");
+  THArgCheck(THZCudaTensor_nElement(state, self) == THCudaTensor_nElement(state, a_model), 6, "sizes do not match (result,a_model)");
 
-  if (!THZCudaTensor_pointwiseApply5FFFFZ(state, fm, fdev, a, af, self, ModProj_renorm(renorm))) {
+  if (!THZCudaTensor_pointwiseApply5FFFFZ(state, fm, fdev, a, a_model, self, ModProj_renorm(renorm))) {
     THArgCheck(false, 2, CUTORCH_DIM_WARNING);
   }
 }
@@ -417,7 +417,7 @@ void THNN_ZCudaP_Mod_renorm(THCState *state, THZCudaTensor *self, THCudaTensor *
 struct ModProj {
 	__device__ __forceinline__ void operator()(float* norm, float* abs, ccx* out) {
     if(*out != ccx(0)){
-		    *out = (*out / (*norm+1e-9f)) * *abs;
+		    *out = *out * (*abs/ (*norm+1e-6f)) ;
         // *out = thrust::polar(*abs,thrust::arg(*out));
     }
     else {

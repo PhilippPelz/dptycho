@@ -17,7 +17,7 @@ function TWF_engine:_init(par)
   super._init(self,par)
   self.L = znn.TruncatedPoissonLikelihood(self.twf.a_h,self.twf.a_lb,self.twf.a_ub, self.z, self.fm, self.a_buffer1, self.a_buffer2, self.z1_buffer_real, self.K, self.No, self.Np, self.M, self.Nx, self.Ny, self.twf.diagnostics,self.twf.do_truncate)
   if self.regularizer then
-    -- self.regularization_params.amplitude = self.rescale_regul_amplitude*self.twf.nu
+    self.regularization_params.rescale_regul_amplitude = self.rescale_regul_amplitude
     self.R = self.regularizer(self.O_tmp,self.dR_dO,self.regularization_params,self.O_tmp_real1,self.O_tmp_real2)
   end
   -- we deal with intensities in the MAP framework
@@ -223,7 +223,7 @@ function TWF_engine:mu(it)
 end
 
 function TWF_engine:get_errors()
-  return {self.rel_error:narrow(1,1,self.i), self.L_error:narrow(1,1,self.i),self.R_error:narrow(1,1,self.i)}
+  return {self.rel_errors:narrow(1,1,self.i), self.L_error:narrow(1,1,self.i),self.R_error:narrow(1,1,self.i)}
 end
 
 function TWF_engine:get_error_labels()
@@ -231,10 +231,22 @@ function TWF_engine:get_error_labels()
 end
 
 function TWF_engine:allocate_error_history()
-  self.rel_error = torch.FloatTensor(self.iterations):fill(1)
-  self.img_error = torch.FloatTensor(self.iterations):fill(1)
+  self.img_errors = torch.FloatTensor(self.iterations):fill(1)
+  self.rel_errors = torch.FloatTensor(self.iterations):fill(1)
   self.R_error = torch.FloatTensor(self.iterations):fill(1)
   self.L_error = torch.FloatTensor(self.iterations):fill(1)
+end
+
+function TWF_engine:save_error_history(hdfile)
+  hdfile:write('/results/err_img_final',torch.FloatTensor({self.img_errors[self.i-1]}))
+  hdfile:write('/results/err_rel_final',torch.FloatTensor({self.rel_errors[self.i-1]}))
+  hdfile:write('/results/err_overlap_final',torch.FloatTensor({self.rel_errors[self.i-1]}))
+  hdfile:write('/results/err_mod_final',torch.FloatTensor({self.rel_errors[self.i-1]}))
+
+  hdfile:write('/results/err_img',self.img_errors:narrow(1,1,self.i))
+  hdfile:write('/results/err_rel',self.rel_errors:narrow(1,1,self.i))
+  hdfile:write('/results/err_R',self.R_error:narrow(1,1,self.i))
+  hdfile:write('/results/err_L',self.L_error:narrow(1,1,self.i))
 end
 
 function TWF_engine.optim_func_object(self,O)
@@ -320,17 +332,17 @@ function TWF_engine:iterate(steps)
     self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
 
     if self.has_solution then
-      self.rel_error[i] = self:relative_error()
+      self.rel_errors[i] = self:relative_error()
     end
-    self.img_error[i] = self:image_error()
+    self.img_errors[i] = self:image_error()
 
     local rel = 100.0*self.R_error[i]/(self.L_error[i]+self.R_error[i])
-    u.printf('%-10d%-15g%-15g%-10.2g%%  %-15g%-15g%-15g%-15g%-15g%-15g',i,self.L_error[i],self.R_error[i],rel,dL_dO_1norm,self.dL_dP:normall(1),self:mu(i),self.rel_error[i],self.img_error[i],valid_gradients/self.total_measurements*100.0)
+    u.printf('%-10d%-15g%-15g%-10.2g%%  %-15g%-15g%-15g%-15g%-15g%-15g',i,self.L_error[i],self.R_error[i],rel,dL_dO_1norm,self.dL_dP:normall(1),self:mu(i),self.rel_errors[i],self.img_errors[i],valid_gradients/self.total_measurements*100.0)
 
     self:maybe_plot()
     self:maybe_save_data()
 
-    if i>1 and math.abs(self.img_error[i] - self.img_error[i-1]) < self.stopping_threshold then
+    if i>1 and math.abs(self.img_errors[i] - self.img_errors[i-1]) < self.stopping_threshold then
       it_no_progress = it_no_progress + 1
     end
     if it_no_progress == 5 then

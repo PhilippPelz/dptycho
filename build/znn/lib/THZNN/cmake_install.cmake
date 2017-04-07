@@ -37,15 +37,15 @@ if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspeci
      NOT IS_SYMLINK "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lib/libTHZNN.so")
     file(RPATH_CHECK
          FILE "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lib/libTHZNN.so"
-         RPATH "$ORIGIN/../lib:/home/philipp/torch/install/lib:/usr/local/cuda-7.5/lib64:/usr/local/lib")
+         RPATH "$ORIGIN/../lib:/home/philipp/torch/install/lib:/home/philipp/anaconda2/lib")
   endif()
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lib" TYPE MODULE FILES "/home/philipp/projects/dptycho/build/znn/lib/THZNN/libTHZNN.so")
   if(EXISTS "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lib/libTHZNN.so" AND
      NOT IS_SYMLINK "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lib/libTHZNN.so")
     file(RPATH_CHANGE
          FILE "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lib/libTHZNN.so"
-         OLD_RPATH "/home/philipp/torch/install/lib:/usr/local/cuda-7.5/lib64:/usr/local/lib:::::::::::::::"
-         NEW_RPATH "$ORIGIN/../lib:/home/philipp/torch/install/lib:/usr/local/cuda-7.5/lib64:/usr/local/lib")
+         OLD_RPATH "/home/philipp/torch/install/lib:/home/philipp/anaconda2/lib:::::::::::::::"
+         NEW_RPATH "$ORIGIN/../lib:/home/philipp/torch/install/lib:/home/philipp/anaconda2/lib")
     if(CMAKE_INSTALL_DO_STRIP)
       execute_process(COMMAND "/usr/bin/strip" "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/luarocks/rocks/dptycho/scm-1/lib/libTHZNN.so")
     endif()

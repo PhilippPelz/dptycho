@@ -13,7 +13,7 @@ local zt = require "ztorch.complex"
 local stats = require "dptycho.util.stats"
 local ptycho = require 'dptycho.core.ptycho'
 
-local path = '/home/philipp/experiments/2015-11-25 oxford/scan2/'
+local path = '/home/philipp/phil/experiments/2015-11-25 oxford/scan2/'
 local file = '2015-11-25_final_cropped_intpos.h5'
 local probe_file = 'probe.h5'
 
@@ -29,7 +29,7 @@ local probe_file = 'probe.h5'
 local f = hdf5.open(path..file,'r')
 
 local a = f:read('/data'):all():cuda()
-plt:plot(a[1]:float())
+-- plt:plot(a[1]:float())
 -- [{{1},{},{}}]
 local fmask = f:read('/fmask'):all():cuda()
 local pos = f:read('/scan_info/positions'):all()
@@ -119,6 +119,6 @@ par.twf.tau0 = 10
 par.twf.nu = 1e-2
 
 
-local ngin = ptycho.DM_engine(par)
+local ngin = ptycho.DM_engine_subpix(par)
 -- ngin:generate_data('/home/philipp/drop/Public/moon_subpix2.h5')
 ngin:iterate(250)

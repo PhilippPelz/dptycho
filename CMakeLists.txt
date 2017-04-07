@@ -9,6 +9,8 @@ ENDIF()
 FIND_PACKAGE(Torch REQUIRED)
 
 SET(package "dptycho")
+set(CUDA_TOOLKIT_ROOT_DIR /usr/lib/x86_64-linux-gnu/)
+set(CUDA_CUDART_LIBRARY /usr/lib/x86_64-linux-gnu/libcudart.so.8.0)
 
 FILE(GLOB luasrc *.lua)
 FILE(GLOB coresrc core/*.lua)

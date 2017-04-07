@@ -22,9 +22,12 @@ local _DEFAULT_PARAMS = {
   show_plots = true,
   beta = 1,
   fourier_relax_factor = 5e-2,
+  position_refinement_method = 'marchesini', -- 'marchesini', 'annealing'
   position_refinement_start = 1e5,
+  position_refinement_stop = 1e6,
   position_refinement_every = 3,
   position_refinement_max_disp = 2,
+  position_refinement_trials = 4,
   fm_support_radius = function(it) return nil end,
   fm_mask_radius = function(it) return nil end,
 
@@ -33,6 +36,7 @@ local _DEFAULT_PARAMS = {
   probe_regularization_amplitude = function(it) return nil end,
   probe_inertia = 1e-9,
   probe_lowpass_fwhm = function(it) return nil end,
+  probe_keep_intensity = true,
 
   object_highpass_fwhm = function(it) return nil end,
   object_inertia = 1e-8,

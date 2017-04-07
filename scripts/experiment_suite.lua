@@ -2,12 +2,15 @@ require 'hdf5'
 require 'torch'
 require 'ztorch'
 require 'zcutorch'
-require 'hypero'
+-- require 'hypero'
 local classic = require 'classic'
 local u = require 'dptycho.util'
+print('here')
 local plot = require 'dptycho.io.plot'
+print('here')
 local plt = plot()
-local builder = require 'dptycho.core.netbuilder'
+print('here')
+--local builder = require 'dptycho.core.netbuilder'
 local optim = require "optim"
 local znn = require "dptycho.znn"
 
@@ -17,11 +20,14 @@ local simul = require 'dptycho.simulation'
 local ptycho = require 'dptycho.core.ptycho'
 local ptychocore = require 'dptycho.core'
 
+print('here')
+
 function get_data(pot_path,dose,overlap,N,E,probe)
 
   local probe_int = probe:clone():norm()
   probe_int:div(probe_int:max())
   local probe_mask = torch.ge(probe_int:re(),1e-2):int()
+
 
   -- plt:plot(probe_mask:float())
 
@@ -46,10 +52,10 @@ function get_data(pot_path,dose,overlap,N,E,probe)
 end
 
 function main()
-  local conn = hypero.connect()
-  local bat = conn:battery('bayes_opt 4v6x 300', '1.0')
+  -- local conn = hypero.connect()
+  -- local bat = conn:battery('bayes_opt 4v6x 300', '1.0')
 
-  local f = hdf5.open('/home/philipp/drop/Philipp/mypapers/lowdose/data/figure4_gradient_steps/init.h5','r')
+  local f = hdf5.open('/home/philipp/phil/drop/Philipp/mypapers/lowdose/data/figure4_gradient_steps/init.h5','r')
   local Or = f:read('/oinitr'):all()
   local Oi = f:read('/oiniti'):all()
   local obj = torch.ZCudaTensor(Or:size()):copyRe(Or:cuda()):copyIm(Oi:cuda())
@@ -104,8 +110,8 @@ function main()
   par.probe_lowpass_fwhm = function(it) return nil end
 
   par.object_highpass_fwhm = function(it) return nil end
-  par.object_inertia = 0
-  par.object_init = 'trunc'
+  par.object_inertia = 0 
+  par.object_init = 'rand'
   par.object_init_truncation_threshold = 85
   par.object_initial = obj
 
@@ -117,7 +123,7 @@ function main()
 
   par.save_interval = 60000
   par.save_raw_data = true
-  par.save_path = '/home/philipp/drop/Philipp/mypapers/lowdose/data/figure2_snr_frc/1ryp/'
+  par.save_path = '/home/philipp/phil/drop/Philipp/mypapers/lowdose/data/figure2_snr_frc/1ryp/'
 
   par.O_denom_regul_factor_start = 0
   par.O_denom_regul_factor_end = 0
@@ -199,40 +205,40 @@ function main()
   par.experiment.det_pix = 40e-6
   par.experiment.N_det_pix = N
 
-  for probe_type = 2,2 do
+  for probe_type = 3,3 do
     local s = simul.simulator()
     local probe = nil
     local d = 2.0
 
     if probe_type == 1 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_rfzp.h5','r')
+      local f = hdf5.open('/home/philipp/phil/drop/Public/probe_rfzp.h5','r')
       local pr = f:read('/pr'):all()
       local pi = f:read('/pi'):all()
       probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
       -- plt:plot(probe:zfloat(),'probe_rfzp')
       f:close()
     elseif probe_type == 2 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_fzp.h5','r')
+      local f = hdf5.open('/home/philipp/phil/drop/Public/probe_fzp.h5','r')
       local pi = f:read('/pi'):all()
       local pr = f:read('/pr'):all()
       probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
       f:close()
     elseif probe_type == 3 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_blr2.h5','r')
+      local f = hdf5.open('/home/philipp/phil/drop/Public/probe_blr2.h5','r')
       local pr = f:read('/pr'):all()
       local pi = f:read('/pi'):all()
       probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
       -- plt:plot(probe:zfloat(),'probe')
       f:close()
     elseif probe_type == 4 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_coneblr.h5','r')
+      local f = hdf5.open('/home/philipp/phil/drop/Public/probe_coneblr.h5','r')
       local pr = f:read('/pr'):all()
       local pi = f:read('/pi'):all()
       probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
       -- plt:plot(probe:zfloat(),'defocused probe')
       f:close()
     elseif probe_type == 5 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_def5.h5','r')
+      local f = hdf5.open('/home/philipp/phil/drop/Public/probe_def5.h5','r')
       local pr = f:read('/pr'):all()
       local pi = f:read('/pi'):all()
       probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
@@ -271,7 +277,7 @@ function main()
             -- print(par.a:sum())
             -- print()
 
-            local hex = bat:experiment()
+            -- local hex = bat:experiment()
 
             local eng = ptycho.BM3D_TWF_engine(par)
             eng:iterate(20)
@@ -279,9 +285,9 @@ function main()
             local md = {hostname = 'work', dataset = sample}
             local res = { final_img_error = eng.img_error[eng.i], final_rel_error = eng.rel_error[eng.i], img_err = eng.img_error:totable(), rel_err = eng.rel_error:totable()}
 
-            hex:setParam(hp)
-            hex:setMeta(md)
-            hex:setResult(res)
+            -- hex:setParam(hp)
+            -- hex:setMeta(md)
+            -- hex:setResult(res)
 
             eng = nil
             ID = ID + 1

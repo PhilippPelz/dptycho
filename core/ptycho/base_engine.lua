@@ -52,7 +52,6 @@ function engine:_init(par1)
   end
 
   local min = self.pos:min(1)
-  -- pprint(min)
   self.pos = self.pos:add(-1,min:expandAs(self.pos)):add(1)
 
   self.fm = self.fmask:expandAs(self.a)
@@ -87,6 +86,12 @@ function engine:_init(par1)
   self.Nx = object_size[1] - 1
   self.Ny = object_size[2] - 1
 
+  if self.object_initial then
+    pprint(self.object_initial)
+    pprint({{min[1][1],self.Nx},{min[1][2],self.Ny}})
+    self.object_initial = self.object_initial[{{1,self.Nx},{1,self.Ny}}]
+  end
+
   self:allocateBuffers(self.K,self.No,self.Np,self.M,self.Nx,self.Ny)
 
   -- save reference in params for future use
@@ -114,14 +119,16 @@ end
 
 function engine:calculate_statistics()
   if not self.O_mask_initialized then
-    if not self.P_initialized then
-      self:initialize_probe()
-    end
     self:initialize_object_solution()
     if #(self.O_denom_views) < 2 then
       self:update_views()
     end
-    self:calculateO_denom()
+    if not self.P_initialized then
+      self:initialize_probe()
+      -- plt:plot(self.P[1][1]:zfloat(),'P')
+      -- print('probe initialized')
+      self:calculateO_denom()
+    end
   end
 
   self.a_buffer1:cmul(self.a,self.fm):pow(2)
@@ -185,25 +192,42 @@ end
 
 -- P_Fz free
 function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
+  print('update_frames')
   self.ops.Q(z,mul_split,merge_memory_views,self.zk_buffer_update_frames,self.k_to_batch_index, fn.partial(batch_copy_func,self),self.batches,self.K,self.dpos)
 end
 
 function engine:calculateO_denom()
-  self.ops.calculateO_denom(self.O_denom,self.O_mask,self.O_denom_views,self.P,self.P_buffer_real,self.Pk_buffer_real,self.object_inertia,self.K,self.O_denom_regul_factor_start,self.O_denom_regul_factor_end,self.i,self.iterations,self.dpos)
+  self.ops.calculateO_denom(self.O_denom,self.O_mask,self.O_denom_views,self.P,self.P_buffer,self.Pk_buffer_real,self.object_inertia,self.K,self.O_denom_regul_factor_start,self.O_denom_regul_factor_end,self.i,self.iterations,self.dpos)
   self.O_mask_initialized = true
-  -- plt:plot(self.O_denom[1][1]:float():log(),'O_denom')
+  -- plt:plot(self.O_denom[1][1]:float() ,'O_denom in calculateO_denom')
 end
 
 function engine:P_Q()
   if self.update_probe then
     for _ = 1,self.P_Q_iterations do
-      self:merge_frames(self.z,self.P,self.O,self.O_views)
+      self:merge_frames(self.z,self.P,self.O,self.O_views,true)
+      -- plt:plot(self.P[1][1]:zfloat(),'P before refine_probe')
+      -- local hasnans = torch.any(nans)
+      -- local old_P_norm = self.P:normall(2)^2
+      -- u.printf('old P norm = %g',old_P_norm)
       local probe_change = self:refine_probe()
+      -- local nans = torch.ne(self.P:re(),self.P:re())
+
+      -- u.printf('new P norm = %g',new_P_norm)
+      -- local new_P_norm2 = self.P:normall(2)^2
+      -- u.printf('new P norm rescaled = %g',new_P_norm2)
+
+      -- print(hasnans)
+      -- local nans = torch.ne(self.P:im(),self.P:im())
+      -- local hasnans = torch.any(nans)
+      -- print(nans:sum())
+      -- print(hasnans)
+      -- plt:plot(self.P[1][1]:zfloat(),'P after refine_probe')
       -- or probe_change > 0.97 * last_probe_change
       if not probe_change_0 then probe_change_0 = probe_change end
       if probe_change < .1 * probe_change_0  then break end
       -- last_probe_change = probe_change
-      -- u.printf('            probe change : %g',probe_change)
+      u.printf('            probe change : %g',probe_change)
     end
     self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
   else
@@ -212,7 +236,10 @@ function engine:P_Q()
 end
 
 function engine:refine_probe()
-  local probe_change = self.ops.refine_probe(self.z,self.P,self.O_views,self.P_tmp1_PQstore,self.P_tmp1_real_PQstore,self.P_tmp2_real_PQstore,self.zk_tmp1_PQstore,self.zk_tmp2_PQstore, self.zk_tmp1_real_PQstore,self.k_to_batch_index, fn.partial(self.maybe_copy_new_batch_z,self),self.dpos,self.support,self.probe_inertia)
+  local probe_change = self.ops.refine_probe(self.z,self.P,self.O_views,self.P_buffer,self.P_buffer2,self.P_buffer_real,self.P_tmp2_real_PQstore,self.zk_tmp1_PQstore,self.zk_tmp2_PQstore, self.zk_tmp1_real_PQstore,self.k_to_batch_index, fn.partial(self.maybe_copy_new_batch_z,self),self.dpos,self.support,self.probe_inertia)
+  local new_P_norm = self.P:normall(2)^2
+  self.P:div(math.sqrt(new_P_norm))
+  self.P:mul(math.sqrt(self.P_norm))
   self:calculateO_denom()
   return probe_change/self.Np
 end
@@ -220,25 +247,35 @@ end
 function engine:P_Q_plain()
   self:merge_frames(self.z,self.P,self.O,self.O_views,true)
   -- plt:plot(self.O[1][1]:zfloat(),'O after merge')
-  self.ops.Q(self.P_Qz,self.P,self.O_views,self.zk_buffer_update_frames,self.k_to_batch_index,fn.partial(self.maybe_copy_new_batch_P_Q,self),self.batches,self.K,self.dpos)
+  -- plt:plot(self.P[1][1]:zfloat(),'P after merge')
+  self:update_frames(self.P_Qz,self.P,self.O_views,self.maybe_copy_new_batch_P_Q)
 end
 
 -- P_Qz, P_Fz free to use
 function engine:merge_frames(z,mul_merge, merge_memory, merge_memory_views, do_normalize_merge_memory)
+  -- plt:plotReIm(self.O[1][1]:zfloat(),'O before merge')
   self.ops.Q_star(z, mul_merge, merge_memory, merge_memory_views, self.zk_buffer_merge_frames, self.P_buffer,self.object_inertia, self.k_to_batch_index,fn.partial(self.maybe_copy_new_batch_z,self), self.batches, self.K,self.dpos)
-  -- plt:plotReIm(self.O[1][1]:zfloat(),'O after merge 0')
+  -- plt:plot(self.O_denom[1][1]:float():log(),'O_denom')
+  -- plt:plotReIm(merge_memory[1][1]:zfloat(),'O after merge 0')
+  -- pprint(merge_memory)
+  -- pprint(self.O_denom)
+  -- print(self.O_denom:max(),self.O_denom:min())
   if do_normalize_merge_memory then
     merge_memory:cmul(self.O_denom)
   end
-  -- plt:plotReIm(self.O[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O after merge 1')
+  plt:plotReIm(merge_memory[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O after merge 1')
+  -- plt:plot(self.O[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O after merge 1')
 end
 
 function engine:before_iterate()
+  print('before_iterate')
   self:initialize_object_solution()
-  self:update_views()
-  self:initialize_probe()
-  self:calculateO_denom()
   self:initialize_object()
+  self:update_views()
+  if not self.P_initialized then
+    self:initialize_probe()
+    self:calculateO_denom()
+  end
   -- plt:plot(self.O[1][1],'object after init')
   self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
   self:print_report()
@@ -258,7 +295,7 @@ end
 function engine:update_views()
   for i=1,self.K do
     local slice = {{},{},{self.pos[i][1],self.pos[i][1]+self.M-1},{self.pos[i][2],self.pos[i][2]+self.M-1}}
-    pprint(slice)
+    -- pprint(slice)
     self.O_views[i] = self.O[slice]
     self.O_tmp_PF_views[i] = self.O_tmp_PFstore[slice]
     self.O_tmp_PQ_views[i] = self.O_tmp_PQstore[slice]
@@ -377,6 +414,7 @@ function engine:prepare_plot_data()
   self.plot_data[5] = self.bg_h
   self.plot_data[6] = self.plot_pos
   self.plot_data[7] = self:get_errors()
+  self.plot_data[8] = self.O_mask:float()
 end
 
 function engine:get_error_labels()
@@ -424,10 +462,6 @@ end
 
 function engine:initialize_probe()
   local Pre = stats.truncnorm({self.M,self.M},0,1,1e-1,1e-2):cuda()
-  for i=2,self.Np do
-    self.P[1][i]:copyRe(Pre):copyIm(Pre)
-    self.P[1][i]:cmul(self.P[1][1]:abs())
-  end
 
   if self.copy_probe then
     if self.probe_solution:dim() == 2 then
@@ -440,13 +474,24 @@ function engine:initialize_probe()
     self.P[1][1]:add(300+0i)
   end
 
-  if self.probe_support ~= 0 then
+  if self.probe_solution:dim() == 2 then
+    for i=2,self.Np do
+      self.P[1][i]:zero()
+      self.P[1][i]:copyRe(Pre)--:copyIm(Pre)
+      self.P[1][i]:cmul(self.P[1][1])
+      -- self.P[1][i]:add(Pre)
+    end
+    self.P[1][1]:mul(1-((self.Np-1)*0.05))
+  end
+
+  if self.probe_support then
     local probe_size = self.P:size():totable()
     self.support = znn.SupportMask(probe_size,probe_size[#probe_size]*self.probe_support)
     self.P = self.support:forward(self.P)
   else
     self.support = nil
   end
+  self.P_initialized = true
 end
 
 function engine:initialize_object()
@@ -459,7 +504,6 @@ function engine:initialize_object()
     -- local z = ptycho.initialization.truncated_spectral_estimate(self.z,self.P,self.O_denom,self.object_init_truncation_threshold,self.ops,self.a,self.z1,self.a_buffer2,self.zk_buffer_update_frames,self.P_buffer,self.O_buffer,self.batch_params,self.old_batch_params,self.k_to_batch_index,self.batches,self.batch_size,self.K,self.M,self.No,self.Np,self.pos,self.dpos,self.O_mask)
     -- -- self.O:copy(O)
     -- z:view_3D():ifftBatched()
-    -- self:merge_frames(z,self.P,self.O,self.O_views,true)
     -- plt:plot(self.O[1][1]:zfloat())
 
     local O = ptycho.initialization.truncated_spectral_estimate_power_it(self.z,self.P,self.O_denom,self.object_init_truncation_threshold,self.ops,self.a,self.z1,self.a_buffer2,self.zk_buffer_update_frames,self.P_buffer,self.O_buffer,self.batch_params,self.old_batch_params,self.k_to_batch_index,self.batches,self.batch_size,self.K,self.M,self.No,self.Np,self.pos,self.dpos,self.O_mask)
@@ -467,14 +511,19 @@ function engine:initialize_object()
     -- angle = u.gf(angle,2)
     self.O:polar(torch.CudaTensor(O:size()):fill(1),angle:cuda())
     -- z:view_3D():ifftBatched()
-    -- self:merge_frames(z,self.P,self.O,self.O_views,true)
     self.O_init = self.O:zfloat()
     -- plt:plot(self.O[1][1]:zfloat(),'O initialization')
   elseif self.object_init == 'gcl' then
       u.printf('gcl initialization is not implement yet')
       self.O:zero():add(1+0i)
   elseif self.object_init == 'copy' then
+    if self.object_initial:dim() == 2 then
+      pprint(self.O)
+      pprint(self.object_initial)
+      self.O[1][1]:copy(self.object_initial)
+    else
       self.O:copy(self.object_initial)
+    end
   end
 end
 
@@ -529,9 +578,7 @@ function engine:allocate_probe(Np,M)
 end
 
 function engine:allocate_object(No,Nx,Ny)
-  -- if self.O == nil then
   self.O = torch.ZCudaTensor.new(No,1,Nx,Ny)
-  -- end
 end
 -- total memory requirements:
 -- 1 x object complex
@@ -713,12 +760,10 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   -- self.O_tmp_real_PFstore = torch.CudaTensor.new( torch.LongStorage{No,1,Nx,Ny})
   -- P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_real_PFstore:nElement() + 1
 
-
-
   self.P_tmp1_PQstore = torch.ZCudaTensor.new( {1,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.P_tmp1_PQstore:nElement() + 1
-  self.P_tmp3_PQstore = torch.ZCudaTensor.new( {1,Np,M,M})
-  P_Qstorage_offset = P_Qstorage_offset + self.P_tmp3_PQstore:nElement() + 1
+  self.P_tmp2_PQstore = torch.ZCudaTensor.new( {1,Np,M,M})
+  P_Qstorage_offset = P_Qstorage_offset + self.P_tmp2_PQstore:nElement() + 1
 
   self.zk_tmp1_PQstore = torch.ZCudaTensor.new( {No,Np,M,M})
   P_Qstorage_offset = P_Qstorage_offset + self.zk_tmp1_PQstore:nElement() + 1
@@ -791,9 +836,13 @@ function engine:allocateBuffers(K,No,Np,M,Nx,Ny)
   self.O_tmp_real_PFstore = torch.CudaTensor.new( torch.LongStorage{No,1,Nx,Ny})
   P_Fstorage_offset = P_Fstorage_offset + self.O_tmp_real_PFstore:nElement() + 1
 
-
+  if self.position_refinement_method == 'annealing' then
+    self.z_buffer_trials = torch.ZCudaTensor.new( torch.LongStorage{self.position_refinement_trials,No,Np,M,M})
+    self.z_buffer_trials_real = torch.CudaTensor.new( torch.LongStorage{self.position_refinement_trials,No,Np,M,M})
+  end
 
   self.P_buffer = self.P_tmp1_PQstore
+  self.P_buffer2 = self.P_tmp2_PQstore
   self.P_buffer_real = self.P_tmp1_real_PQstore
   self.zk_buffer_update_frames = self.zk_tmp1_PFstore
   self.zk_buffer_merge_frames = self.zk_tmp1_PQstore
@@ -805,7 +854,7 @@ end
 function engine:update_iteration_dependent_parameters(it)
   self.i = it
   self.update_probe = it >= self.probe_update_start
-  self.update_positions = it >= self.position_refinement_start and it % self.position_refinement_every == 0
+  self.update_positions = it >= self.position_refinement_start and it <= self.position_refinement_stop and it % self.position_refinement_every == 0
   self.do_plot = it % self.plot_every == 0 and it > self.plot_start
   self.calculate_new_background = self.i >= self.background_correction_start
   self.do_save_data = it % self.save_interval == 0
@@ -929,10 +978,11 @@ function engine:generate_data(filename,poisson_noise,save_data)
   a:zero()
 
   self:initialize_probe()
+  self:calculateO_denom()
+
   self:initialize_object_solution()
   self:initialize_object()
   self:update_views()
-  self:calculateO_denom()
 
   if poisson_noise then
     local P_norm = self.P:normall(2)^2
@@ -946,7 +996,6 @@ function engine:generate_data(filename,poisson_noise,save_data)
     -- u.printf('P_norm             : %g',P_norm)
   end
 
-  self:update_views()
   self:update_frames(self.z,self.P,self.O_views,self.maybe_copy_new_batch_z)
 
   plt:plot(self.P[1][1]:re():float(),'P')
@@ -1143,11 +1192,290 @@ end
 
 function engine:maybe_refine_positions()
   if self.update_positions then
-    self:refine_positions()
+    if self.position_refinement_method == 'marchesini' then
+      self:refine_positions_marchesini()
+    elseif self.position_refinement_method == 'annealing' then
+      self:refine_positions_annealing()
+    end
+    self:calculateO_denom()
   end
 end
 
-function engine:refine_positions()
+function engine:refine_positions_annealing()
+  -- function engine:update_frames(z,mul_split,merge_memory_views,batch_copy_func)
+  --   print('update_frames')
+  --   self.ops.Q(z,mul_split,merge_memory_views,self.zk_buffer_update_frames,self.k_to_batch_index, fn.partial(batch_copy_func,self),self.batches,self.K,self.dpos)
+  -- end
+  local j = self.i - self.position_refinement_start
+  local position_refinement_iterations = self.position_refinement_stop - self.position_refinement_start
+  local current_max_dist = (1-(j/position_refinement_iterations)) * self.position_refinement_max_disp
+  local dpos_trials = torch.FloatTensor(self.position_refinement_trials,2)
+  local k_to_batch_index = torch.linspace(1,self.position_refinement_trials,self.position_refinement_trials)
+  local dummy_function = function(k) end
+  local z_trials = self.z_buffer_trials
+  local a_trials = self.z_buffer_trials_real
+  local path = '/mnt/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/Dropbox/Philipp/experiments/2017-24-01 monash/carbon_black/4000e/scan289/'
+  for k = 1, self.K do
+    -- fill views
+    local views = {}
+    for i = 1, self.position_refinement_trials do
+      views[i] = self.O_views[k]
+    end
+    -- fill trials
+    dpos_trials:copy(self.dpos[{{k},{}}]:expandAs(dpos_trials))
+    local random_displacement = torch.rand(self.position_refinement_trials-1,2):float()
+    random_displacement = (random_displacement - 0.5) * 2 * current_max_dist
+    dpos_trials[{{2,self.position_refinement_trials},{}}]:add(random_displacement)
+
+    -- create exit waves
+    self.ops.Q(z_trials,self.P,views,self.zk_buffer_update_frames,k_to_batch_index, dummy_function,1,self.position_refinement_trials,dpos_trials)
+    -- calculate error
+    z_trials:view_3D():fftBatched()
+    a_trials:normZ(z_trials)
+    local at = a_trials:sum(2)
+    local at1 = at:sum(3)
+    -- trials x 1 x 1 x M x M
+    at1:sqrt()
+    -- trials x M x M
+    local a = at1:squeeze()
+    -- pprint(a)
+    -- for l = 1, self.position_refinement_trials do
+    --   plt:plotcompare({a[l]:clone():fftshift():float(),self.a[k]:clone():fftshift():float()},{'a_trials '..l,'a '..k},'',path .. string.format('%d_it%d_a',k,i),true)
+    -- end
+    local a_k_exp = self.a[k]:view(1,self.M,self.M):expandAs(a)
+    a:add(-1,a_k_exp)
+    a:pow(2)
+    local a0 = a:sum(2)
+    local a1 = a0:sum(3)
+    -- pprint(a1)
+    -- select new dpos
+    min, imin = torch.min(a1,1)
+    -- pprint(imin,min)
+    imin = imin[1][1][1]
+    min = min[1][1][1]
+    -- print('imin',imin,'min',min)
+    -- print('dpos_trials',dpos_trials)
+    -- print('a1',a1:squeeze())
+    if imin ~= 1 then
+      u.printf('  Found new position for index %d: (%g,%g) -> (%g,%g) errors: %g -> %g',k,self.dpos[k][1],self.dpos[k][2],dpos_trials[imin][1],dpos_trials[imin][2],a1[1][1][1],min)
+    end
+    self.dpos[k]:copy(dpos_trials[imin])
+  end
+end
+-- mul_merge: 1 x Np x M x M
+-- z_merge  ; No x Np x M x M
+-- mul_split: 1 x Np x M x M
+-- result   : No x Np x M x M
+function engine:merge_and_split_pair(i,j,mul_merge, z_merge , mul_split, result)
+  local O_tmp = self.O_tmp_PFstore
+  local O_tmp_views = self.O_tmp_PF_views
+  local mul_merge_shifted_conj = self.P_tmp3_PFstore
+  local mul_split_shifted = self.P_tmp3_PFstore
+
+  mul_merge_shifted_conj[1]:shift(mul_merge[1],self.dpos[j]):conj()
+  O_tmp:zero()
+  O_tmp_views[j]:add(result:cmul(z_merge,mul_merge_shifted_conj:expandAs(z_merge)):sum(self.P_dim))
+  -- plt:plotReIm(self.O_tmp[1]:zfloat(),'merge_and_split_pair self.O_tmp')
+  O_tmp:cmul(self.O_denom)
+  -- plt:plotReIm(self.O_tmp[1]:zfloat(),'merge_and_split_pair self.O_tmp 2')
+  -- plt:plotReIm(ov[1]:zfloat(),'merge_and_split_pair ov')
+  mul_split_shifted[1]:shift(mul_split[1],self.dpos[i])
+  result:cmul(O_tmp_views[i]:expandAs(result),mul_split_shifted:expandAs(result))
+  return result
+end
+
+function engine:split_single(i,mul_split,result)
+    local mul_split_shifted = self.P_tmp3_PFstore:zero()
+    -- plt:plotReIm(ov[1]:zfloat(),'ov')
+    mul_split_shifted[1]:shift(mul_split[1],self.dpos[i])
+    -- plt:plotReIm(mul_split_shifted[1][1]:zfloat(),'mul_split_shifted')
+    result:cmul(self.O_views[i]:expandAs(result),mul_split_shifted:expandAs(result))
+    return result
+end
+
+function engine:do_frames_overlap(i,j)
+  local pos_i = self.pos[i]
+  local pos_j = self.pos[j]
+  local r = self.beam_radius
+  local d = math.sqrt((pos_i[1]-pos_j[1])^2+(pos_i[2]-pos_j[2])^2)
+  local overlap_area = 2 * r^2 * math.acos(d/2/r) - (d/2) * math.sqrt(4*r^2-d^2) -- maximum pi r ^ 2
+
+  local i_and_j_overlap = overlap_area > 0.1 * r^2
+  -- local beam_fraction = 0.6
+  -- local beam_offset = (1-beam_fraction)*self.M/2
+  -- local beam_size = beam_fraction*self.M
+  -- local x_lt, x_gt = math.min(pos_i[1],pos_j[1]),math.max(pos_i[1],pos_j[1])
+  -- local y_lt, y_gt = math.min(pos_i[2],pos_j[2]),math.max(pos_i[2],pos_j[2])
+  -- x_lt = x_lt + beam_offset
+  -- x_gt = x_gt + beam_offset
+  -- y_lt = y_lt + beam_offset
+  -- y_gt = y_gt + beam_offset
+  -- local x_gt_within_x_lt_beam = x_gt < x_lt + beam_size
+  -- local y_gt_within_y_lt_beam = y_gt < y_lt + beam_size
+  -- local i_and_j_overlap = x_gt_within_x_lt_beam and y_gt_within_y_lt_beam
+  return i_and_j_overlap
+end
+
+-- buffers:
+--  1 x sizeof(O) el C
+--  6 x sizeof(z[k]) el C
+-- free buffer: P_F
+function engine:refine_positions_marchesini()
+  local H = torch.FloatTensor(2*self.K,2*self.K):zero()
+  local overlaps = torch.FloatTensor(self.K,self.K)
+  local H1 = H[{{1,self.K},{1,self.K}}]
+  local H2 = H[{{self.K+1,2*self.K},{self.K+1,2*self.K}}]
+  local Hx1 = H[{{1,self.K},{self.K+1,2*self.K}}]
+  local Hx2 = H[{{self.K+1,2*self.K},{1,self.K}}]
+  local b = torch.FloatTensor(2*self.K,1)
+  local bv = b:view(b:nElement())
+
+  self.P_Fz:zero()
+
+  local zRy = self.zk_tmp1_PFstore
+  local zRx = self.zk_tmp2_PFstore
+  local Rx = self.P_tmp1_PFstore
+  local Ry = self.P_tmp2_PFstore
+
+  local r1 = self.zk_tmp5_PFstore
+  local r2 = self.zk_tmp6_PFstore
+  local r3 = self.zk_tmp7_PFstore
+  local z_under = self.zk_tmp8_PFstore
+  local z_i = self.zk_tmp8_PFstore
+
+  local r4 = torch.ZCudaTensor.new(self.Np,self.M,self.M)
+  local parts = (#self.batch_params) ^ 2
+  local l = 0
+  for _, params1 in ipairs(self.batch_params) do
+    local batch_start1, batch_end1, batch_size1 = table.unpack(params1)
+    -- print('params1')
+    -- pprint(params1)
+    for _, params2 in ipairs(self.batch_params) do
+      -- print('params2')
+      -- pprint(params2)
+      local batch_start2, batch_end2, batch_size2 = table.unpack(params2)
+
+
+      for i = 1, batch_size1 do
+        local i_full = i + batch_start1 - 1
+        self:maybe_copy_new_batch_z(batch_start1)
+        self:maybe_copy_new_batch_P_Q(batch_start1)
+        Rx[1]:dx(self.P[1],zRx[1],zRy[1])
+        Ry[1]:dy(self.P[1],zRx[1],zRy[1])
+
+        zRx = self:split_single(i_full,Rx,zRx)
+        zRy = self:split_single(i_full,Ry,zRy)
+        z_under:add(self.z[i],-1,self.P_Qz[i])
+
+        bv[i_full] = z_under:dot(zRx).re
+        bv[self.K + i_full] = z_under:dot(zRy).re
+        z_i:copy(self.z[i])
+
+        for j=1, batch_size2 do
+          l = l + 1
+          xlua.progress(l,self.K*self.K)
+          local j_full = j + batch_start2 - 1
+          self:maybe_copy_new_batch_z(batch_start2)
+          local H1_ij = 0
+          local H2_ij = 0
+          local Hx_ij = 0
+          if i_full == j_full then
+            H1_ij = zRx:dot(zRx).re
+            H2_ij = zRy:dot(zRy).re
+            Hx_ij = zRx:dot(zRy).re
+          end
+
+          -- overlaps[{i,j}] = self:do_frames_overlap(i,j) and 1 or 0
+          if self:do_frames_overlap(i,j) then
+            local O11_ij = self:merge_and_split_pair(i_full,j_full,Rx,self.z[j],Rx,r1)
+            local O22_ij = self:merge_and_split_pair(i_full,j_full,Ry,self.z[j],Ry,r2)
+            local Ox_ij = self:merge_and_split_pair(i_full,j_full,Rx,self.z[j],Ry,r3)
+
+            H1_ij = H1_ij - z_i:dot(O11_ij).re
+            H2_ij = H2_ij - z_i:dot(O22_ij).re
+            Hx_ij = Hx_ij - z_i:dot(Ox_ij).re
+          end
+
+          H1[{i_full,j_full}] = H1_ij
+          H2[{i_full,j_full}] = H2_ij
+          Hx1[{i_full,j_full}] = Hx_ij
+          Hx2[{i_full,j_full}] = Hx_ij
+        end -- end j
+      end -- end i
+    end -- end params2
+  end -- end params1
+
+  local ksi, LU = torch.gesv(b,H)
+  -- plt:plot(H:log(),'H')
+  local max,imin = torch.max(ksi,1)
+  for i=1,self.K do
+    local p = torch.FloatTensor{-ksi[i][1],-ksi[i+self.K][1]}
+    -- u.printf('%04d : %g,%g',i,-ksi[i][1],-ksi[i+self.K][1])
+    self.dpos[i]:add(p:clamp(-self.position_refinement_max_disp,self.position_refinement_max_disp))
+  end
+
+  -- local di = self.dpos:int()
+  -- print('di')
+  -- print(di)
+  -- print('self.pos')
+  -- print(self.pos)
+  -- print('self.dpos')
+  -- print(self.dpos)
+  -- self.pos:add(di)
+  -- self.dpos:add(-1,di:float())
+  -- print('self.pos')
+  -- print(self.pos)
+  -- print('self.dpos')
+  -- print(self.dpos)
+  local overlaps = torch.gt(H,0):sum() / 2
+
+  -- plt:scatter_positions(self.dpos:clone():add(self.pos:float()),self.dpos_solution:clone():add(self.pos:float()))
+  if self.dpos_solution then
+    local dp = self.dpos_solution:clone():add(-1,self.dpos):abs()
+    local max_err = dp:max()
+    local pos_err = self.dpos_solution:clone():add(-1,self.dpos):abs():sum()/self.K
+    u.printf('ksi[%d] = %g, pos_error = %g, max_pos_error = %g', imin[1][1] , max[1][1] , pos_err, max_err)
+  else
+    u.printf('ksi[%d] = %g', imin[1][1] , max[1][1])
+  end
+  -- self:update_views()
+  self:calculateO_denom()
+  self:P_Q_plain()
+end
+
+function engine:filter_object()
+  -- pprint(self.O_tmp_PQstore)
+  local O_fluence = self.O_tmp_PQstore:copy(self.O):normall(2)
+  print('filtering object')
+  -- plt:plot(self.P[1][1]:zfloat(),self.i..' P',self.save_path .. self.i..' P',false)
+
+  self.O:view_3D():fftBatched()
+
+  -- plt:plot(self.P[1][1]:zfloat():abs():log(),self.i..' P fft unfiltered ',self.save_path .. self.i..' P filtered ',false)
+  self.O:cmul(self.object_highpass)
+  -- plt:plot(self.P[1][1]:zfloat():abs():log(),self.i..' P fft filtered ',self.save_path .. self.i..' P filtered ',false)
+  self.O:view_3D():ifftBatched()
+
+  local O_fluence_new = self.O_tmp_PQstore:copy(self.O):normall(2)
+  u.printf('O_fluence/O_fluence_new = %g',O_fluence/O_fluence_new)
+  self.O:mul(O_fluence/O_fluence_new)
+end
+
+function engine:filter_probe()
+  local P_fluence = self.P_tmp1_real_PQstore:normZ(self.P):sum()
+  print('filtering probe')
+  -- plt:plot(self.P[1][1]:zfloat(),self.i..' P',self.save_path .. self.i..' P',false)
+  self.P:view_3D():fftBatched()
+  -- plt:plot(self.P[1][1]:zfloat():abs():log(),self.i..' P fft unfiltered ',self.save_path .. self.i..' P filtered ',false)
+  self.P:cmul(self.probe_lowpass)
+  -- plt:plot(self.P[1][1]:zfloat():abs():log(),self.i..' P fft filtered ',self.save_path .. self.i..' P filtered ',false)
+  self.P:view_3D():ifftBatched()
+  local P_fluence_new = self.P_tmp1_real_PQstore:normZ(self.P):sum()
+  u.printf('P_fluence/P_fluence_new = %g',P_fluence/P_fluence_new)
+  self.P:mul(P_fluence/P_fluence_new)
+  -- plt:plot(self.P[1][1]:zfloat(),self.i..' P filtered ',self.save_path .. self.i..' P filtered ',false)
+  -- self:calculateO_denom()
+  -- self:merge_frames(self.P,self.O,self.O_views)
 end
 
 function engine:overlap_error(z_in,z_out)
@@ -1159,10 +1487,11 @@ function engine:overlap_error(z_in,z_out)
     self:maybe_copy_new_batch_P_Q(k)
     self:maybe_copy_new_batch_z(k)
     local c = z_in:dot(z_out)
-    local phase_diff = c/zt.abs(c)
-    result:mul(z_out,phase_diff)
+    local phi = zt.arg(c).re
+    local exp_minus_phi = ztorch.re(math.cos(phi)) + ztorch.im(math.sin(phi))
+    result:mul(z_out,exp_minus_phi)
     res = res + result:add(-1,z_in):mul(-1):normall(2)
-    res_denom = res_denom + z_out:normall(2)
+    res_denom = res_denom + z_in:normall(2)
   end
   return res/res_denom
 end
@@ -1185,12 +1514,15 @@ function engine:relative_error(z1)
   if self.object_solution then
     local c = z_solution:dot(z_copy)
     -- print(c)
-    local phi = -zt.arg(c).re
-    local exp_minus_phi = ztorch.re(math.cos(-phi)) + ztorch.im(math.sin(-phi))
+    local phi = zt.arg(c).re
+    local exp_minus_phi = ztorch.re(math.cos(phi)) + ztorch.im(math.sin(phi))
     self.z2:mul(z_copy,exp_minus_phi)
     -- plt:plotcompare({z_solution[45][1][1]:zfloat():abs(),self.z2[45][1][1]:zfloat():abs()},{'sol abs','rec abs'})
     -- plt:plotcompare({z_solution[45][1][1]:zfloat():arg(),self.z2[45][1][1]:zfloat():arg()},{'sol arg','rec arg'})
     self.z2:add(-1,z_solution)
+    -- for i = 1,self.K do
+    --   plt:plotReIm(self.z2[i][1][1]:zfloat(),'z diff')
+    -- end
     local result = self.z2:normall(2)/z_solution:normall(2)
     -- print(result)
     return result
@@ -1210,6 +1542,7 @@ function engine:image_error()
     --   plt:plotcompare({self.object_solution[1][1]:zfloat():arg(),O_res:clone():cmul(self.O_mask)[1][1]:zfloat():arg()},{'sol arg','rec arg'})
     -- end
     O_res:add(-1,self.object_solution):cmul(self.O_mask)
+    -- plt:plotReIm(O_res[1][1]:zfloat(),'image difference')
     local O_res_norm = O_res:normall(2)
     local norm1 = O_res_norm/O_res:copy(self.object_solution):cmul(self.O_mask):normall(2)
     return norm1
@@ -1221,8 +1554,8 @@ function engine:probe_error()
   local P_corr = self.P_tmp2_PFstore
   if self.probe_solution then
     local c = self.P[1]:dot(self.probe_solution)
-    local phi = -zt.arg(c).re
-    local exp_minus_phi = ztorch.re(math.cos(-phi)) + ztorch.im(math.sin(-phi))
+    local phi = zt.arg(c).re
+    local exp_minus_phi = ztorch.re(math.cos(phi)) + ztorch.im(math.sin(phi))
     P_corr:mul(self.P,exp_minus_phi)
     P_corr:add(-1,self.probe_solution)
     local norm1 = P_corr:normall(2)/self.probe_solution:normall(2)
