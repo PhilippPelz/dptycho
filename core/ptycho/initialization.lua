@@ -348,7 +348,7 @@ ARGS:
 RETURN:
 - `z`     : the new frames
 ]]
-function m.truncated_spectral_estimate_power_it(z,P,O_denom,truncation_threshold,ops,a,z_buffer, a_buffer,zk_buffer,P_buffer,O_buffer,batch_params,old_batch_params,k_to_batch_index,batches,batch_size,K,M,No,Np,pos,dpos,O_mask)
+function m.truncated_spectral_estimate_power_it(z,P,O_denom,truncation_threshold,ops,a,fm,z_buffer, a_buffer,zk_buffer,P_buffer,O_buffer,batch_params,old_batch_params,k_to_batch_index,batches,batch_size,K,M,No,Np,pos,dpos,O_mask)
 
     local same_batch = function(batch_params1,batch_params2)
         local batch_start1, batch_end1, batch_size1 = table.unpack(batch_params1)
@@ -412,7 +412,7 @@ function m.truncated_spectral_estimate_power_it(z,P,O_denom,truncation_threshold
       -- print('wp 21')
       -- collectgarbage('collect')
       -- plt:plot(P[1][1]:zfloat(),string.format('z1 %d',1))
-      z_buffer = ops.Q(z_buffer, P, O_views, zk_buffer, k_to_batch_index,partial_maybe_copy_new_batch, batches, K,dpos)
+      z_buffer = ops.Q(z_buffer, P, O_views, zk_buffer,nil, k_to_batch_index,partial_maybe_copy_new_batch, batches, K,dpos)
       -- print('wp 22')
       -- pprint(z_buffer)
       -- plt:plot(z_buffer[1][1][1]:zfloat(),string.format('z1 %d',1))
@@ -439,7 +439,9 @@ function m.truncated_spectral_estimate_power_it(z,P,O_denom,truncation_threshold
 
     local normest = math.sqrt(a:sum()/a:nElement())
     -- print(9*normest^2)
-    local a_max = u.percentile(a:float(),truncation_threshold)
+    a_buffer:cmul(a,fm)
+    local a_max = u.percentile(a_buffer:float(),truncation_threshold)
+    print(a_max,a_buffer:max())
     local T_a = a_buffer:gt(a,a_max)
     -- local T_a = a_buffer:le(a,15*normest^2)
     -- for i=20,30 do
@@ -465,7 +467,7 @@ function m.truncated_spectral_estimate_power_it(z,P,O_denom,truncation_threshold
       -- print('wp 4 '..tt)
       O:div(O:normall(2))
       -- if tt % 200 == 0 then
-      plt:plot(O[1][1]:zfloat(),string.format('O %d',tt))
+      -- plt:plot(O[1][1]:zfloat(),string.format('O %d',tt))
       -- end
     end
 

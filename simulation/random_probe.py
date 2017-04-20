@@ -107,23 +107,24 @@ def plotcx(x, savePath=None):
     imax1 = ax1.imshow(imsave(x))
     ax1.set_xticks([])
     ax1.set_yticks([])
-    ax1.add_patch(
-        patches.Rectangle(
-            (170, 220),   # (x,y)
-            50,          # width
-            7,          # height
-            facecolor="white",
-            edgecolor="white"
-        )
-        )
+#    ax1.add_patch(
+#        patches.Rectangle(
+#            (170, 220),   # (x,y)
+#            50,          # width
+#            7,          # height
+#            facecolor="white",
+#            edgecolor="white"
+#        )
+#        )
     if savePath is not None:
         # print 'saving'
         fig.savefig(savePath, dpi=300)
     plt.show()
-def fzp(N,a):
-    rmax = 0.45*N
+def fzp(N,a,bandlimit = None):
+    rmax = 0.49*N
     r = 0
     res = np.zeros((N,N),dtype=np.float)
+    lastring = 0
     for n in np.arange(0,0.75*N/2,2):
         inner = np.logical_not(sector_mask((N,N),(N/2,N/2),sqrt(a*n),(0,360)))
         if n==0: inner = np.ones_like(inner)
@@ -134,10 +135,13 @@ def fzp(N,a):
         res += ring
 #        riplot(res)
         if sqrt(a*(n+4)) > rmax:
+            lastring = sqrt(a*(n+1))
             break
 #    riplot(res,'rings')
-    res1 = sector_mask((N,N),(N/2,N/2),int(rmax),(0,360))*np.exp(1j*np.pi/4*res)
-    plotcx(fftshift(ifft2(res1)))
+    res1 = nd.gaussian_filter(sector_mask((N,N),(N/2,N/2),int(lastring),(0,360)).astype(np.float),1)*np.exp(1j*np.pi/4*res)
+    if bandlimit is not None:
+        res1 *= np.logical_not(sector_mask((N,N),(N/2,N/2),int(bandlimit * N),(0,360)))
+#    plotcx(fftshift(ifft2(res1)))
     plotcx(res1)
     return np.real(res1).astype(np.float32), np.imag(res1).astype(np.float32)
 
@@ -400,7 +404,101 @@ def blr_probe2(N,rs_rad,fs_rad1,fs_rad2,do_plot=False):
     plotcx(fftshift( fft2( ifftshift( psi ) ) ))
 
     return np.real(psi).astype(np.float32), np.imag(psi).astype(np.float32)
+    
+def blr_probe4(N,rs_rad,fs_rad1,fs_rad2,do_plot=False):
+    rs_mask = sector_mask((N,N),(N/2,N/2),rs_rad*N,(0,360))
+    # rs_mask = nd.gaussian_filter(rs_mask.astype(np.float),10)
+    rs_mask = rs_mask/norm(rs_mask,1)
 
+    fs_mask1 = sector_mask((N,N),(N/2,N/2),fs_rad1*N,(0,360))
+    fs_mask2 = sector_mask((N,N),(N/2,N/2),fs_rad2*N,(0,360))
+    fs_mask3 = np.logical_not(sector_mask((N,N),(N/
+    2,N/2),fs_rad2*N,(0,360)))
+    #riplot(fs_mask3)   + + 3*fs_mask2.astype(np.int)
+    fs_mask = (fs_mask1.astype(np.int) ) * fs_mask3.astype(np.int)
+    fs_mask = fs_mask/norm(fs_mask,1)
+    sh = fs_mask.shape
+#    fs_mask[sh[0]/2-1:sh[0]/2+1,:] = 0
+#    fs_mask[:,sh[0]/2-1:sh[0]/2+1] = 0
+    #riplot(rs_mask)
+    #riplot(fs_mask)
+
+#     h = fftshift( ifft2( ifftshift( H ) ) );
+#     H = fftshift( fft2( ifftshift( h ) ) );
+
+    fs_mask = fftshift(fs_mask)
+#    phase = fftshift(np.angle(random_fzp21(N,130,5)))
+    phase = 2 * np.pi * np.random.uniform(size=(N,N))
+    psi_f = fftshift(fs_mask * np.exp(2j*phase))
+#    rs_mask = fftshift(rs_mask)
+#    fs_mask = fftshift(fs_mask)
+    psi_f = ifftshift(psi_f)
+    if do_plot:
+        applot(psi_f,'psi_f init')
+    it = 50
+    for i in range(it):
+#        print i
+        psi = fftshift(ifft2(psi_f,norm='ortho'))
+
+
+        if do_plot:
+            applot(psi,'psi')
+#        psir = psi.real
+#        psii = psi.imag
+#        psir = nd.gaussian_filter(psi.real,5)
+#        psii = nd.gaussian_filter(psi.imag,5)
+        psi = rs_mask * np.exp(1j*np.angle(psi))#(psir + 1j* psii)
+        psi = psi/norm(psi)
+#        plotcx(psi)
+        if do_plot:
+            applot(psi,'psi masked')
+
+        psi_f = fft2(ifftshift(psi),norm='ortho')
+        if do_plot:
+            applot(psi_f,'psi_f')
+#        plotcx(fftshift(psi_f))
+#        psi_fangle = fftshift(nd.gaussian_filter(fftshift(np.angle(psi_f)),1))
+#        psi_fangle = nd.zoom(nd.zoom(np.angle(psi_f),0.5),2)
+        psi_fangle = np.angle(psi_f)
+        # riplot(psi_fangle)
+        # psi_fangle[b] += np.pi/2
+        # riplot(psi_fangle)
+        psi_f = fs_mask * psi_f
+        # phase = fftshift(nd.gaussian_filter(fftshift(np.angle(psi_f)),1))
+        # psi_f = np.abs(psi_f) * np.exp(1j*phase)
+        psi_f = psi_f/norm(psi_f)
+#        plotcx(psi_f)
+        if do_plot:
+            applot(psi_f,'psi_f masked')
+
+    psi = fftshift(fft2(psi_f,norm='ortho'))
+#    applot(psi,'final psi')
+#    psi_f = fft2(ifftshift(psi))
+#    applot(psi_f,'final psi_f')
+#    psi_fangle = np.angle(psi_f)
+#    psi_f = fs_mask * np.exp(1j*psi_fangle)
+##    applot(psi_f,'final psi_f masked')
+#    psi_f = ifftshift(psi_f)
+#    applot(psi_f,'final psi_f masked shifted')
+#    psi = ifft2(psi_f,norm='ortho')
+#    plotcx(psi)
+#    bins = 150
+#    digi = np.digitize(np.angle(psi_f),np.linspace(-1,1,bins)*2*np.pi)
+#    riplot(digi,'digi')
+#    psi_f = np.abs(psi_f) * np.exp(1j*digi*1/bins*2.0*np.pi)
+#    psi = fft2(psi_f,norm='ortho')
+
+
+
+    # psi_f = np.abs(psi_f) * np.exp(1j*nd.zoom(nd.zoom(np.angle(psi_f),0.5),2))
+    # psi = fft2(psi_f,norm='ortho')
+#    psi = fftshift(psi)
+    plotcx(fftshift(psi_f),'/home/philipp/drop/Public/phase_plate')
+    plotcx(psi)
+    applot(psi)
+    plotcx(fftshift( fft2( ifftshift( psi ) ) ))
+
+    return np.real(psi).astype(np.float32), np.imag(psi).astype(np.float32)
 
 def blr_probe3(N,rs_rad,fs_rad1,fs_rad2):
     divs = 60
@@ -422,7 +520,7 @@ def blr_probe3(N,rs_rad,fs_rad1,fs_rad2):
     fs_mask = fftshift(fs_mask)
     phase = np.ones_like(fs_mask)#fftshift(nd.gaussian_filter(fftshift(np.pi*np.random.uniform(size=(N,N))),2))
     psi_f = fs_mask * np.exp(2j*phase)
-#    riplot(fftshift(psi_f)        )
+    riplot(fftshift(psi_f)        )
 
     for i in range(50):
         # print i
@@ -520,10 +618,11 @@ def rgb2complex(rgb):
     Reverse to :any:`complex2rgb`
     """
     return hsv2complex(rgb2hsv(rgb))
-#r,i = blr_probe2(256,0.11,0.25,0.00)
-#r,i = fzp(1024,6000)
-#pr = r + 1j* i
-#h5write('/home/philipp/drop/Public/probe_blr2.h5',{'pr' : r, 'pi':i})
+    
+#r,i = blr_probe4(256,0.20,0.3,0.00)
+#r,i = fzp(256,500,6)
+##pr = r + 1j* i
+#h5write('/home/philipp/drop/Public/fzp1.h5',{'pr' : r, 'pi':i})
 #plotcx(pr,'/home/philipp/drop/Philipp/mypapers/lowdose/data/figure5_probes/blr_fourier.eps')
 #fpr = fftshift( fft2( ifftshift( pr ) ) )
 #plotcx(fpr)

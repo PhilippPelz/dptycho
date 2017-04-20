@@ -200,11 +200,19 @@ function c:get_positions_raster(Npos,size)
   return py.eval('raster_positions(n,s)',{n=Npos,s=size}):float()
 end
 
-function c:raster_positions_overlap(size,probe_mask,overlap)
-  return py.eval('raster_positions_overlap(s,p,o)',{s=size,p=probe_mask,o=overlap}):float()
+-- round_scan_ROI_positions(dr, lx, ly, nth)
+function c:round_scan_ROI_positions(dr, lx, ly, nth)
+  return py.eval('round_scan_ROI_positions(dr, lx, ly, nth)',{dr=dr,lx=lx,ly=ly,nth=nth}):float()
 end
 
-function c:focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um , C5_mm, tx ,ty , Nedge , plot)
+function c:raster_positions_overlap(size,probe_mask,overlap,pos_shift,phi,random_max)
+  local pos_shift1 = pos_shift or torch.FloatTensor{2,5}
+  local phi1 = phi or 44
+  local rm = random_max or py.None
+  return py.eval('raster_positions_overlap(s,p,o,pos_shift,phi,random_max)',{s=size,p=probe_mask,o=overlap,pos_shift=pos_shift1,phi=phi1,random_max=rm}):float()
+end
+
+function c:focused_probe(E, N, d, alpha_rad, defocus_nm,dp, C3_um , C5_mm, tx ,ty , Nedge , plot)
   local C3 = C3_um or 1000
   local C5 = C5_mm or 1
   local tx0 = tx or 0
@@ -212,7 +220,7 @@ function c:focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um , C5_mm, tx ,ty ,
   local Ne = Nedge or 5
   local doplot = plot or false
 
-  local pr, pi = table.unpack(py.eval('focused_probe(E, N, d, alpha_rad, defocus_nm, C3_um , C5_mm , tx ,ty , Nedge , plot)',{E=E,N=N,d=d,alpha_rad=alpha_rad,defocus_nm=defocus_nm,C3_um=C3,C5_mm=C5,tx=tx0,ty=ty0,Nedge=Ne,plot=doplot}))
+  local pr, pi = table.unpack(py.eval('focused_probe(E, N, d, alpha_rad, defocus_nm, det_pix, C3_um , C5_mm , tx ,ty , Nedge , plot)',{E=E,N=N,d=d,alpha_rad=alpha_rad,defocus_nm=defocus_nm, det_pix = dp,C3_um=C3,C5_mm=C5,tx=tx0,ty=ty0,Nedge=Ne,plot=doplot}))
   -- plt:plot(pr)
   -- plt:plot(pi)
   local probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
@@ -242,8 +250,9 @@ function c:random_probe3(N,rs_rad,fs_rad1,fs_rad2)
   return probe
 end
 
-function c:fzp(N,factor)
-  local pr, pi = table.unpack(py.eval('fzp(N,fac)',{N=N,fac=factor}))
+function c:fzp(N,factor,bandlimit)
+  local bl = bandlimit or py.None
+  local pr, pi = table.unpack(py.eval('fzp(N,fac,bandlimit)',{N=N,fac=factor,bandlimit=bl}))
   -- plt:plot(pr)
   -- plt:plot(pi)
   local probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())

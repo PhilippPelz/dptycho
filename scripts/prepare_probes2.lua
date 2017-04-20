@@ -48,12 +48,12 @@ if probe_type == 1 then
   plt:plot(probe:zfloat(),'defocused RFZP')
 elseif probe_type == 2 then
   -- for i = 0,15 do
-    -- print(50*i)
-    probe = s:fzp(N,200)
+    -- print(200+25*i)
+    probe = s:fzp(N,250)
     -- plt:plot(probe:zfloat():fftshift(),'FZP')
     probe:fftshift()
 
-    local prop = ptychocore.propagators.fresnel(N,d*1e-10,200e-9,u.physics(E).lambda)
+    local prop = ptychocore.propagators.fresnel(N,d*1e-10,400e-9,u.physics(E).lambda)
     prop:fftshift()
     -- for i=1,10 do
     probe:cmul(prop)
@@ -86,7 +86,7 @@ elseif probe_type == 5 then
   probe = s:focused_probe(E, N, d, alpha_rad, defocus_nm,dp, C3_um , C5_mm, tx ,ty , Nedge , plot)
   plt:plot(probe:zfloat(),'defocus')
 end
-local f = hdf5.open('/home/philipp/drop/Public/probe_def6.h5','w')
+local f = hdf5.open('/home/philipp/drop/Public/probe_def7.h5','w')
 print('1')
 f:write('/pr',probe:re():float())
 print('2')

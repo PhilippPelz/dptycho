@@ -22,21 +22,16 @@ local ptychocore = require 'dptycho.core'
 
 print('here')
 
-function get_data(pot_path,dose,overlap,N,E,probe,probe_diameter,shift)
+function get_data(pot_path,dose,overlap,N,E,probe,probe_diameter)
 
   local probe_int = probe:clone():norm()
   probe_int:div(probe_int:max())
   local probe_mask = torch.ge(probe_int:re(),1e-2):int()
 
-
-  -- plt:plot(probe_mask:float())
-
-
   local s = simul.simulator()
   local pot = s:load_potential(pot_path)
-    -- local pos = s:round_scan_ROI_positions(probe_diameter*(1-overlap),pot:size(2)-N-1,pot:size(2)-N-1,7)
-  local pos = 0
-  pos = s:raster_positions_overlap(pot:size(2)-N,probe_mask,overlap,shift,4)
+  -- local pos = s:round_scan_ROI_positions(probe_diameter*(1-overlap),pot:size(2)-N-1,pot:size(2)-N-1,7)
+  local pos = s:raster_positions_overlap(pot:size(2)-N,probe_mask,overlap)
   pos = pos:int() + 1
 
   local binning = 8
@@ -67,7 +62,8 @@ function main()
   Or = nil
   Oi = nil
   path = '/mnt/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/Dropbox/Philipp/experiments/2017-24-01 monash/carbon_black/4000e/scan289/scan10/'
-  local dose = {4.8e6}
+  rawset(_G, 'path', path)
+  local dose = {6e12}
 
   -- local dose = {4.8e6}6e5,1.5e6,2.8e6,4.8e6,8.4e6,1.5e7,2.6e7,4.6e7,8.5e7,1.45e8
   -- local dose = {1.45e8,8.5e7,4.6e7,2.6e7,1.5e7,8.4e6,4.8e6,2.8e6,1.5e6}
@@ -80,15 +76,16 @@ function main()
   local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
           56.23413252,   100.        ,   177.827941  ,   316.22776602,
          562.34132519}
-  local overlap = {0.7}--,0.7,0.75,0.8}0.45,0.5,0.55,0.6,
-  local sampl = {'4V6X_200','1RYP_200','4HHB_200'}
+  local overlap = {0.70}--,0.7,0.75,0.8}0.45,0.5,0.55,0.6,
   -- local overlap = {0.45}
   local nu = {10e-2}--{10e-2,5e-2,1e-2,5e-3}--4e-2,2e-1,1e-1,
-  local lr = {2.5e-4}--{1e-4,5e-4}
+  local lr = {2.5e-5}--{1e-4,5e-4}
   local momentum = {0}--{0,0.99,0.95}
-  local ID =2
-  for l=1,20 do
-  local par = ptycho.params.DEFAULT_PARAMS_TWF()
+  local ID = 2
+  for l=1,1 do
+  path = '/mnt/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/Dropbox/Philipp/experiments/2017-24-01 monash/carbon_black/4000e/scan289/scan10/'
+  rawset(_G, 'path', path)
+  par = ptycho.params.DEFAULT_PARAMS_TWF()
 
   local N = 256
   local E = 300e3
@@ -116,7 +113,7 @@ function main()
   par.object_inertia = 0
   par.object_init = 'rand'
   par.object_init_truncation_threshold = 85
-  par.object_initial = nil
+  -- par.object_initial = obj
 
   par.P_Q_iterations = 10
   par.probe_init = 'copy'
@@ -126,7 +123,7 @@ function main()
 
   par.save_interval = 60000
   par.save_raw_data = true
-  par.save_path = '/home/philipp/dropbox/Philipp/mypapers/lowdose/data/figure3_averaging/1ryp/5/'
+  par.save_path = '/home/philipp/drop/Philipp/mypapers/lowdose/data/figure2_snr_frc/1ryp/'
 
   par.O_denom_regul_factor_start = 0
   par.O_denom_regul_factor_end = 0
@@ -141,17 +138,18 @@ function main()
   par.twf.tau0 = 10
   par.twf.do_truncate = false
   par.twf.diagnostics = false
+  par.twf.nu = 3e-2
 
   for w,lr0 in ipairs(lr) do
     for q,mom0 in ipairs(momentum) do
 
   -- config for sgd
-  -- par.optim_config = {}
-  -- par.optim_state = {}
-  -- par.optim_config.learningRate = lr0
-  -- par.optim_config.learningRateDecay = mom0
-  -- par.optim_config.weightDecay = 0
-  -- par.optim_config.momentum = 0
+  par.optim_config = {}
+  par.optim_state = {}
+  par.optim_config.learningRate = lr0
+  par.optim_config.learningRateDecay = mom0
+  par.optim_config.weightDecay = 0
+  par.optim_config.momentum = 0
 
   -- config for L-BFGS
   -- par.optim_config = {}
@@ -173,9 +171,18 @@ function main()
   -- par.optim_config.learningRate = 1
   -- par.optim_config.verbose = false
 
+  -- config for nag
+  -- par.optim_config = {}
+  -- par.optim_state = {}
+  -- par.optim_config.learningRate = 1e-8
+  -- par.optim_config.learningRateDecay = 3e-2
+  -- par.optim_config.weightDecay = 0
+  -- par.optim_config.momentum = 0.9
+  -- par.optim_config.dampening = nil
+
   -- config for cg
   par.optim_config = {}
-  par.optim_config.maxIter = 5
+  par.optim_config.maxIter = 10
   par.optim_config.sig = 0.5
   par.optim_config.red = 1e8
   par.optim_config.break_on_success = true
@@ -186,119 +193,111 @@ function main()
   par.optimizer = optim.cg -- nag sgd cg
 
   par.regularization_params = {}
-  par.regularization_params.amplitude = 6e-2
-  par.regularization_params.start_denoising = 2
-  par.regularization_params.denoise_interval = 1
-  par.regularization_params.sigma_denoise = 0.03
+  par.regularization_params.amplitude = 4e-2
+  par.regularization_params.start_denoising = 150
+  par.regularization_params.denoise_interval = 15
+  par.regularization_params.sigma_denoise = 0.02
 
   par.calculate_dose_from_probe = true
   par.stopping_threshold = 1e-5
 
-  par.experiment.z = 1.82
+  par.experiment.z = 1.1
   par.experiment.E = E
-  par.experiment.det_pix = 70e-6
+  par.experiment.det_pix = 40e-6
   par.experiment.N_det_pix = N
-
-  for probe_type = 3,3 do
+  local probe_diameter = 0
+  for probe_type = 0,5 do
     local s = simul.simulator()
     local probe = nil
     local d = 2.0
 
-    if probe_type == 1 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_rfzp.h5','r')
-      local pr = f:read('/pr'):all()
-      local pi = f:read('/pi'):all()
-      probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
-      -- plt:plot(probe:zfloat(),'probe_rfzp')
-      f:close()
-    elseif probe_type == 2 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_fzp.h5','r')
-      local pi = f:read('/pi'):all()
-      local pr = f:read('/pr'):all()
-      probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
-      -- plt:plot(probe:zfloat(),'probe_rfzp')
-      f:close()
-    elseif probe_type == 3 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_blr.h5','r')
-      local pr = f:read('/pr'):all()
-      local pi = f:read('/pi'):all()
-      probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
-      -- plt:plot(probe:zfloat(),'probe')
-      f:close()
-    elseif probe_type == 4 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_coneblr.h5','r')
-      local pr = f:read('/pr'):all()
-      local pi = f:read('/pi'):all()
-      probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
-      -- plt:plot(probe:zfloat(),'defocused probe')
-      f:close()
-    elseif probe_type == 5 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_def7.h5','r')
-      local pr = f:read('/pr'):all()
-      local pi = f:read('/pi'):all()
-      probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
-      plt:plot(probe:zfloat(),'defocused probe')
-      f:close()
-    end
+    -- if probe_type == 1 then
+    --   local f = hdf5.open('/home/philipp/drop/Public/probe_rfzp.h5','r')
+    --   local pr = f:read('/pr'):all()
+    --   local pi = f:read('/pi'):all()
+    --   probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
+    --   -- plt:plot(probe:zfloat(),'probe_rfzp')
+    --   f:close()
+    -- elseif probe_type == 2 then
+    --   local f = hdf5.open('/home/philipp/drop/Public/probe_fzp.h5','r')
+    --   local pi = f:read('/pi'):all()
+    --   local pr = f:read('/pr'):all()
+    --   probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
+    --   f:close()
+    -- elseif probe_type == 3 then
+      probe = s:random_probe2(256,0.14 + probe_type * 0.02,0.22,0.00)
+      -- local f = hdf5.open('/home/philipp/drop/Public/probe_blr2.h5','r')
+      -- local pr = f:read('/pr'):all()
+      -- local pi = f:read('/pi'):all()
+      -- probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
+      -- -- plt:plot(probe:zfloat(),'probe')
+      probe_diameter = (0.14 + probe_type * 0.02) * N
+      -- f:close()
+    -- elseif probe_type == 4 then
+    --   local f = hdf5.open('/home/philipp/drop/Public/probe_coneblr.h5','r')
+    --   local pr = f:read('/pr'):all()
+    --   local pi = f:read('/pi'):all()
+    --   probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
+    --   -- plt:plot(probe:zfloat(),'defocused probe')
+    --   f:close()
+    -- elseif probe_type == 5 then
+    --   local f = hdf5.open('/home/philipp/drop/Public/probe_def5.h5','r')
+    --   local pr = f:read('/pr'):all()
+    --   local pi = f:read('/pi'):all()
+    --   probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
+    --   -- plt:plot(probe:zfloat(),'defocused probe')
+    --   f:close()
+    -- end
 
-    local overlap0 = overlap[1]
+
     for i,dose0 in ipairs(dose) do
-      for j,sample in ipairs(sampl) do
-        -- local sample = '1RYP_200'
+      for j,overlap0 in ipairs(overlap) do
+        local sample = '1RYP_200'
         -- print(dose0)
-        local shifti = 0
-
-        shifti = shifti + 1
-        local shift = torch.FloatTensor{-4 + i,-2+j}
-        local data = get_data('/home/philipp/drop/Public/'..sample..'.h5',dose0,overlap0,N,E,probe,63,shift)
+        local data = get_data('/home/philipp/drop/Public/'..sample..'.h5',dose0,overlap0,N,E,probe,probe_diameter)
         par.pos = data.pos
         par.dpos = data.pos:clone():add(-1,data.pos:clone():int()):float()
         par.object_solution = data.object:clone()
         par.probe_solution = data.probe:clone()
-        par.fmask = data.a:clone():fill(1)
+        par.fmask = data.a:clone():gt(1):cuda()
 
-        for k,nu0 in ipairs(nu) do
-          local nu = string.gsub(string.format('%g',nu0),',','p')
-          local str = string.format('%05d_s_%s_ov_%d_d_%d_nu_%s',ID,sample,overlap0*100,dose0,nu)
-          par.run_label = str
-          par.twf.nu = nu0
-          par.a = data.a:clone()
-          -- print()
-          -- print('a sum')
-          -- print(par.a:sum())
-          -- print()
+        local f = hdf5.open('/home/philipp/drop/Public/probe_1'..probe_type..'.h5','w')
+        f:write('/a',data.a:float())
+        f:write('/pr',data.probe:re():float())
+        f:write('/pi',data.probe:im():float())
+        f:close()
 
-            local nu = string.gsub(string.format('%g',nu0),',','p')
-            local str = string.format('%05d_s_%s_ov_%d_d_%d_nu_%s_run_%d_shift0_%d',ID,sample,overlap0*100,dose0,nu,1,shifti)
-            par.run_label = str
-            par.twf.nu = 3e-2
-            par.a = data.a:clone()
-            -- print(par.a:sum())
-            -- print()
+        -- local nu = string.gsub(string.format('%g',par.twf.nu),',','p')
+        -- local str = string.format('%05d_s_%s_ov_%d_d_%d_nu_%s',ID,sample,overlap0*100,dose0,nu)
+        -- par.run_label = str
+        --
+        -- par.a = data.a:clone()
+        --
+        -- local nu = string.gsub(string.format('%g',par.twf.nu),',','p')
+        -- local str = string.format('%05d_s_%s_ov_%d_d_%d_nu_%s_run_%d',ID,sample,overlap0*100,dose0,nu,1)
+        -- par.run_label = str
+        --
+        -- par.a = data.a:clone()
+        --
+        -- local eng = ptycho.TWF_engine(par)
+        -- eng:iterate(20)
+        --
+        -- local hp = {run_label = str, nu = nu0, dose = eng.electrons_per_angstrom2, total_counts = eng.I_total, counts_per_valid_pixel = eng.counts_per_valid_pixel, MoverN = eng.total_nonzero_measurements/eng.pixels_with_sufficient_exposure, overlap = overlap0, probe_type = probe_type, method = 'cg', learningRate = par.optim_config.learningRate, learningRateDecay = par.optim_config.learningRateDecay, momentum = par.optim_config.momentum}
+        -- local md = {hostname = 'work', dataset = sample}
+        -- local res = { final_img_error = eng.img_error[eng.i], final_rel_error = eng.rel_error[eng.i], img_err = eng.img_error:totable(), rel_err = eng.rel_error:totable()}
 
-            -- local hex = bat:experiment()
+        -- hex:setParam(hp)
+        -- hex:setMeta(md)
+        -- hex:setResult(res)
 
-            local eng = ptycho.TWF_engine(par)
-            eng:iterate(50)
-            -- local hp = {run_label = str, nu = nu0, dose = eng.electrons_per_angstrom2, total_counts = eng.I_total, counts_per_valid_pixel = eng.counts_per_valid_pixel, MoverN = eng.total_nonzero_measurements/eng.pixels_with_sufficient_exposure, overlap = overlap0, probe_type = probe_type, method = 'cg', learningRate = par.optim_config.learningRate, learningRateDecay = par.optim_config.learningRateDecay, momentum = par.optim_config.momentum}
-            -- local md = {hostname = 'work', dataset = sample}
-            -- local res = { final_img_error = eng.img_errors[eng.i], final_rel_error = eng.rel_errors[eng.i], img_err = eng.img_errors:totable(), rel_err = eng.rel_errors:totable()}
-
-            -- hex:setParam(hp)
-            -- hex:setMeta(md)
-            -- hex:setResult(res)
-
-            eng = nil
-            ID = ID + 1
-            collectgarbage()
-          -- end
+        eng = nil
+        ID = ID + 1
+        collectgarbage()
         end
-      end -- end nu
     end -- end dose
-  end
+  end -- end probe
+end -- end mom
+end-- end lr
 end
 end
-end
-end
-
 main()

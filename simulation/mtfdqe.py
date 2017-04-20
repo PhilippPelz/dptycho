@@ -9,11 +9,12 @@ import pandas as pd
 import numpy as np
 from numpy.fft import fftshift
 import matplotlib.pyplot as plt
-from scipy import interpolate as i
+
 from scipy.ndimage import filters as filter
 from math import *
 import scipy.io
 import scipy.ndimage
+from scipy import interpolate as i
 
 def sector_mask(shape,centre,radius,angle_range):
     """
@@ -49,7 +50,7 @@ def MTF_DQE_2D(cam,binning,s,path):
         dqe = df['DQE'].values
         mtf = df['MTF'].values
         q = df['Frequency'].values
-
+        from scipy import interpolate as i
         size = np.array((3840,3712))
         bsize = size / binning
         dqef = i.interp1d(q,dqe,kind='quadratic')
@@ -112,6 +113,7 @@ def MTF_DQE_2D2(cam,binning,s,path):
         # plt.show()
 
         return mtf2D, dqe2D
+
 def round_scan_ROI_positions(dr, lx, ly, nth):
     """\
     Round scan positions with ROI, defined as in spec and matlab.
@@ -126,7 +128,13 @@ def round_scan_ROI_positions(dr, lx, ly, nth):
         x1 = rr*np.sin(th)
         x2 = rr*np.cos(th)
         positions.extend([(xx1,xx2) for xx1,xx2 in zip(x1,x2) if (np.abs(xx1) <= ly/2) and (np.abs(xx2) <= lx/2)])
-    return positions
+    positions.extend([(0,0)])
+    pos = np.array(positions)
+    f,a = plt.subplots(figsize=(5,5))
+    a.scatter(pos[:,0],pos[:,1])
+    plt.show()
+    pos -= np.min(pos,axis=0)
+    return pos
 
 def spiral_scan_ROI_positions(dr,lx,ly):
     """\
@@ -186,16 +194,15 @@ def raster_positions(npos,size):
 #    print pos
     return posv
 
-def raster_positions_overlap(size,probe_mask,overlap):
+def raster_positions_overlap(size,probe_mask,overlap,pos_shift=[2,5],phi=44,random_max=None):
     s = sqrt(2) * size /2
     s2 = sqrt(2) * size /2
     n = int(2 * int(sqrt(4000)))
-    phi = 44
 
     sh = probe_mask.shape
     ov = np.zeros(tuple(np.array(sh)*2))
     def r(size,overlap):
-        phi = 44
+        phi = 40 + np.random.randint(-2,2)
         n = int(2 * int(sqrt(4000)))
         s = sqrt(2) * size /2
         s2 = sqrt(2) * size /2
@@ -208,11 +215,15 @@ def raster_positions_overlap(size,probe_mask,overlap):
             pos[:,0] = x
             pos[:,1] = y
 
-            theta = np.radians(40)
+            theta = np.radians(phi)
             c, s1 = np.cos(theta), np.sin(theta)
             R = np.matrix([[c, -s1], [s1, c]])
             pos = pos.dot(R)
-            pos += np.array([2,5])
+            pos += np.array(pos_shift)
+            if random_max is not None:
+                r = np.random.randint(-random_max,random_max,pos.shape)
+#                print r
+                pos += np.random.randint(-random_max,random_max,pos.shape)
 
             valid = np.logical_and(np.abs(pos[:,0]) < size/2 , np.abs(pos[:,1]) < size/2)
             nvalid = valid.sum()
@@ -268,10 +279,13 @@ def raster_positions_overlap(size,probe_mask,overlap):
 #    ax.imshow(ov)
 #    plt.show()
 #    print posv
+#    f,a = plt.subplots(figsize=(5,5))
+#    a.scatter(posv[:,0],posv[:,1])
+#    plt.show()
     return posv
 
 
 
-# N = 256
-# raster_positions_overlap(384,sector_mask((N,N),(N/2,N/2),0.2*N,(0,360)), 0.50)
+N = 256
+raster_positions_overlap(384,sector_mask((N,N),(N/2,N/2),0.2*N,(0,360)), 0.50,pos_shift=[2,5],phi=44,random_max=4)
 # MTF_DQE_2D2('K2',1,N,'/home/philipp/projects/dptycho/simulation/')

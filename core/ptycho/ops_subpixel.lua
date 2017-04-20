@@ -86,12 +86,16 @@ ARGS:
 RETURN:
 - `z`     : the new frames
 ]]
-function m.static.Q_star(z, mul_merge, merge_memory, merge_memory_views, zk_buffer, P_buffer,O_inertia, k_to_batch_index, batch_copy_func,batches,K,dpos)
+function m.static.Q_star(z, mul_merge, merge_memory, merge_memory_views, zk_buffer, P_buffer,O_inertia, k_to_batch_index, batch_copy_func,batches,K,dpos,O_filter)
     local product_shifted = zk_buffer
     local mul_merge_shifted = P_buffer
     -- print(O_inertia)
     -- merge_memory = merge_memory:clone()
     if O_inertia then
+      if O_filter then
+        print('filtering object')
+        m.filter_object(merge_memory,O_filter)
+      end
       merge_memory:mul(O_inertia)
     else
       merge_memory:fillIm(0):fillRe(0)
@@ -103,23 +107,31 @@ function m.static.Q_star(z, mul_merge, merge_memory, merge_memory_views, zk_buff
       if batches > 2 then xlua.progress(k,K) end
       batch_copy_func(k)
       local ind = k_to_batch_index[k]
-      mul_merge_shifted[1]:shift(mul_merge[1],dpos[ind])
+      mul_merge_shifted[1]:shift(mul_merge[1],dpos[ind],zk_buffer[1][1])
       mul_merge_shifted:conj()
       -- z * P^*
-      product_shifted:cmul(z[ind],mul_merge_shifted:expandAs(z[ind])):sum(2)
-      if k < 10 and k > 7 then
+      local zP = product_shifted:cmul(z[ind],mul_merge_shifted:expandAs(z[ind])):sum(2)
+      if k > 86 and k < 90 then
         -- plt:plot(z[ind][1][1]:zfloat(),'z[ind][1][1]')
-        -- plt:plot(mul_merge_shifted_expanded[1][1]:zfloat(),'mul_merge_shifted_expanded')
-        -- plt:plot(product_shifted[1][1]:zfloat(),'product_shifted')
+        -- plt:plot(mul_merge_shifted[1][1]:zfloat(),'mul_merge_shifted_expanded')
+        -- plt:plot(zP[1][1]:zfloat(),'product_shifted')
+        -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory')
       end
-      view:add(product_shifted[1][1])
-
-      -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory '..k)
+      view:add(zP)
+      -- plt:plotReIm(view[1][1]:zfloat(),'view')
+      -- plt:plotReIm(merge_memory[1][1]:zfloat(),'merge_memory '..k)
     end
     -- plt:plot(merge_memory[1][1]:zfloat(),'merge_memory')
+    -- local f = hdf5.open(path.. 'object/merged.h5')
+    -- local options = hdf5.DataSetOptions()
+    -- options:setChunked(1,1,64, 64)
+    -- options:setDeflate(8)
+    -- f:write('/obre',merge_memory[1][1]:zfloat():re())
+    -- f:write('/obim',merge_memory[1][1]:zfloat():im())
+    -- f:close()
+
     u.printram('after merge_frames')
 end
-
 
 --[[ split the object into frames
 ARGS:
@@ -134,13 +146,13 @@ ARGS:
 RETURN:
 - `z`     : the new frames
 ]]
-function m.static.Q(z,mul_split,merge_memory_views,zk_buffer,k_to_batch_index,batch_copy_func,batches,K,dpos)
+function m.static.Q(z,mul_split,merge_memory_views,zk_buffer,shift_buffer,k_to_batch_index,batch_copy_func,batches,K,dpos)
   local mul_split_shifted = zk_buffer
   for k, view in ipairs(merge_memory_views) do
     if batches > 2 then xlua.progress(k,K) end
     batch_copy_func(k)
     local ind = k_to_batch_index[k]
-    mul_split_shifted[1]:shift(mul_split[1],dpos[ind])
+    mul_split_shifted[1]:shift(mul_split[1],dpos[ind],shift_buffer)
     local view_exp = view:expandAs(z[ind])
     for i = 2, mul_split_shifted:size(1) do
       mul_split_shifted[i]:copy(mul_split_shifted[1])
@@ -157,7 +169,7 @@ function m.static.Q(z,mul_split,merge_memory_views,zk_buffer,k_to_batch_index,ba
   return z
 end
 
-function m.static.refine_probe(z,P,O_views,P_buffer1,P_buffer2,P_buffer_real1,P_buffer_real2,zk_buffer1,zk_buffer2,zk_buffer_real1,k_to_batch_index,batch_copy_func,dpos,probe_support,P_inertia)
+function m.static.refine_probe(z,P,O_views,P_buffer1,P_buffer2,P_buffer_real1,P_buffer_real2,zk_buffer1,zk_buffer2,zk_buffer_real1,k_to_batch_index,batch_copy_func,dpos,probe_support,P_inertia,P_filter)
   -- local O_dim = 1
   -- local new_P = P_buffer1
   -- local dP = P_buffer2:zero()
@@ -252,6 +264,10 @@ function m.static.refine_probe(z,P,O_views,P_buffer1,P_buffer2,P_buffer_real1,P_
   local denom_tmp = zk_buffer_real1
 
   if P_inertia then
+    if P_filter then
+      print('filtering probe')
+      m.filter_probe(P,P_filter)
+    end
     new_P:mul(P,P_inertia)
     new_P_denom:fill(P_inertia)
   else
@@ -267,11 +283,11 @@ function m.static.refine_probe(z,P,O_views,P_buffer1,P_buffer2,P_buffer_real1,P_
     pos:fill(-1):cmul(dpos[ind])
     oview_conj:conj(view:expandAs(z[ind]))
 
-    oview_conj_shifted:view_3D():shift(oview_conj:view_3D(),pos)
+    oview_conj_shifted:view_3D():shift(oview_conj:view_3D(),pos,P_buffer2[1][1])
     local denom = denom_tmp:normZ(oview_conj_shifted):sum(1)
 
     oview_conj:cmul(z[ind])
-    oview_conj_shifted:view_3D():shift(oview_conj:view_3D(),pos)
+    oview_conj_shifted:view_3D():shift(oview_conj:view_3D(),pos,P_buffer2[1][1])
 
     new_P_denom:add(denom)
     new_P:add(oview_conj_shifted:sum(1))

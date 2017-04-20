@@ -190,7 +190,12 @@ def focused_probe(E, N, d, alpha_rad, defocus_nm,det_pix = 40e-6, C3_um = 1000, 
     # riplot(rs_mask1)
     # arr*=rs_mask1
 #    arr =np.pad(arr,arr.shape,'constant', constant_values=0)
+    d = nd.gaussian_filter(np.random.normal(0,3,(N,N)),5) 
+    applot(np.exp(1j*d),'d')
+    arr *= np.exp(1j*d)
+
     arr = fftshift(arr)
+
 
     arr_real = fftshift(ifft2(arr))
     arr_real /= np.linalg.norm(arr_real)
@@ -218,14 +223,14 @@ def plotcx(x, savePath=None):
         fig.savefig(savePath + '.png', dpi=400)
     plt.show()
 
-# N=128
-# r,i = focused_probe(300e3, N, d = 0.85, alpha_rad=9.8e-3, defocus_nm = 2e2, det_pix = 140e-6, C3_um = 0, C5_mm=0, \
+#N=128
+#r,i = focused_probe(300e3, N, d = 0.85, alpha_rad=9.8e-3, defocus_nm = 4e2, det_pix = 140e-6, C3_um = 0, C5_mm=0, \
 #                     tx = 0,ty =0, Nedge = 5, plot=False)
-# pr = r+1j*i
-# fpr = fftshift( fft2( ifftshift( pr ) ) )
-# plotcx(fpr)
+#pr = r+1j*i
+#fpr = fftshift( fft2( ifftshift( pr ) ) )
+#plotcx(fpr)
 # #pr = nd.gaussian_filter(r,1.2) + 1j * nd.gaussian_filter(i,1.2)
-# plotcx(pr)
+#plotcx(pr)
 # h5write('/home/philipp/drop/Public/probe_def_128x128_10mrad.h5',{'pr' : pr.real, 'pi':pr.imag})
 # rs_mask1 = np.logical_not(sector_mask((N,N),(N/2,N/2),0.03*N,(0,360)))
 # p = a+1j*b

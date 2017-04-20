@@ -8,7 +8,7 @@ local TruncatedPoissonLikelihood, parent = torch.class('znn.TruncatedPoissonLike
 
 -- 1.Bian, L. et al. Fourier ptychographic reconstruction using Poisson maximum likelihood and truncated Wirtinger gradient. arXiv:1603.04746 [physics] (2016).
 -- 1.Chen, Y. & Candes, E. J. Solving Random Quadratic Systems of Equations Is Nearly as Easy as Solving Linear Systems. arXiv:1505.05114 [cs, math, stat] (2015).
-
+l = 0
 function TruncatedPoissonLikelihood:__init(a_h, a_lb, a_ub, gradInput, mask, buffer1, buffer2, z_buffer_real, K, No, Np, M, Nx, Ny, diagnostics, do_truncate)
    parent.__init(self)
 
@@ -34,8 +34,10 @@ function TruncatedPoissonLikelihood:__init(a_h, a_lb, a_ub, gradInput, mask, buf
 end
 
 function TruncatedPoissonLikelihood:updateOutput(z, I_target)
-  -- plt:plot(z[1][1][1]:abs():float():log(),'in_psi abs')
+  l = l+1
+  -- plt:plot(z[98][1][1]:clone():abs():float():log(),'in_psi abs')
   z:view_3D():fftBatched()
+  -- plt:plot(z[98][1][1]:clone():abs():float():log(),'in_psi abs ft')
   self.I_model = self.z_real:normZ(z)
 
   -- sum over probe and object modes
@@ -85,26 +87,37 @@ function TruncatedPoissonLikelihood:updateOutput(z, I_target)
   --
   --   -- plt:plot(xcorr[i]:re():float(),'xcorr '..i)
     -- plt:plotcompare({self.I_model_shifted[i][1][1]:clone():add(-1,It[i]:re():fftshift()):float(),self.I_model[i][1][1]:clone():fftshift():add(-1,It[i]:re():fftshift()):float()},{'I_model_shifted - I_target '..i,'I_model - I_target '..i})
-  for i = 1,3 do
-    plt:plotcompare({self.I_model[i][1][1]:clone():fftshift():float(),I_target[i]:clone():fftshift():float()},{'I_model'..i,'I_model'..i})
-  end
+  -- for i = 1,3 do
+  --   plt:plotcompare({self.I_model[i][1][1]:clone():fftshift():float(),I_target[i]:clone():fftshift():float()},{'I_model'..i,'I_model'..i})
+  -- end
   -- end
   -- plt:plot(I_model[1][1][1]:float():log(),'I_model')
-  local path = '/mnt/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/Dropbox/Philipp/experiments/2017-24-01 monash/carbon_black/4000e/scan289/'
-  for i =1,10 do
-    -- plt:plotcompare({self.I_model[i][1][1]:clone():fftshift():float(),I_target[i]:clone():fftshift():float()},{'I_model '..i,'I_target '..i},'',path .. string.format('%d_it%d_a',i,1),true)
+  for i =98,99 do
+    plt:plotcompare({self.I_model[i][1][1]:clone():fftshift():float(),I_target[i]:clone():fftshift():float()},{'I_model '..i,'I_target '..i},'',path .. string.format('a/%d_it%d_a',i,l),false)
   end
+  -- if iteration % 7 == 0 then
+  --   local f = hdf5.open(path.. 'I'..iteration..l..'.h5')
+  --   local options = hdf5.DataSetOptions()
+  --   options:setChunked(1,128,128)
+  --   options:setDeflate(8)
+  --   f:write('/int',self.I_model:float():squeeze(),options)
+  --   f:close()
+  -- end
   -- local I_m = self.I_model:clone():log():cmul(I_target)
   -- local fac = self.I_model:clone():add(-1,I_m):cmul(self.mask)
   -- local L = fac:sum()
   -- print(L)
-
+  -- local nans1 = torch.ne(self.I_model,self.I_model)
+  --
+  -- local nans3 = torch.ne(I_target,I_target)
+  --
+  -- print('TruncatedPoissonLikelihood_updateOutput NANs: ',nans1:sum(),nans3:sum())
   self.I_model.THNN.TruncatedPoissonLikelihood_updateOutput(self.I_model:cdata(),I_target:cdata(),self.mask:cdata(),self.output:cdata())
   -- print(self.output[1])
   return self.output[1]
 end
 
-function TruncatedPoissonLikelihood:calculateXsi(z,I_target,it)
+function TruncatedPoissonLikelihood:calculateXsi(z,I_target,it,gradient_damping)
   if self.do_truncate then
     -- ||c - |Az|^2||_1 / (K*M*M)
     local K_t = self.rhs:add(I_target,-1,self.I_model):norm(1)/(I_target:nElement())
@@ -158,33 +171,34 @@ function TruncatedPoissonLikelihood:calculateXsi(z,I_target,it)
   -- gradinput is set to z, thats why only in-place multiply
   -- z * 2 * fm * (1 - I_target/I_model)
   self.gradInput:cmul(self.I_model:expandAs(self.gradInput))
-  -- print('it '..it)
-  if it < 5 then
-    self.gradInput:maskedFill(torch.gt(self.gradInput:abs(),30),zt.re(0)+zt.im(0))
-  end
-  local path = '/mnt/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/Dropbox/Philipp/experiments/2017-24-01 monash/carbon_black/4000e/scan289/'
-  for i =80,120 do
-    plt:plot(self.gradInput[i][1][1]:clone():fftshift():zfloat(),'gradInput '..i,path .. string.format('%d_it%d_gradInput',i,1),true)
-  end
-  self.gradInput:view_3D():ifftBatched()
-  for i =100,110 do
-    plt:plot(self.gradInput[i][1][1]:zfloat(),'gradInput '..i,path .. string.format('%d_it%d_gradInput',i,1),true)
-  end
-  return self.gradInput
-end
-
-function TruncatedPoissonLikelihood:updateGradInput(z, I_target,i)
-  self.gradInput = self:calculateXsi(z,I_target,i)
-
+  self.valid_gradients:cmul(self.mask)
+  local valid = self.valid_gradients:sum()
   if self.do_truncate then
     local vg_expanded = self.valid_gradients:view(self.K,1,1,self.M,self.M):expandAs(self.gradInput)
     self.gradInput:cmul(vg_expanded)
-  local path = '/mnt/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/Dropbox/Philipp/experiments/2017-24-01 monash/carbon_black/4000e/scan289/'
-    for i =1,3 do
-      plt:plot(self.gradInput[i][1][1]:clone():fftshift():zfloat(),'gradInput '..i,path .. string.format('%d_it%d_gradInput',i,1),true)
-    end
+    -- for i =97,99 do
+    --   plt:plot(self.gradInput[i][1][1]:clone():fftshift():zfloat(),'gradInput '..i,path .. string.format('a/%d_gradInput%d_a',i,l),false)
+    -- end
   end
-  return self.gradInput, self.valid_gradients:sum()
+  -- pprint(self.gradient_damping)
+  if gradient_damping then
+    self.gradInput = gradient_damping:forward(self.gradInput)
+  end
+  -- for i =98,99 do
+  --   plt:plot(self.gradInput[i][1][1]:clone():fftshift():zfloat(),'gradInput '..i,path .. string.format('a/%d_gradInput%d_a',i,l),false)
+  -- end
+  self.gradInput:view_3D():ifftBatched()
+  -- for i =97,99 do
+  --   plt:plot(self.gradInput[i][1][1]:clone():fftshift():zfloat(),'gradInput '..i,path .. string.format('a/%d_gradInput%d_realspace_a',i,l),false)
+  -- end
+  return self.gradInput, valid
+end
+
+function TruncatedPoissonLikelihood:updateGradInput(z, I_target,i,gradient_damping)
+  local valid = 0
+  self.gradInput, valid = self:calculateXsi(z,I_target,i,gradient_damping)
+
+  return self.gradInput, valid
 end
 
 function TruncatedPoissonLikelihood:__call__(input, target)

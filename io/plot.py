@@ -104,6 +104,7 @@ def plotcx(x):
     x1 = xre + 1j* xim
     fig, (ax1) = plt.subplots(1,1,figsize=(8,8))
     imax1 = ax1.imshow(imsave(x1), interpolation='nearest')
+    plt.grid(True)
     plt.show()
 
 def plot(img, title='Image', savePath=None, cmap='hot', show=True):
@@ -111,11 +112,12 @@ def plot(img, title='Image', savePath=None, cmap='hot', show=True):
     cax = ax.imshow(img, interpolation='nearest', cmap=plt.cm.get_cmap(cmap))
     cbar = fig.colorbar(cax)
     ax.set_title(title)
+    plt.grid(True)
     if show:
         plt.show()
     if savePath is not None:
         # print 'saving'
-        fig.savefig(savePath + '.png', dpi=300)
+        fig.savefig(savePath + '.png', dpi=600)
     plt.close()
 
 def zplot(img, suptitle='Image', savePath=None, cmap=['hot','hsv'], title=['Abs','Phase'], show=True):
@@ -133,11 +135,12 @@ def zplot(img, suptitle='Image', savePath=None, cmap=['hot','hsv'], title=['Abs'
     ax1.set_title(title[0])
     ax2.set_title(title[1])
     plt.tight_layout()
+    plt.grid(True)
     if show:
         plt.show()
     if savePath is not None:
         # print 'saving'
-        fig.savefig(savePath + '.png', dpi=300)
+        fig.savefig(savePath + '.png', dpi=600)
     plt.close()
 
 def cx_test(cx_array):

@@ -394,8 +394,8 @@ struct ModProj_renorm {
   ModProj_renorm(float _renorm) : renorm(_renorm) {}
 	__device__ __forceinline__ void operator()(float* fm, float* fdev, float* a, float* a_model, ccx* out) {
       //fm = (1-fmask) + fmask*(fmag + fdev*renorm)/(a_model + 1e-10)
-      // float fac = (1-*fm) + *fm * (*a+*fdev* (renorm)) / (*a_model + 1e-6f);
-      float fac = (1-*fm) + *fm * (*a) / (*a_model + 1e-5f);
+      float fac = (1-*fm) + *fm * (*a+*fdev* (renorm)) / (*a_model + 1e-6f);
+      // float fac = (1.0-*fm) + *fm * (*a) / (*a_model + 1e-5f);
 	    *out = *out * fac ;
 	}
 };
@@ -415,37 +415,21 @@ void THNN_ZCudaP_Mod_renorm(THCState *state, THZCudaTensor *self, THCudaTensor *
 }
 
 struct ModProj {
-	__device__ __forceinline__ void operator()(float* norm, float* abs, ccx* out) {
-    if(*out != ccx(0)){
-		    *out = *out * (*abs/ (*norm+1e-6f)) ;
-        // *out = thrust::polar(*abs,thrust::arg(*out));
-    }
-    else {
-        *out = ccx(0);
-    }
+  ModProj() {}
+	__device__ __forceinline__ void operator()(float* fm, float* a, float* a_model, float* a_model1, ccx* out) {
+      float fac = (1.0-*fm) + *fm * (*a) / (*a_model + 1e-5f);
+	    *out = *out * fac ;
 	}
 };
 
-void THNN_ZCudaP_Mod(THCState *state, THZCudaTensor *self_, THZCudaTensor *src1, THCudaTensor *norm, THCudaTensor *f)
+void THNN_ZCudaP_Mod(THCState *state, THZCudaTensor *self_, THCudaTensor *fm, THCudaTensor *a, THCudaTensor *a_model)
 {
-  THAssert(THZCudaTensor_checkGPU(state, 2, self_, src1));
-  THAssert(THCudaTensor_checkGPU(state, 1, f));
-  THArgCheck(THZCudaTensor_nElement(state, self_) == THCudaTensor_nElement(state, f), 5, "sizes do not match (result,abs)");
-  THArgCheck(THZCudaTensor_nElement(state, self_) == THCudaTensor_nElement(state, norm), 4, "sizes do not match (result,norm)");
-  if (self_ == src1) {
-    // self *= src2
-    if (!THZCudaTensor_pointwiseApply3FFZ(state, norm, f, self_, ModProj())) {
-      THArgCheck(false, 2, CUTORCH_DIM_WARNING);
-    }
-  } else {
-    printf("out-of-place modulus projection not supported!");
-    exit(1);
-    // THZCudaTensor_resizeAs(state, self_, src1);
-
-    // self = src1 * src2
-    // if (!THZCudaTensor_pointwiseApply3ZZF(state, self_, src1, f, ModProj())) {
-      // THArgCheck(false, 2, CUTORCH_DIM_WARNING);
-    // }
+  THAssert(THZCudaTensor_checkGPU(state, 2, self_));
+  THAssert(THCudaTensor_checkGPU(state, 1, a));
+  THArgCheck(THZCudaTensor_nElement(state, self_) == THCudaTensor_nElement(state, a), 5, "sizes do not match (result,abs)");
+  THArgCheck(THZCudaTensor_nElement(state, self_) == THCudaTensor_nElement(state, a_model), 4, "sizes do not match (result,norm)");
+  if (!THZCudaTensor_pointwiseApply5FFFFZ(state, fm, a, a_model,a_model, self_, ModProj())) {
+    THArgCheck(false, 2, CUTORCH_DIM_WARNING);
   }
 }
 

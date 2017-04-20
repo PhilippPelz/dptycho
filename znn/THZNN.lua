@@ -123,13 +123,20 @@ local shiftZfourier = argcheck{
    {name="dst", type='torch.ZCudaTensor'},
    {name="src", type='torch.ZCudaTensor'},
    {name="shift", type = 'torch.FloatTensor'},
-   call = function(dst, a, shift)
+   {name="ramp0", type = 'torch.ZCudaTensor', opt=true},
+   call = function(dst, a, shift, ramp0)
+
      local batches = a:size(1)
      local nx = a:size(2)
      local ny = a:size(3)
      local shx = -shift[1]
      local shy = -shift[2]
-
+     local ramp = ramp0 or torch.ZCudaTensor.new(nx,ny)
+     local rnx = ramp:size(1)
+     local rny = ramp:size(2)
+     if rnx ~= nx or rny ~= ny then
+       print(' WARNING: SIZE ramp nx ~= nx')
+     end
      local x = torch.FloatTensor(nx,1)
      x:copy(torch.linspace(-nx/2,nx/2 -1,nx))
      local x = torch.repeatTensor(x,1,ny)
@@ -151,12 +158,8 @@ local shiftZfourier = argcheck{
 
      xc:mul(2*math.pi)
 
-     local ramp = torch.ZCudaTensor.new(nx,ny):polar(1,xc)
-
+     ramp:polar(1,xc)
      ramp = ramp:view(1,nx,ny):expandAs(a)
-
-     -- plt:plot(ramp)
-
      -- plt:plot(a,'probe before shift')
      dst:fftBatched(a):cmul(ramp):ifftBatched()
      -- plt:plot(a,'probe after shift')
@@ -191,8 +194,8 @@ local dxZ = argcheck{
    {name="dxfw", type='torch.ZCudaTensor'},
    {name="dxbw", type='torch.ZCudaTensor'},
    call = function(dst, src, dxfw, dxbw)
-      dxfw:shift(src,torch.FloatTensor({-1,0})):add(-1,src)
-      dxbw:shift(src,torch.FloatTensor({1,0})):mul(-1):add(src)
+      dxfw:shift_linear(src,torch.FloatTensor({-1,0})):add(-1,src)
+      dxbw:shift_linear(src,torch.FloatTensor({1,0})):mul(-1):add(src)
       dst:add(dxfw,dxbw)
       dst[{{},{2,-2},{}}]:mul(0.5)
       return dst
@@ -204,7 +207,7 @@ local dx_fwZ = argcheck{
    {name="dst", type='torch.ZCudaTensor'},
    {name="src", type='torch.ZCudaTensor'},
    call = function(dst, src)
-      dst:shift(src,torch.FloatTensor({-1,0})):add(-1,src)
+      dst:shift_linear(src,torch.FloatTensor({-1,0})):add(-1,src)
       return dst
    end
 }
@@ -215,7 +218,7 @@ local dx_bwZ = argcheck{
    {name="src", type='torch.ZCudaTensor'},
    call = function(dst, src)
       -- plt:plot(src[1]:zfloat(),'src')
-      dst:shift(src,torch.FloatTensor({1,0}))
+      dst:shift_linear(src,torch.FloatTensor({1,0}))
       -- plt:plot(dst[1]:zfloat(),'dst1')
       dst:mul(-1)
       -- plt:plot(dst[1]:zfloat(),'dst2')
@@ -230,7 +233,7 @@ local dy_fwZ = argcheck{
    {name="dst", type='torch.ZCudaTensor'},
    {name="src", type='torch.ZCudaTensor'},
    call = function(dst, src)
-      dst:shift(src,torch.FloatTensor({0,-1})):add(-1,src)
+      dst:shift_linear(src,torch.FloatTensor({0,-1})):add(-1,src)
       return dst
    end
 }
@@ -240,7 +243,7 @@ local dy_bwZ = argcheck{
    {name="dst", type='torch.ZCudaTensor'},
    {name="src", type='torch.ZCudaTensor'},
    call = function(dst, src)
-      dst:shift(src,torch.FloatTensor({0,1})):mul(-1):add(src)
+      dst:shift_linear(src,torch.FloatTensor({0,1})):mul(-1):add(src)
       return dst
    end
 }
@@ -252,8 +255,8 @@ local dx2Z = argcheck{
    {name="dxfw", type='torch.ZCudaTensor'},
    {name="dxbw", type='torch.ZCudaTensor'},
    call = function(dst, src, dxfw, dxbw)
-      dxfw:shift(src,torch.FloatTensor({-1,0}))
-      dxbw:shift(src,torch.FloatTensor({1,0})):add(-2,src)
+      dxfw:shift_linear(src,torch.FloatTensor({-1,0}))
+      dxbw:shift_linear(src,torch.FloatTensor({1,0})):add(-2,src)
       dst:add(dxfw,dxbw)
       return dst
    end
@@ -286,8 +289,8 @@ local dyZ = argcheck{
    {name="dyfw", type='torch.ZCudaTensor'},
    {name="dybw", type='torch.ZCudaTensor'},
    call = function(dst, src, dyfw, dybw)
-      dyfw:shift(src,torch.FloatTensor({0,-1})):add(-1,src)
-      dybw:shift(src,torch.FloatTensor({0,1})):mul(-1):add(src)
+      dyfw:shift_linear(src,torch.FloatTensor({0,-1})):add(-1,src)
+      dybw:shift_linear(src,torch.FloatTensor({0,1})):mul(-1):add(src)
       --
       dst:add(dyfw,dybw)
       dst[{{},{},{2,-2}}]:mul(0.5)
@@ -302,8 +305,8 @@ local dy2Z = argcheck{
    {name="dyfw", type='torch.ZCudaTensor'},
    {name="dybw", type='torch.ZCudaTensor'},
    call = function(dst, src, dyfw, dybw)
-     dyfw:shift(src,torch.FloatTensor({0,-1}))
-     dybw:shift(src,torch.FloatTensor({0,1})):add(-2,src)
+     dyfw:shift_linear(src,torch.FloatTensor({0,-1}))
+     dybw:shift_linear(src,torch.FloatTensor({0,1})):add(-2,src)
      --
      dst:add(dyfw,dybw)
      return dst
@@ -317,8 +320,8 @@ local dx = argcheck{
    {name="dxfw", type='torch.CudaTensor'},
    {name="dxbw", type='torch.CudaTensor'},
    call = function(dst, src, dxfw, dxbw)
-      dxfw:shift(src,torch.FloatTensor({-1,0}))
-      dxbw:shift(src,torch.FloatTensor({1,0})):mul(-1)
+      dxfw:shift_linear(src,torch.FloatTensor({-1,0}))
+      dxbw:shift_linear(src,torch.FloatTensor({1,0})):mul(-1)
       dst:add(dxfw,dxbw)
       dst[{{},{2,-2},{}}]:mul(0.5)
       return dst
@@ -330,7 +333,7 @@ local dx_fw = argcheck{
    {name="dst", type='torch.CudaTensor'},
    {name="src", type='torch.CudaTensor'},
    call = function(dst, src)
-      dst:shift(src,torch.FloatTensor({-1,0})):add(-1,src)
+      dst:shift_linear(src,torch.FloatTensor({-1,0})):add(-1,src)
       return dst
    end
 }
@@ -340,7 +343,7 @@ local dx_bw = argcheck{
    {name="dst", type='torch.CudaTensor'},
    {name="src", type='torch.CudaTensor'},
    call = function(dst, src)
-      dst:shift(src,torch.FloatTensor({1,0})):mul(-1):add(src)
+      dst:shift_linear(src,torch.FloatTensor({1,0})):mul(-1):add(src)
       return dst
    end
 }
@@ -350,7 +353,7 @@ local dy_fw = argcheck{
    {name="dst", type='torch.CudaTensor'},
    {name="src", type='torch.CudaTensor'},
    call = function(dst, src)
-      dst:shift(src,torch.FloatTensor({0,-1})):add(-1,src)
+      dst:shift_linear(src,torch.FloatTensor({0,-1})):add(-1,src)
       return dst
    end
 }
@@ -360,7 +363,7 @@ local dy_bw = argcheck{
    {name="dst", type='torch.CudaTensor'},
    {name="src", type='torch.CudaTensor'},
    call = function(dst, src)
-      dst:shift(src,torch.FloatTensor({0,1})):mul(-1):add(src)
+      dst:shift_linear(src,torch.FloatTensor({0,1})):mul(-1):add(src)
       return dst
    end
 }
@@ -372,8 +375,8 @@ local dx2 = argcheck{
    {name="dxfw", type='torch.CudaTensor'},
    {name="dxbw", type='torch.CudaTensor'},
    call = function(dst, src, dxfw, dxbw)
-      dxfw:shift(src,torch.FloatTensor({-1,0}))
-      dxbw:shift(src,torch.FloatTensor({1,0})):add(-2,src)
+      dxfw:shift_linear(src,torch.FloatTensor({-1,0}))
+      dxbw:shift_linear(src,torch.FloatTensor({1,0})):add(-2,src)
       dst:add(dxfw,dxbw)
       return dst
    end
@@ -408,8 +411,8 @@ local dy = argcheck{
    {name="dyfw", type='torch.CudaTensor'},
    {name="dybw", type='torch.CudaTensor'},
    call = function(dst, src, dyfw, dybw)
-      dyfw:shift(src,torch.FloatTensor({0,-1}))
-      dybw:shift(src,torch.FloatTensor({0,1})):mul(-1)
+      dyfw:shift_linear(src,torch.FloatTensor({0,-1}))
+      dybw:shift_linear(src,torch.FloatTensor({0,1})):mul(-1)
       --
       dst:add(dyfw,dybw)
       dst[{{},{},{2,-2}}]:mul(0.5)
@@ -424,8 +427,8 @@ local dy2 = argcheck{
    {name="dyfw", type='torch.CudaTensor'},
    {name="dybw", type='torch.CudaTensor'},
    call = function(dst, src, dyfw, dybw)
-     dyfw:shift(src,torch.FloatTensor({0,-1}))
-     dybw:shift(src,torch.FloatTensor({0,1})):add(-2,src)
+     dyfw:shift_linear(src,torch.FloatTensor({0,-1}))
+     dybw:shift_linear(src,torch.FloatTensor({0,1})):add(-2,src)
      --
      dst:add(dyfw,dybw)
      return dst

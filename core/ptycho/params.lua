@@ -33,16 +33,20 @@ local _DEFAULT_PARAMS = {
 
   probe_update_start = 5,
   probe_support = nil,
+  probe_support_fourier = nil,
   probe_regularization_amplitude = function(it) return nil end,
   probe_inertia = 1e-9,
   probe_lowpass_fwhm = function(it) return nil end,
   probe_keep_intensity = true,
   probe_init = 'copy', -- 'copy,'disc'
+  probe_do_enforce_modulus = false,
+  probe_modulus = nil,
 
   object_highpass_fwhm = function(it) return nil end,
   object_inertia = 1e-8,
   object_init = 'const', -- trunc, gcl, copy_solution
   object_init_truncation_threshold = 0.8,
+  object_update_start = 0,
 
   P_Q_iterations = 5,
   margin = 0,
@@ -70,7 +74,8 @@ local _DEFAULT_PARAMS = {
     nu = 1e-2,
     do_truncate = false,
     diagnostics = false,
-    support_mask_gradients = false
+    gradient_damping_radius = nil,
+    gradient_damping_factor = 0.1
   },
   experiment = {
     z = 0.5,
@@ -82,6 +87,20 @@ local _DEFAULT_PARAMS = {
     start_denoising = 5,
     denoise_interval = 2,
     sigma_denoise = 25
+  },
+  optim_state_probe = {},
+  optim_state = {},
+  optim_config = {
+    learningRate = 4e-5,
+    learningRateDecay = 0,
+    weightDecay = 0,
+    momentum = 0
+  },
+  optim_config_probe = {
+    learningRate = 4e-5,
+    learningRateDecay = 0,
+    weightDecay = 0,
+    momentum = 0
   }
 }
 

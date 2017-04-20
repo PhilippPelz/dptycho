@@ -26,18 +26,25 @@ function BM3D_MSE_Criterion:updateOutput(input, it)
     -- print('in BM3D_MSE_Criterion:updateOutput')
     local factor = 1
     local O = input[1][1]:zfloat()
+    -- local nans1 = torch.ne(O:re(),O:re())
+    -- local nans2 = torch.ne(O:im(),O:im())
+    --
+    -- print(nans1:sum(),nans2:sum())
+    -- plt:plot(O,'noisy')
     local rgb = u.complex2rgb(O)
     rgb:div(rgb:max())
+    image.save(string.format(path..'denoise/rgb%d.png',it),rgb:clone())
+
     -- u.printf('rgb max: %g',rgb:max())
     local absmax = input[1][1]:abs():max()
     local O_basic = rgb:clone():zero()
     local O_denoised = rgb:clone():zero()
     -- image.save(string.format('bm3d_%03d.png',it),rgb)
-    -- plt:plot(O,'noisy')
+
     bm3d.bm3d(self.par.sigma_denoise*factor,rgb,O_basic,O_denoised)
     -- u.printf('O_denoised max: %g',O_denoised:max())
     -- u.printf('O_denoised min: %g',O_denoised:min())
-    image.save(string.format('denoised%d.png',it),O_denoised:clone())
+    image.save(string.format(path..'denoise/denoised%d.png',it),O_denoised:clone())
 
 
     local cx = u.rgb2complex(O_denoised)

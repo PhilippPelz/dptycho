@@ -95,8 +95,6 @@ function m.static.Q_star(z, mul_merge, merge_memory, merge_memory_views, zk_buff
   return z
 end
 
-
-
 --[[ split the object into frames
 ARGS:
 - 'z'                     : the frames to split into, el CC [K,No,Np,M,M]
@@ -108,7 +106,7 @@ ARGS:
 RETURN:
 - `z`                     : the new frames
 ]]
-function m.static.Q(z,mul_split,merge_memory_views,zk_buffer,k_to_batch_index,batch_copy_func,batches,K,dpos)
+function m.static.Q(z,mul_split,merge_memory_views,zk_buffer,shift_buffer,k_to_batch_index,batch_copy_func,batches,K,dpos)
   -- pprint(mul_split)
   -- pprint(merge_memory_views[1])
   -- pprint(z)
