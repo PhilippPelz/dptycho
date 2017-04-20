@@ -3,14 +3,9 @@ require 'torch'
 require 'ztorch'
 require 'zcutorch'
 -- require 'hypero'
-local classic = require 'classic'
 local u = require 'dptycho.util'
-print('here')
 local plot = require 'dptycho.io.plot'
-print('here')
 local plt = plot()
-print('here')
---local builder = require 'dptycho.core.netbuilder'
 local optim = require "optim"
 local znn = require "dptycho.znn"
 
@@ -20,18 +15,13 @@ local simul = require 'dptycho.simulation'
 local ptycho = require 'dptycho.core.ptycho'
 local ptychocore = require 'dptycho.core'
 
-print('here')
 
 function get_data(pot_path,dose,overlap,N,E,probe,probe_diameter,shift)
 
   local probe_int = probe:clone():norm()
   probe_int:div(probe_int:max())
   local probe_mask = torch.ge(probe_int:re(),1e-2):int()
-
-
   -- plt:plot(probe_mask:float())
-
-
   local s = simul.simulator()
   local pot = s:load_potential(pot_path)
     -- local pos = s:round_scan_ROI_positions(probe_diameter*(1-overlap),pot:size(2)-N-1,pot:size(2)-N-1,7)
@@ -68,25 +58,13 @@ function main()
   Oi = nil
   path = '/mnt/f5c0a7bc-a539-461c-bc97-ed4eb92c48a1/Dropbox/Philipp/experiments/2017-24-01 monash/carbon_black/4000e/scan289/scan10/'
   local dose = {4.8e6}
-
   -- local dose = {4.8e6}6e5,1.5e6,2.8e6,4.8e6,8.4e6,1.5e7,2.6e7,4.6e7,8.5e7,1.45e8
-  -- local dose = {1.45e8,8.5e7,4.6e7,2.6e7,1.5e7,8.4e6,4.8e6,2.8e6,1.5e6}
-  local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
-          56.23413252,   100.        ,   177.827941  ,   316.22776602,
-         562.34132519}
- local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
-         56.23413252,   100.        ,   177.827941  ,   316.22776602,
-        562.34132519}
-  local electrons_per_angstrom = {5.62341325,    10.        ,    17.7827941 ,    31.6227766 ,
-          56.23413252,   100.        ,   177.827941  ,   316.22776602,
-         562.34132519}
   local overlap = {0.7}--,0.7,0.75,0.8}0.45,0.5,0.55,0.6,
   local sampl = {'4V6X_200','1RYP_200','4HHB_200'}
-  -- local overlap = {0.45}
-  local nu = {10e-2}--{10e-2,5e-2,1e-2,5e-3}--4e-2,2e-1,1e-1,
   local lr = {2.5e-4}--{1e-4,5e-4}
   local momentum = {0}--{0,0.99,0.95}
-  local ID =2
+  local ID =3
+
   for l=1,20 do
   local par = ptycho.params.DEFAULT_PARAMS_TWF()
 
@@ -141,6 +119,7 @@ function main()
   par.twf.tau0 = 10
   par.twf.do_truncate = false
   par.twf.diagnostics = false
+  par.twf.nu = 0
 
   for w,lr0 in ipairs(lr) do
     for q,mom0 in ipairs(momentum) do
@@ -153,40 +132,20 @@ function main()
   -- par.optim_config.weightDecay = 0
   -- par.optim_config.momentum = 0
 
-  -- config for L-BFGS
-  -- par.optim_config = {}
-  -- par.optim_state = {}
-  -- par.optim_config.maxIter = 10
-  -- par.optim_config.maxEval = par.optim_config.maxIter*1.25
-  -- par.optim_config.tolFun = 1e-5
-  -- par.optim_config.tolX = 1e-9
-  -- par.optim_config.nCorrection = 5
-  -- par.optim_config.lineSearch = optim.lswolfe
-  --
-  -- par.optim_config.lineSearchOptions = {}
-  -- par.optim_config.lineSearchOptions.c1 = 1e-4
-  -- par.optim_config.lineSearchOptions.c2 = 0.9
-  -- par.optim_config.lineSearchOptions.tolX = 1e-9
-  -- par.optim_config.lineSearchOptions.maxIter = 20
-  -- par.optim_config.lineSearchOptions.verbose = false
-  --
-  -- par.optim_config.learningRate = 1
-  -- par.optim_config.verbose = false
-
   -- config for cg
   par.optim_config = {}
-  par.optim_config.maxIter = 5
+  par.optim_config.maxIter = 3
   par.optim_config.sig = 0.5
   par.optim_config.red = 1e8
   par.optim_config.break_on_success = true
   par.optim_config.verbose = false
-  par.optim_state = {}
+  par.optim_state_object = {}
 
   par.regularizer = znn.SpatialSmoothnessCriterion --znn.SpatialSmoothnessCriterion--znn.BM3D_MSE_Criterion--znn.SpatialSmoothnessCriterion
   par.optimizer = optim.cg -- nag sgd cg
 
   par.regularization_params = {}
-  par.regularization_params.amplitude = 6e-2
+  par.regularization_params.amplitude = 2
   par.regularization_params.start_denoising = 2
   par.regularization_params.denoise_interval = 1
   par.regularization_params.sigma_denoise = 0.03
@@ -198,104 +157,49 @@ function main()
   par.experiment.E = E
   par.experiment.det_pix = 70e-6
   par.experiment.N_det_pix = N
+  local probes = {'probe_rfzp','probe_fzp','probe_blr','probe_coneblr','probe_def7'}
+  local s = simul.simulator()
+  local d = 2.0
 
-  for probe_type = 3,3 do
-    local s = simul.simulator()
-    local probe = nil
-    local d = 2.0
+  local f = hdf5.open('/home/philipp/drop/Public/'..probes[3]..'.h5','r')
+  local pr = f:read('/pr'):all()
+  local pi = f:read('/pi'):all()
+  local probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
+  -- plt:plot(probe:zfloat(),'probe_rfzp')
+  f:close()
 
-    if probe_type == 1 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_rfzp.h5','r')
-      local pr = f:read('/pr'):all()
-      local pi = f:read('/pi'):all()
-      probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
-      -- plt:plot(probe:zfloat(),'probe_rfzp')
-      f:close()
-    elseif probe_type == 2 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_fzp.h5','r')
-      local pi = f:read('/pi'):all()
-      local pr = f:read('/pr'):all()
-      probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
-      -- plt:plot(probe:zfloat(),'probe_rfzp')
-      f:close()
-    elseif probe_type == 3 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_blr.h5','r')
-      local pr = f:read('/pr'):all()
-      local pi = f:read('/pi'):all()
-      probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
-      -- plt:plot(probe:zfloat(),'probe')
-      f:close()
-    elseif probe_type == 4 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_coneblr.h5','r')
-      local pr = f:read('/pr'):all()
-      local pi = f:read('/pi'):all()
-      probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
-      -- plt:plot(probe:zfloat(),'defocused probe')
-      f:close()
-    elseif probe_type == 5 then
-      local f = hdf5.open('/home/philipp/drop/Public/probe_def7.h5','r')
-      local pr = f:read('/pr'):all()
-      local pi = f:read('/pi'):all()
-      probe = torch.ZCudaTensor(pr:size()):copyRe(pr:cuda()):copyIm(pi:cuda())
-      plt:plot(probe:zfloat(),'defocused probe')
-      f:close()
-    end
+  local overlap0 = overlap[1]
+  for i,dose0 in ipairs(dose) do
+    for j,sample in ipairs(sampl) do
+      -- local sample = '1RYP_200'
+      -- print(dose0)
 
-    local overlap0 = overlap[1]
-    for i,dose0 in ipairs(dose) do
-      for j,sample in ipairs(sampl) do
-        -- local sample = '1RYP_200'
-        -- print(dose0)
-        local shifti = 0
+      local shift = torch.FloatTensor{-4 ,-2}
+      local data = get_data('/home/philipp/drop/Public/'..sample..'.h5',dose0,overlap0,N,E,probe,63,shift)
 
-        shifti = shifti + 1
-        local shift = torch.FloatTensor{-4 + i,-2+j}
-        local data = get_data('/home/philipp/drop/Public/'..sample..'.h5',dose0,overlap0,N,E,probe,63,shift)
-        par.pos = data.pos
-        par.dpos = data.pos:clone():add(-1,data.pos:clone():int()):float()
-        par.object_solution = data.object:clone()
-        par.probe_solution = data.probe:clone()
-        par.fmask = data.a:clone():fill(1)
+      par.pos = data.pos
+      par.dpos = data.pos:clone():add(-1,data.pos:clone():int()):float()
+      par.object_solution = data.object:clone()
+      par.probe_solution = data.probe:clone()
+      par.fmask = data.a:clone():fill(1)
+      par.a = data.a
+      par.run_label = string.format('%05d_s_%s_ov_%d_d_%d_run_%d',ID,sample,overlap0*100,dose0,1)
 
-        for k,nu0 in ipairs(nu) do
-          local nu = string.gsub(string.format('%g',nu0),',','p')
-          local str = string.format('%05d_s_%s_ov_%d_d_%d_nu_%s',ID,sample,overlap0*100,dose0,nu)
-          par.run_label = str
-          par.twf.nu = nu0
-          par.a = data.a:clone()
-          -- print()
-          -- print('a sum')
-          -- print(par.a:sum())
-          -- print()
+      local eng = ptycho.TWF_engine(par)
+      eng:iterate(100)
+      -- local hp = {run_label = str, nu = nu0, dose = eng.electrons_per_angstrom2, total_counts = eng.I_total, counts_per_valid_pixel = eng.counts_per_valid_pixel, MoverN = eng.total_nonzero_measurements/eng.pixels_with_sufficient_exposure, overlap = overlap0, probe_type = probe_type, method = 'cg', learningRate = par.optim_config.learningRate, learningRateDecay = par.optim_config.learningRateDecay, momentum = par.optim_config.momentum}
+      -- local md = {hostname = 'work', dataset = sample}
+      -- local res = { final_img_error = eng.img_errors[eng.i], final_rel_error = eng.rel_errors[eng.i], img_err = eng.img_errors:totable(), rel_err = eng.rel_errors:totable()}
 
-            local nu = string.gsub(string.format('%g',nu0),',','p')
-            local str = string.format('%05d_s_%s_ov_%d_d_%d_nu_%s_run_%d_shift0_%d',ID,sample,overlap0*100,dose0,nu,1,shifti)
-            par.run_label = str
-            par.twf.nu = 3e-2
-            par.a = data.a:clone()
-            -- print(par.a:sum())
-            -- print()
+      -- hex:setParam(hp)
+      -- hex:setMeta(md)
+      -- hex:setResult(res)
 
-            -- local hex = bat:experiment()
-
-            local eng = ptycho.TWF_engine(par)
-            eng:iterate(50)
-            -- local hp = {run_label = str, nu = nu0, dose = eng.electrons_per_angstrom2, total_counts = eng.I_total, counts_per_valid_pixel = eng.counts_per_valid_pixel, MoverN = eng.total_nonzero_measurements/eng.pixels_with_sufficient_exposure, overlap = overlap0, probe_type = probe_type, method = 'cg', learningRate = par.optim_config.learningRate, learningRateDecay = par.optim_config.learningRateDecay, momentum = par.optim_config.momentum}
-            -- local md = {hostname = 'work', dataset = sample}
-            -- local res = { final_img_error = eng.img_errors[eng.i], final_rel_error = eng.rel_errors[eng.i], img_err = eng.img_errors:totable(), rel_err = eng.rel_errors:totable()}
-
-            -- hex:setParam(hp)
-            -- hex:setMeta(md)
-            -- hex:setResult(res)
-
-            eng = nil
-            ID = ID + 1
-            collectgarbage()
-          -- end
-        end
-      end -- end nu
-    end -- end dose
-  end
+      eng = nil
+      ID = ID + 1
+      collectgarbage()
+    end -- end nu
+  end -- end dose
 end
 end
 end

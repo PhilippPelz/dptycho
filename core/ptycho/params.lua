@@ -58,6 +58,7 @@ local _DEFAULT_PARAMS = {
   save_interval = 5,
   save_path = '/tmp/',
   save_raw_data = false,
+  save_when_finished = true,
   run_label = 'ptycho',
 
   regularizer = znn.SpatialSmoothnessCriterion,

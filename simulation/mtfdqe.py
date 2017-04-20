@@ -286,6 +286,6 @@ def raster_positions_overlap(size,probe_mask,overlap,pos_shift=[2,5],phi=44,rand
 
 
 
-N = 256
-raster_positions_overlap(384,sector_mask((N,N),(N/2,N/2),0.2*N,(0,360)), 0.50,pos_shift=[2,5],phi=44,random_max=4)
+#N = 256
+#raster_positions_overlap(384,sector_mask((N,N),(N/2,N/2),0.2*N,(0,360)), 0.50,pos_shift=[2,5],phi=44,random_max=4)
 # MTF_DQE_2D2('K2',1,N,'/home/philipp/projects/dptycho/simulation/')

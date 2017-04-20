@@ -322,7 +322,7 @@ function TWF_engine.optim_func_object(self,O)
     self.dL_dO:add(1,self.dR_dO)
     -- plt:plot(self.dL_dO[1][1]:zfloat(),'self.dL_dO 1')
   end
-  self.dL_dO_1norm = self.dL_dO:normall(1)
+  -- self.dL_dO_1norm = self.dL_dO:normall(1)
 
   if self.object_highpass_fwhm(self.i) then
     self:filter_object(self.dL_dO)
@@ -366,10 +366,9 @@ function TWF_engine:iterate(steps)
     self:update_iteration_dependent_parameters(i)
 
     if self.update_object then
-      -- print('updating object')
+      print('updating object       '..sys.toc())
       local O,L,k = self.optimizer(fn.partial(self.optim_func_object,self),self.O,self.optim_config,self.optim_state_object)
-
-      -- print('plotting object')
+      print('updating object done  '..sys.toc())
       -- plt:plotReIm(self.O[1][1]:clone():cmul(self.O_mask[1][1]):zfloat(),'O after update',path .. '/object/'.. string.format('%d_Oreim',i),false)
       -- print('plotting object finished')
     end
@@ -377,8 +376,9 @@ function TWF_engine:iterate(steps)
 
 
     if self.update_probe then
-      print('updating probe')
+      print('updating probe       '..sys.toc())
       local P,L,k = self.optimizer(fn.partial(self.optim_func_probe,self),self.P,self.optim_config_probe,self.optim_state_probe)
+      print('probe gradients done '..sys.toc())
 
       if self.probe_do_enforce_modulus then
         self:enforce_probe_modulus()
@@ -399,7 +399,7 @@ function TWF_engine:iterate(steps)
         self.P:view_3D():ifft()
       end
 
-      self:calculateO_denom() -- just for refreshing the mask
+      -- self:calculateO_denom() -- just for refreshing the mask
 
       -- print('plotting probe')
       -- plt:plotReIm(self.P[1][1]:zfloat(),'P',path .. '/probe/'.. string.format('%d_P',i),false)
@@ -408,12 +408,6 @@ function TWF_engine:iterate(steps)
     end
 
 
-    -- local nans1 = torch.ne(self.P:re(),self.P:re())
-    -- local nans2 = torch.ne(self.P:im(),self.P:im())
-    --
-    -- local nans3 = torch.ne(self.O:re(),self.O:re())
-    -- local nans4 = torch.ne(self.O:im(),self.O:im())
-    --
     -- print(nans1:sum(),nans2:sum(),nans3:sum(),nans4:sum())
     -- if self.i == 4 then
     --   local f = hdf5.open(path.. 'probe/hotpix.h5')
@@ -440,15 +434,21 @@ function TWF_engine:iterate(steps)
 
     if self.has_solution then
       if i>1 and math.abs(self.img_errors[i] - self.img_errors[i-1]) < self.stopping_threshold then
+        self.optim_state_object = {}
+      end
+      if i>2 and math.abs(self.img_errors[i] - self.img_errors[i-2]) < self.stopping_threshold then
         it_no_progress = it_no_progress + 1
+      end
+      if i > 3 and self.img_errors[i] > self.img_errors[i-1] and self.img_errors[i-1] > self.img_errors[i-2] then
+        break
       end
     else
     end
-    if i>3 and self.img_errors[i] > 7e-2 then
-      break
+    if i>3 and self.img_errors[i] > 8e-2 then
       breaked = true
+      break
     end
-    if it_no_progress == 3 then
+    if it_no_progress == 2 then
       -- it_no_progress = it_no_progress + 1
       -- self.optim_config = {}
       -- -- self.optim_config.maxIter = 10
@@ -468,7 +468,7 @@ function TWF_engine:iterate(steps)
   end
   t = sys.toc()
   self.time = t
-  if not breaked then
+  if breaked == false or self.save_when_finished then
     self:save_data(self.save_path .. self.run_label .. '_TWF_' .. (self.i+1))
   end
   -- self.do_plot = true
